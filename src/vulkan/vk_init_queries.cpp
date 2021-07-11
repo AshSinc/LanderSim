@@ -1,13 +1,8 @@
 #include "vk_init_queries.h"
-
 #include "vk_types.h"
-
 #include <set>
-
 #include <cstring>
-
 #include "glfw_WindowHandler.h"
-
 #include <vector>
 #include <fstream>
 

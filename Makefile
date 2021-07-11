@@ -3,25 +3,34 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 INCLUDES = \
 	-I$(ROOT_DIR)/src/world \
 	-I$(ROOT_DIR)/src/vulkan \
+	-I/opt/bullet3-master/src \
+	-I/opt/vk_mem_alloc \
+	-I/opt/stb_image \
+	-I/opt/tiny_obj_loader/ \
+	-I/opt/imgui-vulkan/ \
 
+BULLET_INCLUDE_PATHS_LIBS = -L/opt/bullet3-master/src/BulletCollision/ \
+							-L/opt/bullet3-master/src/BulletDynamics/ \
+							-L/opt/bullet3-master/src/LinearMath/ \
+							-lBulletDynamics -lBulletCollision -lLinearMath
 
-BULLET_INCLUDE_PATH = /opt/bullet3-master/src
 VULKAN_SDK_PATH = /opt/Vulkan_SDK/1.2.162.1/x86_64
-VMA_INCLUDE_PATH = /opt/vk_mem_alloc
-STB_INCLUDE_PATH = /opt/stb_image
-TINYOBJ_INCLUDE_PATH = /opt/tiny_obj_loader/
-CFLAGS = -std=c++17 -I$(BULLET_INCLUDE_PATH) -I$(VULKAN_SDK_PATH)/include -I$(VMA_INCLUDE_PATH) -I$(STB_INCLUDE_PATH) -I$(TINYOBJ_INCLUDE_PATH) $(INCLUDES)
-LDFLAGS = -L$(VULKAN_SDK_PATH)/lib `pkg-config --static --libs glfw3` -lvulkan
-LDFLAGS += -L$(BULLET_INCLUDE_PATH)/BulletCollision/ -L$(BULLET_INCLUDE_PATH)/BulletDynamics/ -L$(BULLET_INCLUDE_PATH)/LinearMath/ -lBulletDynamics -lBulletCollision -lLinearMath
 
-VulkanTest: src/*.cpp src/world/*.cpp src/vulkan/*.cpp
-	g++ $(CFLAGS) -o VulkanTest src/*.cpp src/world/*.cpp src/vulkan/*.cpp $(LDFLAGS)
+CFLAGS = -std=c++17 -I$(VULKAN_SDK_PATH)/include $(INCLUDES)
+LDFLAGS = -L$(VULKAN_SDK_PATH)/lib `pkg-config --static --libs glfw3` -lvulkan $(BULLET_INCLUDE_PATHS_LIBS)
 
-VulkanDebug: src/*.cpp src/world/*.cpp src/vulkan/*.cpp
-	g++ $(CFLAGS) -g -o VulkanDebug src/*.cpp src/world/*.cpp src/vulkan/*.cpp $(LDFLAGS)
+IMGUI_CPP_PATHS = /opt/imgui-vulkan/*.cpp
 
-VulkanOpt: src/*.cpp src/world/*.cpp src/vulkan/*.cpp
-	g++ $(CFLAGS) -O3 -o VulkanOpt src/*.cpp src/world/*.cpp src/vulkan/*.cpp $(LDFLAGS)
+OWN_CPP_PATHS = src/*.cpp src/world/*.cpp src/vulkan/*.cpp
+
+VulkanTest: $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS)
+	g++ $(CFLAGS) -o VulkanTest $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS) $(LDFLAGS)
+
+VulkanDebug: $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS)
+	g++ $(CFLAGS) -g -o VulkanDebug $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS) $(LDFLAGS)
+
+VulkanOpt: $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS)
+	g++ $(CFLAGS) -O3 -o VulkanOpt $(OWN_CPP_PATHS) $(IMGUI_CPP_PATHS) $(LDFLAGS)
 
 .PHONY: test clean
 

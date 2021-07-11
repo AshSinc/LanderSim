@@ -35,7 +35,6 @@
 #include "vk_mesh.h"
 #include "vk_images.h"
 
-
 //static var declarations
 VmaAllocator VulkanEngine::allocator;
 QueueFamilyIndices VulkanEngine::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
@@ -44,8 +43,7 @@ VkCommandPool VulkanEngine::transferCommandPool; //stores our transient command 
 VkDevice VulkanEngine::device;
 VkPhysicalDevice VulkanEngine::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
-VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState& state): window{windowptr}, worldState{state}{ 
-}
+VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState& state): window{windowptr}, worldState{state}{}
 
 void VulkanEngine::init()
 {
@@ -62,33 +60,48 @@ void VulkanEngine::init()
     pickPhysicalDevice();
     createLogicalDevice();
     createMemAllocVMA();
-    //VkImageCreateInfo imageInfo{};
 
     createSwapChain();
     createSwapChainImageViews();
     createRenderPass();
     createDescriptorSetLayouts();
     createCommandPools();
-
     createColourResources(); //this is our colourImage and resources for the render target for msaa
     createDepthResources();
     createFramebuffers();
-    createTextureImages();
-    loadModels();
     createUniformBuffersVMA();
     createSamplers();
     createDescriptorPool();
     createDescriptorSets();
     init_pipelines();
-    createVertexBufferVMA();
-    createIndexBufferVMA();
     createCommandBuffers();
     createSyncObjects();
-    
-    init_scene();
-    mapMaterialDataToGPU();
-}
 
+    //here we have now loaded the basics
+    //this means we should be able to end the init() here and move the rest to a loadScene() method?
+    //would probs need a different rendering pipeline and drawframe method for that
+
+    //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
+    loadModels();
+    createVertexBufferVMA(); //error here if load models later
+    createIndexBufferVMA(); //error here if load models later
+    //now we can load the textures and create imageviews
+    createTextureImages(); //pretty slow, probs texture number and size
+    //creates RenderObjects and associates with WorldObjects, then allocates the textures 
+    //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
+    init_scene(); 
+    mapMaterialDataToGPU(); 
+}
+void VulkanEngine::allocateDescriptorSetForSkybox(){
+    VkWriteDescriptorSet setWrite{};
+    VkDescriptorImageInfo skyImageInfo;
+    skyImageInfo.sampler = skyboxSampler;
+    skyImageInfo.imageView = skyboxImageView; //this should exist before this call
+    skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    setWrite = vkStructs::write_descriptorset(0, skyboxSet, 1, 
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
+    vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
+}
 void VulkanEngine::allocateDescriptorSetForTexture(Material* material, std::string name){
     if(material != nullptr){
         
@@ -219,7 +232,8 @@ void VulkanEngine::init_scene(){
 
     //allocate a descriptor set for each material pointing to each texture needed
     allocateDescriptorSetForTexture(get_material("texturedmesh2"), "satellite");
-    allocateDescriptorSetForTexture(get_material("texturedmesh1"), "asteroid"); //comment out
+    allocateDescriptorSetForTexture(get_material("texturedmesh1"), "asteroid");
+    allocateDescriptorSetForSkybox(); //skybox hs its own descriptor set because it behaves differently from normal texture
 }
 
 void VulkanEngine::updateObjectTranslations(){
@@ -934,10 +948,6 @@ void VulkanEngine::init_pipelines(){
 	create_material(texPipeline, texturedPipeLayout, "texturedmesh1", 2);
     create_material(texPipeline, texturedPipeLayout, "texturedmesh2", 3);
 
-
-
-
-
     //Skybox
     VkDescriptorSetLayout skyboxSetLayouts[] = {_globalSetLayout, _objectSetLayout, _skyboxSetLayout};
     VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = vkStructs::pipeline_layout_create_info(3, skyboxSetLayouts);
@@ -1230,10 +1240,10 @@ void VulkanEngine::populateVerticesIndices(std::string path, std::unordered_map<
     _loadedMeshes[numMeshes].indexCount = allIndices.size() - _loadedMeshes[numMeshes].indexBase; //how many indices in this model
 }
 
+//used to pass vertices and indices to WorldState for building collision meshes from objects directly (only used for asteroid mesh)
 std::vector<Vertex>& VulkanEngine::get_allVertices(){
     return allVertices;
 }
-
 std::vector<uint32_t>& VulkanEngine::get_allIndices(){
     return allIndices;
 }
@@ -1524,18 +1534,25 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");
     }
 
-    VkWriteDescriptorSet setWrite{};
+    //ISSUE
+    //when we move texture loading later, this causes a crash, because skyboxImageView is empty just now
+    //SOLUTION
+    //either load skybox first every time
+    //or we move this to be after texture loading
+    /*VkWriteDescriptorSet setWrite{};
 
     VkDescriptorImageInfo skyImageInfo;
     skyImageInfo.sampler = skyboxSampler;
-    skyImageInfo.imageView = skyboxImageView;
+    skyImageInfo.imageView = skyboxImageView; //this doesnt exist yet
     skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     setWrite = vkStructs::write_descriptorset(0, skyboxSet, 1, 
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
     
-    vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
+    vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);*/
 }
+
+//void VulkanEngine::
 
 //Command buffer allocation
 //Because one of the drawing commands involves binding the right VkFramebuffer, we will need to record a command buffer for every image in the swap chain

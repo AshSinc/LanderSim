@@ -11,6 +11,14 @@ int main(){
     WindowHandler windowHandler;
     GLFWwindow* window; //pointer to the window, freed on cleanup() in VulkanRenderer just now
 
+    //ISSUES
+    //because VulkanEngine references objects in WorldState, we have to instanciate worldstate and the objects before starting the rendering engine
+    //this is messy and impractical once ui and different model options are available
+    //SOLUTION
+    //find all worldstate references in VulkanEngine constructor and init() and remove
+    //then move object instanciation to WorldState
+    //this means we can then load parts of the rendering engine we need first, show a gui, and then load the simulation along with final texture loading etc for the renderer
+
     WorldState worldState;
     WorldInput worldInput = WorldInput(WIDTH, HEIGHT);
 

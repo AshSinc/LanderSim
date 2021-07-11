@@ -8,25 +8,16 @@
 #include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
 
-bool WorldState::RANDOMIZE_START = true; //set true to randomize starting positions,velocities,rotations
-bool WorldState::LANDER_COLLISION_COURSE = false; //if false will set the lander initial trajectory to narrowly avoid asteroid
-float WorldState::MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
-float WorldState::LANDER_START_DISTANCE = 150.0f;//150.0f;
-float WorldState::LANDER_PASS_DISTANCE = 80.0f;//only used if LANDER_COLLISION_COURSE=false
-float WorldState::INITIAL_LANDER_SPEED = 1.5f;
-float WorldState::ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
-
-/* //good settings for ai tests
+//static vars world configuration
 bool WorldState::RANDOMIZE_START = true; //set true to randomize starting positions,velocities,rotations
 bool WorldState::LANDER_COLLISION_COURSE = false; //if false will set the lander initial trajectory to narrowly avoid asteroid
 float WorldState::MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
 float WorldState::LANDER_START_DISTANCE = 150.0f;
-float WorldState::LANDER_PASS_DISTANCE = 100.0f; //only used if LANDER_COLLISION_COURSE=false
+float WorldState::LANDER_PASS_DISTANCE = 80.0f;//only used if LANDER_COLLISION_COURSE=false
 float WorldState::INITIAL_LANDER_SPEED = 1.5f;
 float WorldState::ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
-*/
 
-
+//static vars
 WorldCamera WorldState::camera{WorldCamera()};
 std::vector<WorldObject> WorldState::objects{};
 
@@ -189,9 +180,8 @@ void WorldState::loadCollisionMeshes(VulkanEngine& engine){
 
         //set initial rotation of asteroid
         btQuaternion quat;
-        if(RANDOMIZE_START){
+        if(RANDOMIZE_START)
             quat.setEulerZYX(getRandFloat(0,359),getRandFloat(0,359),getRandFloat(0,359));
-        }
         else
             quat.setEulerZYX(0,0,0);
         asteroidTransform.setRotation(quat);

@@ -12,6 +12,10 @@
 #include "vk_mesh.h"
 #include <unordered_map>
 #include "world_state.h"
+#include "vk_imgui.h"
+
+//forward decleration
+class VulkanImGui;
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -89,7 +93,8 @@ public:
     Mesh* get_mesh(const std::string& name);
 private:
     
-    
+    //UI Class
+    static VulkanImGui imgui;
     /****** Engine Variables && Functions
      * 
      * 
@@ -178,6 +183,7 @@ private:
     void createDescriptorSets();
     void createUniformBuffersVMA();
     void allocateDescriptorSetForTexture(Material* material, std::string name);
+    void allocateDescriptorSetForSkybox();
     //void allocateDescriptorSetForTexture(Material* material, std::string name);
     //void allocateDescriptorSetForMaterial(Material* material);
 

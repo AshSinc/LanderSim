@@ -8,7 +8,8 @@
                 "${VULKAN_SDK}/include",
                 "/opt/vk_mem_alloc/",
                 "/opt/stb_image/",
-                "/opt/tiny_obj_loader/"
+                "/opt/tiny_obj_loader/",
+                "/opt/imgui-vulkan/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
