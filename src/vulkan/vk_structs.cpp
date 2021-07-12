@@ -13,7 +13,7 @@ VkSubmitInfo vkStructs::submit_info(VkCommandBuffer* commandBuffer){
 }
 
 //VkSubmitInfo with synchronization, used in gpu synching
-VkSubmitInfo vkStructs::submit_info(VkCommandBuffer* commandBuffer, 
+VkSubmitInfo vkStructs::submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, 
 		VkSemaphore* waitSemaphores, uint32_t waitCount,
 		VkPipelineStageFlags* waitStages,
 		VkSemaphore* signalSemaphores, uint32_t signalCount) {
@@ -24,8 +24,8 @@ VkSubmitInfo vkStructs::submit_info(VkCommandBuffer* commandBuffer,
 	submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.signalSemaphoreCount = signalCount;
 	submitInfo.pSignalSemaphores = signalSemaphores;
-	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = commandBuffer;
+	submitInfo.commandBufferCount = cmdBufferCount;
+	submitInfo.pCommandBuffers = commandBuffers;
 	return submitInfo;
 }
 
@@ -250,7 +250,7 @@ VkRenderPassCreateInfo vkStructs::renderpass_create_info(std::vector<VkAttachmen
     renderPassInfo.pAttachments = attachments.data();
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = pSubpasses;
-    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.dependencyCount = dependencyCount; //changed from 1
     renderPassInfo.pDependencies = pDependencies;
     return renderPassInfo;
 }

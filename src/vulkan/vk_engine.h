@@ -12,10 +12,14 @@
 #include "vk_mesh.h"
 #include <unordered_map>
 #include "world_state.h"
-#include "vk_imgui.h"
 
-//forward decleration
-class VulkanImGui;
+#include <imgui.h> //basic gui library for drawing simple guis
+#include <imgui_impl_glfw.h> //backends for glfw
+#include <imgui_impl_vulkan.h> //and vulkan
+#include <imconfig.h> //empty by default, user config
+#include <imstb_rectpack.h>
+#include <imstb_textedit.h>
+#include <imstb_truetype.h>
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -72,7 +76,7 @@ public:
 
     //Expose the allocator and CreateBuffer and createImage functions
     static VmaAllocator allocator; //VMA allocator for handling resource allocation (only used for vertex and indicex buffers just now, can be used for images too)
-    static void createBufferVMA(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation);
+    static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation);
 
     //these need moved to seperate file?
     static VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
@@ -84,17 +88,25 @@ public:
     static VkCommandPool transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
     static VkQueue graphicsQueue; //handle to the graphics queue, queues are automatically created with the logical device
     static QueueFamilyIndices queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
-   
 
     //returns reference to allVertices, used by physics engine to copy model rather than reread obj file
     std::vector<Vertex>& get_allVertices();
     std::vector<uint32_t>& get_allIndices();
 
     Mesh* get_mesh(const std::string& name);
+
 private:
+    void drawUI(); //draw UI
+    void loadScene(); //loads scene 
+    void gui_ShowOverlay(); //holds configuration for statistics window
+    void gui_ShowMenu(); //holds configuration for main fullscreen menu
+    void gui_ShowLoading(); //holds configuration for main loading bar
+    void calculateFrameRate();
+
+    ImVec2 statsPanelSize;
     
-    //UI Class
-    static VulkanImGui imgui;
+
+
     /****** Engine Variables && Functions
      * 
      * 
@@ -116,6 +128,7 @@ private:
     VkExtent2D swapChainExtent; //stores the extent we specified in the swap chain for later use
     std::vector<VkImageView> swapChainImageViews; //stores the image views
     VkRenderPass renderPass; //handle to render pass object
+    VkRenderPass guiRenderPass; //handle to gui render pass
     
     std::vector<VkFramebuffer> swapChainFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
     
@@ -124,6 +137,12 @@ private:
     bool frameBufferResized = false; //explicitly track framebuffer resizeing, most platforms/drivers report a resize, but it's not gauranteed, so we can check
     size_t currentFrame = 0; //tracks the current frame based on MAX_FRAMES_IN_FLIGHT and acts as an index for imageAvailable and renderFinished semaphores
     uint32_t frameCounter = 0;
+
+    double framerate = 0; //used to track framerate
+    uint32_t previousFrameCount = 0; //used to track framerate
+    double previousFrameTime = 0; //used to track framerate
+    double fps = 0; //used to track framerate
+
     std::vector<FrameData> _frames; //stores per frame variables like buffers and synchronization variables
 
     VkImage skyboxImage;
@@ -133,14 +152,18 @@ private:
     VkDescriptorSet skyboxSet;
     VkPipeline skyboxPipeline;
     VkPipelineLayout _skyboxPipelineLayout;
-    //RenderObject skyboxRO;
+    
+    VkCommandPool guiCommandPool;
+    std::vector<VkCommandBuffer> guiCommandBuffers;
+    std::vector<VkFramebuffer> guiFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
+
     //Functions
 
     //Init
     void createVkInstance();
     void pickPhysicalDevice();
     void createLogicalDevice();
-    void createMemAllocVMA();
+    void createMemAlloc();
     void createSwapChain();
     void createSwapChainImageViews();
     void createRenderPass();
@@ -151,6 +174,7 @@ private:
     void init_pipelines(); //load and configure pipelines and correspending shader stages and assign to materials
     void createSyncObjects();
     void init_scene(); //assign and configure RenderObjects to display in the scene
+    void initUI();
     //Render Loop
     void drawObjects(int currentFrame);
     void rerecordCommandBuffer(int i);
@@ -181,7 +205,7 @@ private:
     void createDescriptorSetLayouts();
     void createDescriptorPool();
     void createDescriptorSets();
-    void createUniformBuffersVMA();
+    void createUniformBuffers();
     void allocateDescriptorSetForTexture(Material* material, std::string name);
     void allocateDescriptorSetForSkybox();
     //void allocateDescriptorSetForTexture(Material* material, std::string name);
@@ -233,8 +257,8 @@ private:
     void loadModels();
     //Mesh* get_mesh(const std::string& name);
     void populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour);
-    void createVertexBufferVMA(); //depends on vertex sizes and layout, might be able to overallocate?
-    void createIndexBufferVMA(); //depends on index sizes and layout, might be able to overallocate?
+    void createVertexBuffer(); //depends on vertex sizes and layout, might be able to overallocate?
+    void createIndexBuffer(); //depends on index sizes and layout, might be able to overallocate?
     
     
     /****** Materials Variables && Functions

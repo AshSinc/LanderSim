@@ -7,7 +7,10 @@ namespace vkStructs{
 
   VkSubmitInfo submit_info(VkCommandBuffer* commandBuffer);
 
-  VkSubmitInfo submit_info(VkCommandBuffer* cmd, VkSemaphore* waitSemaphores, uint32_t waitCount,
+  //VkSubmitInfo submit_info(VkCommandBuffer* cmd, VkSemaphore* waitSemaphores, uint32_t waitCount,
+  //  VkPipelineStageFlags* waitStages, VkSemaphore* signalSemaphores, uint32_t signalCount
+  //);
+   VkSubmitInfo submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, VkSemaphore* waitSemaphores, uint32_t waitCount,
     VkPipelineStageFlags* waitStages, VkSemaphore* signalSemaphores, uint32_t signalCount
   );
 

@@ -11,7 +11,8 @@ class WorldInput{
         static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
         static void updateFixedLookPosition();
         static void changeFocus();
-        WorldInput(uint32_t& winHeight, uint32_t& winWidth);
+        static void toggleMenu(GLFWwindow* window);
+        WorldInput(uint32_t& winHeight, uint32_t& winWidth, GLFWwindow* window);
     private:
         static WorldState& world;
         static WorldCamera& camera;
@@ -27,4 +28,5 @@ class WorldInput{
         static const float MOUSESCROLL_SENSITIVITY;
         static float fixedLookRadius;
         static float fixedObjectScaleFactor;
+        static bool menuVisible;
 };

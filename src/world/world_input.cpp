@@ -7,6 +7,7 @@
 #include <iostream>
 #include <algorithm>
 
+
 const float WorldInput::CAMERA_SPEED = 5;
 const float WorldInput::MOUSELOOK_SENSITIVITY = 0.1f;
 const float WorldInput::MOUSESCROLL_SENSITIVITY = 0.5f;
@@ -23,13 +24,18 @@ float WorldInput::pitch = 0.0f;
 bool WorldInput::firstMouseInput = true;
 bool WorldInput::freelook = false;
 int WorldInput::objectFocusIndex = 2; //start at the first worldState.object[i] that we want to be able to track, have to set in update function too
+bool WorldInput::menuVisible = true;
 
-WorldInput::WorldInput(uint32_t& winHeight, uint32_t& winWidth) : winHeight{winHeight}, winWidth{winWidth}{
+WorldInput::WorldInput(uint32_t& winHeight, uint32_t& winWidth, GLFWwindow* window) : winHeight{winHeight}, winWidth{winWidth}{
     lastMouseX = winHeight/2;
     lastMouseY = winWidth/2;
+    window = window;
 }
 
 void WorldInput::key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
+        toggleMenu(window);
+    }
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS){
         changeFocus();
     }
@@ -122,5 +128,17 @@ void WorldInput::changeFocus(){
         fixedLookRadius = 3; //need to set a default starting value
         fixedObjectScaleFactor = std::max(objects[objectFocusIndex].scale.x, 1.0f);
         updateFixedLookPosition();
+    }
+}
+
+//toggles menu on and off
+void WorldInput::toggleMenu(GLFWwindow* window){
+    if(menuVisible){
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+        menuVisible = false;
+    }
+    else{
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture the cursor, for mouse movement
+        menuVisible = true;
     }
 }

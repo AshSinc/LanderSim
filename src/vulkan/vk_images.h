@@ -4,7 +4,7 @@
 #include "vk_engine.h"
 
 namespace image_func{
-    void createImageVMA(uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags,
+    void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags,
          VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation);
     void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount); //NOT COPYING MIPMAPPSSS!!!!!!!
     VkImageView createImageView(VkImage image, enum VkImageViewType viewType, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t arrayLayers);

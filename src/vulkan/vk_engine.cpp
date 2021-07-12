@@ -43,10 +43,11 @@ VkCommandPool VulkanEngine::transferCommandPool; //stores our transient command 
 VkDevice VulkanEngine::device;
 VkPhysicalDevice VulkanEngine::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
+
 VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState& state): window{windowptr}, worldState{state}{}
 
-void VulkanEngine::init()
-{
+void VulkanEngine::init(){
+
     createVkInstance();
     if (enableValidationLayers){
         DebugMessenger::setupDebugMessenger(instance, &debugMessenger);
@@ -59,39 +60,146 @@ void VulkanEngine::init()
 
     pickPhysicalDevice();
     createLogicalDevice();
-    createMemAllocVMA();
+    createMemAlloc();
 
     createSwapChain();
     createSwapChainImageViews();
-    createRenderPass();
     createDescriptorSetLayouts();
     createCommandPools();
     createColourResources(); //this is our colourImage and resources for the render target for msaa
     createDepthResources();
-    createFramebuffers();
-    createUniformBuffersVMA();
+    createUniformBuffers();
     createSamplers();
+
     createDescriptorPool();
     createDescriptorSets();
+
+    createRenderPass();
+    createFramebuffers();
+
     init_pipelines();
     createCommandBuffers();
     createSyncObjects();
 
+    initUI();
+
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
-    //would probs need a different rendering pipeline and drawframe method for that
+    loadScene();
+}
 
+//loads all scene data, this should be called only when the user hits run
+void VulkanEngine::loadScene(){
     //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
     loadModels();
-    createVertexBufferVMA(); //error here if load models later
-    createIndexBufferVMA(); //error here if load models later
+    createVertexBuffer(); //error here if load models later
+    createIndexBuffer(); //error here if load models later
     //now we can load the textures and create imageviews
     createTextureImages(); //pretty slow, probs texture number and size
     //creates RenderObjects and associates with WorldObjects, then allocates the textures 
     //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
     init_scene(); 
     mapMaterialDataToGPU(); 
+
+    //this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(window, &width, &height); //keep checking the size
+    statsPanelSize = ImVec2(width/8, height);
 }
+
+void VulkanEngine::initUI(){
+    ImGui::CreateContext(); //create ImGui context
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = queueFamilyIndicesStruct.graphicsFamily.value();
+    init_info.Queue = graphicsQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = descriptorPool;
+    init_info.Allocator = nullptr;
+    init_info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
+    init_info.ImageCount = MAX_FRAMES_IN_FLIGHT+1;
+    init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
+
+    //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
+    VkAttachmentDescription attachmentDesc = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    VkAttachmentReference colourAttachmentRef = vkStructs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colourAttachmentRef;
+
+    //we are using a SubpassDependency that acts as synchronisation
+    //so we tell Vulkan not to render this subpass until the subpass at index 0 has completed
+    //or specifically at VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage, which is after colour output
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //now we create the actual renderpass
+    std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
+    attachments.push_back(attachmentDesc);
+
+    VkRenderPassCreateInfo renderPassInfo = vkStructs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Could not create ImGui render pass");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, guiRenderPass, nullptr);});
+
+    //then pass to ImGui implement vulkan init function
+    ImGui_ImplVulkan_Init(&init_info, guiRenderPass);
+
+    //now we copy the font texture to the gpu, we can utilize our single time command functions and transfer command pool
+    VkCommandBuffer command_buffer = beginSingleTimeCommands(transferCommandPool);
+    ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+    endSingleTimeCommands(command_buffer, transferCommandPool, graphicsQueue);
+
+
+    VkCommandPoolCreateInfo poolInfo = vkStructs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    if(vkCreateCommandPool(device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create gui command pool");
+    }   
+    _swapDeletionQueue.push_function([=](){vkDestroyCommandPool(device, guiCommandPool, nullptr);
+	});
+
+    guiCommandBuffers.resize(swapChainImages.size());
+
+	//allocate the gui command buffer
+	VkCommandBufferAllocateInfo cmdAllocInfo = vkStructs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
+
+	if(vkAllocateCommandBuffers(device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
+            throw std::runtime_error("Unable to allocate gui command buffers");
+    }
+    _swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
+
+    //start by resizing the vector to hold all the framebuffers
+    guiFramebuffers.resize(swapChainImageViews.size());
+    //then iterative through create the framebuffers for each
+    for(size_t i = 0; i < swapChainImageViews.size(); i++){
+        std::vector<VkImageView> attachment = {swapChainImageViews[i]};
+        VkFramebufferCreateInfo framebufferInfo = vkStructs::framebuffer_create_info(guiRenderPass, attachment, swapChainExtent, 1);
+
+        if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create gui framebuffer");
+        }
+        _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, guiFramebuffers[i], nullptr);});
+    }
+}
+
 void VulkanEngine::allocateDescriptorSetForSkybox(){
     VkWriteDescriptorSet setWrite{};
     VkDescriptorImageInfo skyImageInfo;
@@ -433,21 +541,109 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
     
-    vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
-    drawObjects(i);
-
+    if(!_renderables.empty()){
+        vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        drawObjects(i);
+    }
+    
     //we we can end the render pass
     vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
 
-    //and we have finished recording, we check for errrors here
+     //and we have finished recording, we check for errrors here
     if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
-    //next we will write the code for the main loop which will acquire an image from the swap chain, execute the right command buffer 
-    //and return the finished image to the swap chain
+
+    //now for the UI render pass
+    vkResetCommandBuffer(guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    
+    beginInfo = vkStructs::command_buffer_begin_info(0);
+    if(vkBeginCommandBuffer(guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
+        throw std::runtime_error("Failed to begin recording gui command buffer");
+    }
+
+    drawUI(); //then we will draw UI
+
+    //note that the order of clear values should be identical to the order of attachments 
+    renderPassBeginInfo = vkStructs::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    vkCmdBeginRenderPass(guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Record Imgui Draw Data and draw funcs into command buffer
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), guiCommandBuffers[i]);
+
+    //we we can end the render pass
+    vkCmdEndRenderPass(guiCommandBuffers[i]);
+
+     //and we have finished recording, we check for errrors here
+    if (vkEndCommandBuffer(guiCommandBuffers[i]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record gui command buffer!");
+    }
+}
+
+void VulkanEngine::drawUI(){
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+    //ImGui::ShowDemoWindow();
+    gui_ShowOverlay();
+    ImGui::Render();
+}
+
+void VulkanEngine::gui_ShowOverlay(){
+    static int corner = 0;
+    ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+    
+    const float PAD = 10.0f;
+    const ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+    ImVec2 work_size = viewport->WorkSize;
+  
+    ImVec2 window_pos;
+    window_pos.x = work_pos.x + PAD;
+    window_pos.y = work_pos.y + PAD;
+    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, ImVec2(0,0));
+    
+    if (ImGui::Begin("Stats", NULL, window_flags)){
+        ImGui::SetWindowSize(statsPanelSize);
+        
+        ImGui::Text("Controls\n");
+        ImGui::Separator();
+        ImGui::Text("ESC toggles mouse control\n");
+        ImGui::Text("SPACE cycles view focus\n");
+        ImGui::Text("P pauses simulation\n");
+        ImGui::Text("[ ] controls time\n\n");
+
+        ImGui::Text("\nEngine\n");
+        ImGui::Separator();
+        ImGui::Text("Framerate: %.1f ms\n", framerate);
+        ImGui::Text("FPS: %.1f fps\n", fps);
+        ImGui::Text("Tickrate: %f\n", 0.0f);
+        ImGui::Text("Simulation Speed: %s\n\n", "Realtime");   
+        
+        ImGui::Text("\nLander\n");     
+        ImGui::Separator();
+        ImGui::Text("Velocity: %f m/s\n", 0.0f);
+        ImGui::Text("Rotation: %f m/s\n", 0.0f);
+        ImGui::Text("Grav Force: %f N\n\n", 0.0f);
+        ImGui::Separator();
+       // if (ImGui::BeginPopupContextWindow())
+       // {
+            //if (ImGui::MenuItem("Custom",       NULL, corner == -1)) corner = -1;
+           // if (p_open && ImGui::MenuItem("Close")) *p_open = false;
+            //ImGui::EndPopup();
+       // }
+    }
+    ImGui::End();
+}
+
+void VulkanEngine::gui_ShowMenu(){
+
+}
+
+void VulkanEngine::gui_ShowLoading(){
+
 }
  
 void VulkanEngine::drawFrame(){
@@ -457,7 +653,6 @@ void VulkanEngine::drawFrame(){
     //so the first step is to acquire an image from the swap chain
     uint32_t imageIndex;
     //we will store the return rsult of the call VkResult and use it to check if the swap chain needs recreated if its out of date
-    //VkResult result = vkAcquireNextImageKHR(device,swapChain, UINT64_MAX, imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
     VkResult result = vkAcquireNextImageKHR(device,swapChain, UINT64_MAX, _frames[currentFrame]._presentSemaphore, VK_NULL_HANDLE, &imageIndex);
     if(result == VK_ERROR_OUT_OF_DATE_KHR){
         recreateSwapChain();
@@ -475,7 +670,6 @@ void VulkanEngine::drawFrame(){
     imagesInFlight[imageIndex] = _frames[currentFrame]._renderFence;
 
     //we have the imageIndex and are cleared for operations on it so it should be safe to rerecord the command buffer here
-    
     rerecordCommandBuffer(imageIndex);
 
     VkSemaphore waitSemaphores[] = {_frames[currentFrame]._presentSemaphore}; 
@@ -484,8 +678,12 @@ void VulkanEngine::drawFrame(){
 
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
-    VkSubmitInfo submitInfo = vkStructs::submit_info(&_frames[imageIndex]._mainCommandBuffer, waitSemaphores, 1, 
+    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
+    //std::vector<VkCommandBuffer> buffers = {&_frames[imageIndex]._mainCommandBuffer, &guiCommandBuffers[currentFrame]};
+    VkSubmitInfo submitInfo = vkStructs::submit_info(buffers, 2, waitSemaphores, 1, 
         waitStages, signalSemaphores, 1);
+    //VkSubmitInfo submitInfo = vkStructs::submit_info(&_frames[imageIndex]._mainCommandBuffer, waitSemaphores, 1, 
+    //    waitStages, signalSemaphores, 1);
 
     //move our reset fences here, its best to simply reset a fence right before its used
     vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
@@ -513,9 +711,20 @@ void VulkanEngine::drawFrame(){
     else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
         throw std::runtime_error("Failed to acquire swapchain image");
     }
-    
     frameCounter++;
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+    calculateFrameRate();
+}
+
+void VulkanEngine::calculateFrameRate(){
+    double currentFrameTime = glfwGetTime();
+    if(currentFrameTime - previousFrameTime >= 1.0 ){ // If last update was more than 1 sec ago
+        framerate = 1000.0/double(frameCounter-previousFrameCount);
+        fps = frameCounter-previousFrameCount;
+        previousFrameTime += 1.0;
+        previousFrameCount = frameCounter;
+     }
 }
 
 void VulkanEngine::cleanup()
@@ -523,6 +732,11 @@ void VulkanEngine::cleanup()
     vkDeviceWaitIdle(device); //maske sure device is idle and not mid draw
 
     cleanupSwapChain();
+
+    //destroy imgui elements
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     _mainDeletionQueue.flush();
 
@@ -637,7 +851,7 @@ void VulkanEngine::createLogicalDevice(){
 	});
 }
 
-void VulkanEngine::createMemAllocVMA(){
+void VulkanEngine::createMemAlloc(){
     VmaAllocatorCreateInfo allocatorInfo = vkStructs::vma_allocator_info(physicalDevice, device, instance, allocator);  
     vmaCreateAllocator(&allocatorInfo, &allocator);
     _mainDeletionQueue.push_function([=](){vmaDestroyAllocator(allocator);});
@@ -713,8 +927,11 @@ void VulkanEngine::createRenderPass(){
     //because we need to resolve the above multisampled image before presentation (you cant present a multisampled image because
     //it contains multiple pixel values per pixel) we need an attachment that will resolve the image back to something we can 
     //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR and in standard 1 bit sampling
+    //VkAttachmentDescription colourAttachmentResolve = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
     VkAttachmentDescription colourAttachmentResolve = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
-        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
     
     //the render pass now has to be instructed to resolve the multisampled colour image into the regular attachment
     VkAttachmentReference colourAttachmentResolveRef = vkStructs::attachment_reference(2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -1066,7 +1283,7 @@ void VulkanEngine::createCommandPools(){
 void VulkanEngine::createColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
 
-    image_func::createImageVMA(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+    image_func::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colourImage,
         colourImageAllocation);
 
@@ -1080,7 +1297,7 @@ void VulkanEngine::createColourResources(){
 void VulkanEngine::createDepthResources(){
     // we will go with VK_FORMAT_D32_SFLOAT but will add a findSupportedFormat() first to get something supported
     VkFormat depthFormat = init_query::findDepthFormat(physicalDevice);
-    image_func::createImageVMA(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
+    image_func::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageAllocation);
 
     depthImageView = image_func::createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
@@ -1124,7 +1341,7 @@ void VulkanEngine::createTextureImages(){
     //we will now create a host visible staging buffer so that we can map memory and copy pixels to it
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferAllocation;
-    VulkanEngine::createBufferVMA(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    VulkanEngine::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
     
     //map the memory
     char* dataMemory;
@@ -1143,7 +1360,7 @@ void VulkanEngine::createTextureImages(){
         image_func::simpleFreeTexture(textureData[i]);
     }
 
-    image_func::createImageVMA(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    image_func::createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyboxImage, skyboxAllocation);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps
@@ -1255,7 +1472,7 @@ std::vector<uint32_t>& VulkanEngine::get_allIndices(){
 //We have a lot of control but have to manage the memory
 //because we are going to create multiple buffers we will seperate the buffer creation into a helper function
 //parms, size of buffer in bytes, uage flags, propert flags, buffer and buffer memory pointers to store the buffer and memory addresses
-void VulkanEngine::createBufferVMA(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation){
+void VulkanEngine::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation){
     uint32_t queueFamilyIndices[] = {queueFamilyIndicesStruct.graphicsFamily.value(), queueFamilyIndicesStruct.transferFamily.value()};
     //both graphics and transfer queue families involved so count 2 and concurrent sharing for now
     VkBufferCreateInfo bufferInfo = vkStructs::buffer_create_info(size, usage, VK_SHARING_MODE_CONCURRENT, 2, queueFamilyIndices);
@@ -1265,7 +1482,7 @@ void VulkanEngine::createBufferVMA(VkDeviceSize size, VkBufferUsageFlags usage, 
     vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &buffer, &allocation, nullptr);
 }
     
-void VulkanEngine::createVertexBufferVMA(){       //uploading vertex data to the gpu    
+void VulkanEngine::createVertexBuffer(){       //uploading vertex data to the gpu    
     VkDeviceSize bufferSize = sizeof(allVertices[0]) * allVertices.size(); // should add up all meshes loaded? not sure
 
     //Staging Buffer
@@ -1279,7 +1496,7 @@ void VulkanEngine::createVertexBufferVMA(){       //uploading vertex data to the
     VmaAllocation stagingBufferAllocation;
 
     //create the staging buffer in CPU accessible memory
-    createBufferVMA(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
 
     //map data to it by copying the memory in, we must map the memory, copy, and then unmap
     void* mappedData;
@@ -1288,7 +1505,7 @@ void VulkanEngine::createVertexBufferVMA(){       //uploading vertex data to the
     vmaUnmapMemory(allocator, stagingBufferAllocation);
 
     //create the vertex buffer in GPU only memory
-    createBufferVMA(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
     VMA_MEMORY_USAGE_GPU_ONLY, vertexBuffer, vertexBufferAllocation);
     _mainDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);});
 
@@ -1304,19 +1521,19 @@ void VulkanEngine::createVertexBufferVMA(){       //uploading vertex data to the
 //Just like vertex data we need a VkBuffer for the GPU to be able to access them
 //This function is almost identical to createVertexBuffer
 //only differences are specifying indices and the size and data. and VK_BUFFER_USAGE_INDEX_BUFFER_BIT as the usage type
-void VulkanEngine::createIndexBufferVMA(){
+void VulkanEngine::createIndexBuffer(){
     VkDeviceSize bufferSize = sizeof(allIndices[0]) * allIndices.size();
     //VkDeviceSize bufferSize = sizeof(buildingMesh.indices[0]) * buildingMesh.indices.size();
     //VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     VkBuffer stagingBuffer;  //create our staging buffer      
     VmaAllocation stagingBufferAllocation;
-    createBufferVMA(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
     void* mappedData;
     vmaMapMemory(allocator, stagingBufferAllocation, &mappedData);
     memcpy(mappedData, allIndices.data(), (size_t) bufferSize);
     //memcpy(mappedData, indices.data(), (size_t) bufferSize);
     vmaUnmapMemory(allocator, stagingBufferAllocation);
-    createBufferVMA(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
     VMA_MEMORY_USAGE_GPU_ONLY, indexBuffer, indexBufferAllocation);
     _mainDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);});
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
@@ -1329,40 +1546,40 @@ void VulkanEngine::createIndexBufferVMA(){
 //we need multiple buffers because multiple frames may be in flight and we dont want to update the buffer in preperation for the next frame
 //while a previous one is still reading it! We can eithe rhave a uniform buffer per frame or per swap image. Because we need to refer to the uniform
 //buffer from the command buffer that we have per swao chain image, it makes sense to also have a uniform buffer per swap chain image
-void VulkanEngine::createUniformBuffersVMA(){
+void VulkanEngine::createUniformBuffers(){
     for(size_t i = 0; i < swapChainImages.size(); i++){ //loop through each in swapChainImages
 
         //create a uniform buffer for each frame, will hold camera buffer information (matrices)
-        createBufferVMA(sizeof(UniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        createBuffer(sizeof(UniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
             _frames[i].cameraBuffer, _frames[i].cameraBufferAllocation);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].cameraBuffer, _frames[i].cameraBufferAllocation);});
         //create a large storage buffer for each frame, will hold all object matrices
         //storage buffers are similar to uniform buffers, except can be much larger and and writable by the shader
         //nice for compute shaders or large amounts of information
        
-        createBufferVMA(sizeof(GPUObjectData) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
             _frames[i].objectBuffer, _frames[i].objectBufferAlloc);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].objectBuffer, _frames[i].objectBufferAlloc);});
 
         //create the materialBuffer one per swapchain frame
-        createBufferVMA(sizeof(GPUMaterialData) * MATERIALS_COUNT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        createBuffer(sizeof(GPUMaterialData) * MATERIALS_COUNT, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
             _frames[i].materialBuffer, _frames[i].materialPropertiesBufferAlloc);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].materialBuffer, _frames[i].materialPropertiesBufferAlloc);});
 
         //create the point lights Buffer one per swapchain frame
 
-        createBufferVMA(sizeof(GPUPointLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+        createBuffer(sizeof(GPUPointLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             _frames[i].pointLightParameterBuffer, _frames[i].pointLightParameterBufferAlloc);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].pointLightParameterBuffer, _frames[i].pointLightParameterBufferAlloc);});
 
         //create the spot lights Buffer one per swapchain frame
-        createBufferVMA(sizeof(GPUSpotLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+        createBuffer(sizeof(GPUSpotLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             _frames[i].spotLightParameterBuffer, _frames[i].spotLightParameterBufferAlloc);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].spotLightParameterBuffer, _frames[i].spotLightParameterBufferAlloc);});
     }
 
     const size_t sceneParamBufferSize = swapChainImages.size() * pad_uniform_buffer_size(sizeof(GPUSceneData));
-    createBufferVMA(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+    createBuffer(sceneParamBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
         _sceneParameterBuffer, _sceneParameterBufferAlloc);
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _sceneParameterBuffer, _sceneParameterBufferAlloc);});
 
@@ -1533,23 +1750,6 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
     if(vkAllocateDescriptorSets(device, &skyboxSetAllocInfo, &skyboxSet) != VK_SUCCESS){
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");
     }
-
-    //ISSUE
-    //when we move texture loading later, this causes a crash, because skyboxImageView is empty just now
-    //SOLUTION
-    //either load skybox first every time
-    //or we move this to be after texture loading
-    /*VkWriteDescriptorSet setWrite{};
-
-    VkDescriptorImageInfo skyImageInfo;
-    skyImageInfo.sampler = skyboxSampler;
-    skyImageInfo.imageView = skyboxImageView; //this doesnt exist yet
-    skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
-    setWrite = vkStructs::write_descriptorset(0, skyboxSet, 1, 
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
-    
-    vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);*/
 }
 
 //void VulkanEngine::
@@ -1624,18 +1824,24 @@ void VulkanEngine::recreateSwapChain(){
     cleanupSwapChain(); //clean old swapchain first
     createSwapChain(); //then create the swap chain
     createSwapChainImageViews(); //image views then need to be recreated because they are based directly on the swap chain images
-    createRenderPass();  //render pass needs to be recreated because it depends on the format of the swap chain images
     createColourResources();
     createDepthResources();
-    createFramebuffers(); //framebuffers depend directly on swap chain images
-   // createTextureImages(); 
-    createUniformBuffersVMA(); //recreate our uniform buffers
+    createUniformBuffers(); //recreate our uniform buffers
     createDescriptorPool(); //recreate desc pool
     createDescriptorSets(); //recreate the desc sets 
+    createRenderPass();  //render pass needs to be recreated because it depends on the format of the swap chain images
+    createFramebuffers(); //framebuffers depend directly on swap chain images
     init_pipelines(); //viewport and scissor rectangle size is specified during graphics pipeline creation, so the pipeline needs rebuilt    
     createCommandBuffers(); //cammand buffers depend directly on swap chain images
-    init_scene();
-    mapMaterialDataToGPU();
+    
+    initUI();
+
+    //probs then need to link descriptors etc back to the materials?
+    
+    //init_scene();
+    //mapMaterialDataToGPU();
+
+    //ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount); //do i need to resize imgui? probably
 }
 
 Material* VulkanEngine::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name, int id){

@@ -6,7 +6,7 @@
 #include "vk_structs.h"
 
 
-void image_func::createImageVMA(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+void image_func::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation){
 
     uint32_t queueFamilyIndices[] = {VulkanEngine::queueFamilyIndicesStruct.graphicsFamily.value()};
@@ -136,7 +136,7 @@ bool image_func::loadTextureImage(VulkanEngine& engine, const char* file, VkImag
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferAllocation;
     //engine.createBufferVMA(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
-    VulkanEngine::createBufferVMA(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    VulkanEngine::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
 
     //then we can copy the pixel data into the CPU visible buffer
     void* dataMemory;
@@ -150,7 +150,7 @@ bool image_func::loadTextureImage(VulkanEngine& engine, const char* file, VkImag
     //VkCmdBlit vkCmdBlitImage is considered a transfer operation so we need to tell Vulkan we intend to use the texture image as both the surce and
     //the destination for a transfer. We simply add VK_IMAGE_USAGE_TRANSFER_SRC_BIT to indicate this
     //pass details to createImageVMA to fill textureImage and textureImageAllocation handles
-    createImageVMA(texWidth, texHeight, mipLevels, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    createImage(texWidth, texHeight, mipLevels, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outImage, alloc);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps

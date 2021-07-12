@@ -20,7 +20,7 @@ int main(){
     //this means we can then load parts of the rendering engine we need first, show a gui, and then load the simulation along with final texture loading etc for the renderer
 
     WorldState worldState;
-    WorldInput worldInput = WorldInput(WIDTH, HEIGHT);
+    WorldInput worldInput = WorldInput(WIDTH, HEIGHT, window);
 
     worldState.addObject(worldState.objects, WorldObject{glm::vec3(0,0,0), glm::vec3(10000,10000,10000)}); //skybox, scale is scene size effectively
     worldState.addObject(worldState.objects, WorldObject{glm::vec3(-5000,0,0), glm::vec3(100,100,100)}); //star
@@ -35,13 +35,22 @@ int main(){
         window = windowHandler.initWindow(WIDTH, HEIGHT, "Vulkan");
         VulkanEngine engine = VulkanEngine(window, worldState); //instanciate render engine
         engine.init(); //initialise engine (note that model and texture loading might need moved out of init, when we have multiple options and a menu)
+
+        //ISSUE
+        // worldState.loadCollisionMeshes(engine) is needed after loading the models in to the engine, we want to be able to do this in the main loop in respone to loading complete or a button being pressed
+        //SOLUTION
+        //move to main while loop. trigger in response to an event, probably need to refactor the rendering loop
+
         worldState.loadCollisionMeshes(engine); //once models are loaded in engine worldState can reuse for creating asteroid collision mesh (will probs need moved too)
 
         //set glfw callbacks for input and then capture the mouse 
         glfwSetKeyCallback(window, WorldInput::key_callback);
         glfwSetCursorPosCallback(window, WorldInput::mouse_callback);
         glfwSetScrollCallback(window, WorldInput::scroll_callback);
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+
+        //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+        //this should trigger when we are done with mouse pinter and loaded into world
+        //glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
        
         while (!glfwWindowShouldClose(window)){
             glfwPollEvents(); //keep polling window events
