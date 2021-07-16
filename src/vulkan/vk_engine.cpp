@@ -34,7 +34,6 @@
 #include "vk_pipeline.h"
 #include "vk_mesh.h"
 #include "vk_images.h"
-
 //static var declarations
 VmaAllocator VulkanEngine::allocator;
 QueueFamilyIndices VulkanEngine::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
@@ -42,6 +41,8 @@ VkQueue VulkanEngine::graphicsQueue;
 VkCommandPool VulkanEngine::transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
 VkDevice VulkanEngine::device;
 VkPhysicalDevice VulkanEngine::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
+
+VulkanEngine::RenderStats VulkanEngine::renderStats{RenderStats()}; //needed to make worldstats static because world input callbacks cant see non static
 
 
 VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState& state): window{windowptr}, worldState{state}{}
@@ -81,7 +82,9 @@ void VulkanEngine::init(){
     createCommandBuffers();
     createSyncObjects();
 
-    initUI();
+    uiHandler = new UiHandler(this, window);
+    uiHandler->initUI(window, &device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+                (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
 
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
@@ -99,105 +102,7 @@ void VulkanEngine::loadScene(){
     //creates RenderObjects and associates with WorldObjects, then allocates the textures 
     //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
     init_scene(); 
-    mapMaterialDataToGPU(); 
-
-    //this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(window, &width, &height); //keep checking the size
-    statsPanelSize = ImVec2(width/8, height);
-}
-
-void VulkanEngine::initUI(){
-    ImGui::CreateContext(); //create ImGui context
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
-
-    // Setup Platform/Renderer bindings
-    ImGui_ImplGlfw_InitForVulkan(window, true);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance;
-    init_info.PhysicalDevice = physicalDevice;
-    init_info.Device = device;
-    init_info.QueueFamily = queueFamilyIndicesStruct.graphicsFamily.value();
-    init_info.Queue = graphicsQueue;
-    init_info.PipelineCache = VK_NULL_HANDLE;
-    init_info.DescriptorPool = descriptorPool;
-    init_info.Allocator = nullptr;
-    init_info.MinImageCount = MAX_FRAMES_IN_FLIGHT;
-    init_info.ImageCount = MAX_FRAMES_IN_FLIGHT+1;
-    init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
-
-    //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
-    VkAttachmentDescription attachmentDesc = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
-        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-
-    VkAttachmentReference colourAttachmentRef = vkStructs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &colourAttachmentRef;
-
-    //we are using a SubpassDependency that acts as synchronisation
-    //so we tell Vulkan not to render this subpass until the subpass at index 0 has completed
-    //or specifically at VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage, which is after colour output
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    //now we create the actual renderpass
-    std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
-    attachments.push_back(attachmentDesc);
-
-    VkRenderPassCreateInfo renderPassInfo = vkStructs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
-
-    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
-        throw std::runtime_error("Could not create ImGui render pass");
-    }
-    _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, guiRenderPass, nullptr);});
-
-    //then pass to ImGui implement vulkan init function
-    ImGui_ImplVulkan_Init(&init_info, guiRenderPass);
-
-    //now we copy the font texture to the gpu, we can utilize our single time command functions and transfer command pool
-    VkCommandBuffer command_buffer = beginSingleTimeCommands(transferCommandPool);
-    ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-    endSingleTimeCommands(command_buffer, transferCommandPool, graphicsQueue);
-
-
-    VkCommandPoolCreateInfo poolInfo = vkStructs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
-    if(vkCreateCommandPool(device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
-        throw std::runtime_error("Failed to create gui command pool");
-    }   
-    _swapDeletionQueue.push_function([=](){vkDestroyCommandPool(device, guiCommandPool, nullptr);
-	});
-
-    guiCommandBuffers.resize(swapChainImages.size());
-
-	//allocate the gui command buffer
-	VkCommandBufferAllocateInfo cmdAllocInfo = vkStructs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
-
-	if(vkAllocateCommandBuffers(device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
-            throw std::runtime_error("Unable to allocate gui command buffers");
-    }
-    _swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
-
-    //start by resizing the vector to hold all the framebuffers
-    guiFramebuffers.resize(swapChainImageViews.size());
-    //then iterative through create the framebuffers for each
-    for(size_t i = 0; i < swapChainImageViews.size(); i++){
-        std::vector<VkImageView> attachment = {swapChainImageViews[i]};
-        VkFramebufferCreateInfo framebufferInfo = vkStructs::framebuffer_create_info(guiRenderPass, attachment, swapChainExtent, 1);
-
-        if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
-            throw std::runtime_error("Failed to create gui framebuffer");
-        }
-        _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, guiFramebuffers[i], nullptr);});
-    }
+    mapMaterialDataToGPU();    
 }
 
 void VulkanEngine::allocateDescriptorSetForSkybox(){
@@ -556,94 +461,29 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     }
 
     //now for the UI render pass
-    vkResetCommandBuffer(guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    vkResetCommandBuffer(uiHandler->guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
     
     beginInfo = vkStructs::command_buffer_begin_info(0);
-    if(vkBeginCommandBuffer(guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
+    if(vkBeginCommandBuffer(uiHandler->guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording gui command buffer");
     }
 
-    drawUI(); //then we will draw UI
+    uiHandler->drawUI(); //then we will draw UI
 
     //note that the order of clear values should be identical to the order of attachments 
-    renderPassBeginInfo = vkStructs::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
-    vkCmdBeginRenderPass(guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    renderPassBeginInfo = vkStructs::render_pass_begin_info(uiHandler->guiRenderPass, uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    vkCmdBeginRenderPass(uiHandler->guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Record Imgui Draw Data and draw funcs into command buffer
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), guiCommandBuffers[i]);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), uiHandler->guiCommandBuffers[i]);
 
     //we we can end the render pass
-    vkCmdEndRenderPass(guiCommandBuffers[i]);
+    vkCmdEndRenderPass(uiHandler->guiCommandBuffers[i]);
 
      //and we have finished recording, we check for errrors here
-    if (vkEndCommandBuffer(guiCommandBuffers[i]) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(uiHandler->guiCommandBuffers[i]) != VK_SUCCESS) {
         throw std::runtime_error("failed to record gui command buffer!");
     }
-}
-
-void VulkanEngine::drawUI(){
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-    //ImGui::ShowDemoWindow();
-    gui_ShowOverlay();
-    ImGui::Render();
-}
-
-void VulkanEngine::gui_ShowOverlay(){
-    static int corner = 0;
-    ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
-    
-    const float PAD = 10.0f;
-    const ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-    ImVec2 work_size = viewport->WorkSize;
-  
-    ImVec2 window_pos;
-    window_pos.x = work_pos.x + PAD;
-    window_pos.y = work_pos.y + PAD;
-    ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, ImVec2(0,0));
-    
-    if (ImGui::Begin("Stats", NULL, window_flags)){
-        ImGui::SetWindowSize(statsPanelSize);
-        
-        ImGui::Text("Controls\n");
-        ImGui::Separator();
-        ImGui::Text("ESC toggles mouse control\n");
-        ImGui::Text("SPACE cycles view focus\n");
-        ImGui::Text("P pauses simulation\n");
-        ImGui::Text("[ ] controls time\n\n");
-
-        ImGui::Text("\nEngine\n");
-        ImGui::Separator();
-        ImGui::Text("Framerate: %.1f ms\n", framerate);
-        ImGui::Text("FPS: %.1f fps\n", fps);
-        ImGui::Text("Tickrate: %f\n", 0.0f);
-        ImGui::Text("Simulation Speed: %s\n\n", "Realtime");   
-        
-        ImGui::Text("\nLander\n");     
-        ImGui::Separator();
-        ImGui::Text("Velocity: %f m/s\n", 0.0f);
-        ImGui::Text("Rotation: %f m/s\n", 0.0f);
-        ImGui::Text("Grav Force: %f N\n\n", 0.0f);
-        ImGui::Separator();
-       // if (ImGui::BeginPopupContextWindow())
-       // {
-            //if (ImGui::MenuItem("Custom",       NULL, corner == -1)) corner = -1;
-           // if (p_open && ImGui::MenuItem("Close")) *p_open = false;
-            //ImGui::EndPopup();
-       // }
-    }
-    ImGui::End();
-}
-
-void VulkanEngine::gui_ShowMenu(){
-
-}
-
-void VulkanEngine::gui_ShowLoading(){
-
 }
  
 void VulkanEngine::drawFrame(){
@@ -678,13 +518,10 @@ void VulkanEngine::drawFrame(){
 
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
-    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
-    //std::vector<VkCommandBuffer> buffers = {&_frames[imageIndex]._mainCommandBuffer, &guiCommandBuffers[currentFrame]};
+    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, uiHandler->guiCommandBuffers[imageIndex]};
     VkSubmitInfo submitInfo = vkStructs::submit_info(buffers, 2, waitSemaphores, 1, 
         waitStages, signalSemaphores, 1);
-    //VkSubmitInfo submitInfo = vkStructs::submit_info(&_frames[imageIndex]._mainCommandBuffer, waitSemaphores, 1, 
-    //    waitStages, signalSemaphores, 1);
-
+    
     //move our reset fences here, its best to simply reset a fence right before its used
     vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
 
@@ -720,23 +557,20 @@ void VulkanEngine::drawFrame(){
 void VulkanEngine::calculateFrameRate(){
     double currentFrameTime = glfwGetTime();
     if(currentFrameTime - previousFrameTime >= 1.0 ){ // If last update was more than 1 sec ago
-        framerate = 1000.0/double(frameCounter-previousFrameCount);
-        fps = frameCounter-previousFrameCount;
+        renderStats.framerate = 1000.0/double(frameCounter-previousFrameCount);
+        renderStats.fps = frameCounter-previousFrameCount;
         previousFrameTime += 1.0;
         previousFrameCount = frameCounter;
      }
 }
 
-void VulkanEngine::cleanup()
-{
+void VulkanEngine::cleanup(){
     vkDeviceWaitIdle(device); //maske sure device is idle and not mid draw
 
     cleanupSwapChain();
 
-    //destroy imgui elements
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+    uiHandler->cleanup();
+    delete uiHandler;
 
     _mainDeletionQueue.flush();
 
@@ -1834,7 +1668,8 @@ void VulkanEngine::recreateSwapChain(){
     init_pipelines(); //viewport and scissor rectangle size is specified during graphics pipeline creation, so the pipeline needs rebuilt    
     createCommandBuffers(); //cammand buffers depend directly on swap chain images
     
-    initUI();
+    uiHandler->initUI(window, &device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+                (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
 
     //probs then need to link descriptors etc back to the materials?
     
@@ -1888,4 +1723,8 @@ size_t VulkanEngine::pad_uniform_buffer_size(size_t originalSize){
 		alignedSize = (alignedSize + minUboAlignment - 1) & ~(minUboAlignment - 1);
 	}
 	return alignedSize;
+}
+
+VulkanEngine::RenderStats VulkanEngine::getRenderStats(){
+    return renderStats;
 }

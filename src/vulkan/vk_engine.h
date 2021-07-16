@@ -12,14 +12,9 @@
 #include "vk_mesh.h"
 #include <unordered_map>
 #include "world_state.h"
+#include "ui_handler.h"
 
-#include <imgui.h> //basic gui library for drawing simple guis
-#include <imgui_impl_glfw.h> //backends for glfw
-#include <imgui_impl_vulkan.h> //and vulkan
-#include <imconfig.h> //empty by default, user config
-#include <imstb_rectpack.h>
-#include <imstb_textedit.h>
-#include <imstb_truetype.h>
+class UiHandler; //forward declare
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -67,6 +62,30 @@ const bool enableValidationLayers = true; //if we are we want to use Validation 
 
 class VulkanEngine {
 public:
+
+    static struct RenderStats{
+        double framerate = 0;
+        double fps = 0;
+    }renderStats;
+
+    static RenderStats getRenderStats();
+
+    struct DeletionQueue{
+        std::deque<std::function<void()>> deletors;
+        void push_function(std::function<void()>&& function) {
+            deletors.push_back(function);
+        }
+        void flush() {
+            // reverse iterate the deletion queue to execute all the functions
+            for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+                (*it)(); //call functors
+            }
+            deletors.clear();
+        }
+    };
+    DeletionQueue _mainDeletionQueue;
+    DeletionQueue _swapDeletionQueue;
+
     //constructor, should have code to enforce one instance
     VulkanEngine(GLFWwindow* windowptr, WorldState& state);
     //Exposed Functions for Main.cpp
@@ -94,18 +113,11 @@ public:
     std::vector<uint32_t>& get_allIndices();
 
     Mesh* get_mesh(const std::string& name);
-
+    UiHandler* uiHandler;
 private:
-    void drawUI(); //draw UI
+
     void loadScene(); //loads scene 
-    void gui_ShowOverlay(); //holds configuration for statistics window
-    void gui_ShowMenu(); //holds configuration for main fullscreen menu
-    void gui_ShowLoading(); //holds configuration for main loading bar
     void calculateFrameRate();
-
-    ImVec2 statsPanelSize;
-    
-
 
     /****** Engine Variables && Functions
      * 
@@ -128,7 +140,6 @@ private:
     VkExtent2D swapChainExtent; //stores the extent we specified in the swap chain for later use
     std::vector<VkImageView> swapChainImageViews; //stores the image views
     VkRenderPass renderPass; //handle to render pass object
-    VkRenderPass guiRenderPass; //handle to gui render pass
     
     std::vector<VkFramebuffer> swapChainFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
     
@@ -138,10 +149,8 @@ private:
     size_t currentFrame = 0; //tracks the current frame based on MAX_FRAMES_IN_FLIGHT and acts as an index for imageAvailable and renderFinished semaphores
     uint32_t frameCounter = 0;
 
-    double framerate = 0; //used to track framerate
     uint32_t previousFrameCount = 0; //used to track framerate
     double previousFrameTime = 0; //used to track framerate
-    double fps = 0; //used to track framerate
 
     std::vector<FrameData> _frames; //stores per frame variables like buffers and synchronization variables
 
@@ -153,10 +162,6 @@ private:
     VkPipeline skyboxPipeline;
     VkPipelineLayout _skyboxPipelineLayout;
     
-    VkCommandPool guiCommandPool;
-    std::vector<VkCommandBuffer> guiCommandBuffers;
-    std::vector<VkFramebuffer> guiFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
-
     //Functions
 
     //Init
@@ -174,7 +179,7 @@ private:
     void init_pipelines(); //load and configure pipelines and correspending shader stages and assign to materials
     void createSyncObjects();
     void init_scene(); //assign and configure RenderObjects to display in the scene
-    void initUI();
+    
     //Render Loop
     void drawObjects(int currentFrame);
     void rerecordCommandBuffer(int i);
@@ -221,8 +226,6 @@ private:
     //Functions
     void populateCameraData(GPUCameraData& camData);
     void updateObjectTranslations();
-    
-
 
     /****** Related Buffer Variables
      * 
@@ -340,29 +343,13 @@ private:
      * 
      * 
      * */  
-    //static VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
-    //static void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size); //no need for public right now 
     UploadContext _uploadContext; //could be in public
-    void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+    //void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
     size_t pad_uniform_buffer_size(size_t originalSize);
     //struct for helping with vk object deletion, qeues up functions and executes them when flush() is called
     //so useful!
-    struct DeletionQueue{
-        std::deque<std::function<void()>> deletors;
-        void push_function(std::function<void()>&& function) {
-            deletors.push_back(function);
-        }
-        void flush() {
-            // reverse iterate the deletion queue to execute all the functions
-            for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
-                (*it)(); //call functors
-            }
-            deletors.clear();
-        }
-    };
-    DeletionQueue _mainDeletionQueue;
-    DeletionQueue _swapDeletionQueue;
+    
 };
 
 #endif /* !VK_ENGINE_D */

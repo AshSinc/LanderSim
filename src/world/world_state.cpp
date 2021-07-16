@@ -9,20 +9,28 @@
 #include <glm/gtx/fast_square_root.hpp>
 
 //static vars world configuration
-bool WorldState::RANDOMIZE_START = true; //set true to randomize starting positions,velocities,rotations
+bool WorldState::RANDOMIZE_START = false; //set true to randomize starting positions,velocities,rotations
 bool WorldState::LANDER_COLLISION_COURSE = false; //if false will set the lander initial trajectory to narrowly avoid asteroid
 float WorldState::MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
 float WorldState::LANDER_START_DISTANCE = 150.0f;
-float WorldState::LANDER_PASS_DISTANCE = 80.0f;//only used if LANDER_COLLISION_COURSE=false
+float WorldState::LANDER_PASS_DISTANCE = 30.0f;//only used if LANDER_COLLISION_COURSE=false
 float WorldState::INITIAL_LANDER_SPEED = 1.5f;
 float WorldState::ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
+
+//static vars world simulation configuration
+int WorldState::SUBSTEP_SAFETY_MARGIN = 1; //need to test
 
 //static vars
 WorldCamera WorldState::camera{WorldCamera()};
 std::vector<WorldObject> WorldState::objects{};
+WorldState::WorldStats WorldState::worldStats{WorldStats()}; //needed to make worldstats static because world input callbacks cant see non static
 
 void WorldState::addObject(std::vector<WorldObject>& container, WorldObject obj){
     container.push_back(obj);
+}
+
+WorldState* WorldState::getWorld(){
+    return this;
 }
 
 WorldCamera& WorldState::getWorldCamera(){
@@ -48,54 +56,108 @@ void WorldState::updateDeltaTime(){
     lastTime = now;
 }
 
-float WorldState::deltaTime = 0.0f;
+//need a sync object here, semaphore 
+void WorldState::setSimSpeedMultiplier(float multiplier){
+    worldStats.timeStepMultiplier = multiplier;
+}
+
+double WorldState::deltaTime = 0.0;
 
 void WorldState::worldTick(){
 	///-----stepsimulation_start-----
-    dynamicsWorld->stepSimulation(1.f / 60.f, 0); //60 or 100 0.016
+    if(worldStats.timeStepMultiplier != 0){ //if we are not paused
+        //ISSUE
+        //timesteps and maxsubsteps are likely not accurate
+        //SOLUTION
+        //understand how bullet handles this first, and find examples
+        float fixedTimeStep = 0.01666666754F;
+        float timeStep = deltaTime*worldStats.timeStepMultiplier;
+        int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN;
+        std::cout << "Timestep: "<< timeStep << "\n";
+        std::cout << "Max substeps: "<< maxSubSteps << "\n";
+        dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
 
-    //update positions of world objects from similation transforms
-    for (int j = dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--){
-        btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[j];
-        btRigidBody* body = btRigidBody::upcast(obj);
-        btTransform trans;
-        if (body && body->getMotionState()){
-            body->getMotionState()->getWorldTransform(trans);
+        //update positions of world objects from similation transforms
+        for (int j = dynamicsWorld->getNumCollisionObjects() - 1; j >= 0; j--){
+            btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[j];
+            btRigidBody* body = btRigidBody::upcast(obj);
+            btTransform trans;
+            if (body && body->getMotionState()){
+                body->getMotionState()->getWorldTransform(trans);
+            }
+            else{
+                trans = obj->getWorldTransform();
+            }
+            //update positions of objects, could clean, need to id objects properly across the project
+            //statically referenced everywhere and will break when objects added or removed
+            btVector3 transform = trans.getOrigin();
+            btQuaternion rotation = trans.getRotation();
+            glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f),rotation.getAngle(),glm::vec3(rotation.getAxis().getX(), rotation.getAxis().getY(), rotation.getAxis().getZ()));
+            if(j==0){
+                objects[4].rot = rotationMatrix;
+                objects[4].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
+            }
+            if(j==1){
+                objects[2].rot = rotationMatrix;
+                objects[2].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
+                
+                //each tick we will set the gravity for the lander to be in the direction of the asteroid, reduced by distance
+                btVector3 direction = -btVector3(transform.getX(),transform.getY(),transform.getZ());
+                
+                //stored for retrival in UI with getGravitationalForce()
+                //gravitationalForce = ASTEROID_GRAVITATIONAL_FORCE*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
+                worldStats.gravitationalForce = ASTEROID_GRAVITATIONAL_FORCE*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
+                
+                //body->setGravity(direction.normalize()*gravitationalForce);
+                body->setGravity(direction.normalize()*worldStats.gravitationalForce);
+
+                //will also need a local velocity, subtracting the asteroid rotational velocity, maths...
+                //landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
+                worldStats.landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
+            }
         }
-        else{
-            trans = obj->getWorldTransform();
-        }
-        //update positions of objects, could clean, need to id objects properly across the project
-        //statically referenced everywhere and will break when objects added or removed
-        btVector3 transform = trans.getOrigin();
-        btQuaternion rotation = trans.getRotation();
-        glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f),rotation.getAngle(),glm::vec3(rotation.getAxis().getX(), rotation.getAxis().getY(), rotation.getAxis().getZ()));
-        if(j==0){
-            objects[4].rot = rotationMatrix;
-            objects[4].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
-        }
-        if(j==1){
-            objects[2].rot = rotationMatrix;
-            objects[2].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
-            
-            //each tick we will set the gravity for the lander to be in the direction of the asteroid, reduced by distance
-            btVector3 direction = -btVector3(transform.getX(),transform.getY(),transform.getZ());
-            
-            float gravitationalForce = ASTEROID_GRAVITATIONAL_FORCE*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
-            
-            body->setGravity(direction.normalize()*gravitationalForce);
+
+        //check for collisions active and do something (start a timer, compare velocities over time, if minimal motion then end sim state)
+        //get number of overlapping manifolds and iterate over them
+        int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
+        for (int i = 0; i < numManifolds; i++){
+            btPersistentManifold * contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+            //get number of contact points and iterate over them
+            int numContacts = contactManifold->getNumContacts();
+            if (numContacts > 0){
+                btScalar totalImpact = 0.f;
+                for (int p = 0; p < contactManifold->getNumContacts(); p++){
+                    totalImpact += contactManifold->getContactPoint(p).getAppliedImpulse();
+                }
+
+                //ISSUE
+                //totalImpact should be scaled by simulation time (deltaTime), but 
+                //Likely related to abode ISSUE of timesteps
+                //SOLUTION
+                //Fix timesteps first, finda  way to test
+
+                totalImpact*=deltaTime;
+                std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
+
+                if(totalImpact > 0){
+                    //lastImpactForce = totalImpact;
+                    worldStats.lastImpactForce = totalImpact;
+                    //if(lastImpactForce > largestImpactForce)
+                    if(worldStats.lastImpactForce > worldStats.largestImpactForce)
+                        //largestImpactForce = lastImpactForce;
+                        worldStats.largestImpactForce = worldStats.lastImpactForce;
+
+                    if (totalImpact > 5.f)
+                        std::cout << "Lander Destroyed\n";
+                }
+            }
         }
     }
+}
 
-    //check for collisions active and do something (start a timer, compare velocities over time, if minimal motion then end sim state)
-    int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
-    for (int i = 0; i < numManifolds; i++){
-        btPersistentManifold * contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
-        int numContacts = contactManifold->getNumContacts();
-        if (numContacts > 0){
-            std::cout << "collision found at dtime  " << deltaTime << "\n";
-        }
-    }
+//needs a semaphore or sync protection
+WorldState::WorldStats WorldState::getWorldStats(){
+    return worldStats;
 }
 
 void WorldState::mainLoop(){
@@ -243,12 +305,14 @@ void WorldState::loadCollisionMeshes(VulkanEngine& engine){
 
         //calculate initial direction of travel
         btVector3 direction;
-        if(LANDER_COLLISION_COURSE)
+        if(LANDER_COLLISION_COURSE || !RANDOMIZE_START)
             //dest-current position is the direction, dest is origin so just negate
             direction = -landerTransform.getOrigin();
         else
             //instead of origin pick a random point LANDER_START_DISTANCE away from the asteroid
             direction = getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_PASS_DISTANCE)-landerTransform.getOrigin();
+        //else
+        //     direction = btVector3(, , )-landerTransform.getOrigin();
         landerRB->setLinearVelocity(direction.normalize()*INITIAL_LANDER_SPEED); //start box falling towards asteroid
 
 		dynamicsWorld->addRigidBody(landerRB);
@@ -280,7 +344,6 @@ btVector3 WorldState::getPointOnSphere(float pitch, float yaw, float radius){
     result.setZ(radius * cos(glm::radians(pitch)));
     return result;
 }
-
 
 //instanciate the world space
 //adds default objects to scene

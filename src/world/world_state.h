@@ -66,18 +66,42 @@ class WorldState{
     static float ASTEROID_GRAVITATIONAL_FORCE;
     float getRandFloat(float min, float max);
     btVector3 getPointOnSphere(float pitch, float yaw, float radius);
-
+    //lander physics vars
+    //static float gravitationalForce;
+    //static float landerVelocity;
+    //static float lastImpactForce;
+    //static float largestImpactForce;
+    //physics sim vars
+    static int SUBSTEP_SAFETY_MARGIN;
 
 public:
+    static struct WorldStats{
+        float timeStepMultiplier = 1;
+        float gravitationalForce = 0;
+        float landerVelocity = 0;
+        float lastImpactForce = 0;
+        float largestImpactForce = 0;
+    }worldStats;
+    static WorldStats getWorldStats();
+    //static float timeStepMultiplier;
+    void setSimSpeedMultiplier(float multiplier);
+    //static float getGravitationalForce(); //returns the gravitationalForce var of lander
+    //static float getLanderVelocity(); //returns the velocity of lander
+    //static float getLastImpactForce(); //returns 
+    //static float getLargestImpactForce(); //returns
+    
     void loadCollisionMeshes(VulkanEngine& engine); //load bullet collision meshes, 
-    static float deltaTime; // Time between current frame and last frame
+    static double deltaTime; // Time between current frame and last frame
     std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
     void updateDeltaTime();
     void worldTick();
+    WorldState* getWorld();
     static WorldCamera& getWorldCamera();
     static std::vector<WorldObject>& getWorldObjects();
     std::vector<WorldPointLightObject>& getWorldPointLightObjects();
     std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
+
+    
     
     WorldLightObject scenelight;
     std::vector<WorldPointLightObject> pointLights;
