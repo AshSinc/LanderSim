@@ -7,13 +7,18 @@
 #include <imstb_textedit.h>
 #include <imstb_truetype.h>
 #include <vector>
-#include "vk_engine.h"
-//#include <GLFW/glfw3.h>
+
+//forward declare
+class VulkanEngine;
+class WorldState;
+class WorldInput;
 
 class UiHandler{
     private:
-    VulkanEngine* engine;
-    GLFWwindow* window;
+    VulkanEngine* p_engine;
+    GLFWwindow* p_window;
+    WorldState* p_worldState;
+    WorldInput* p_worldInput;
     
     void loadScene(); //loads scene 
     void gui_ShowOverlay(); //holds configuration for statistics window
@@ -23,27 +28,29 @@ class UiHandler{
     void calculateFrameRate();
     void updateUIPanelDimensions(GLFWwindow* window);
     
-
     ImVec2 statsPanelSize;
     ImVec2 mainMenuPanelSize;
     ImVec2 mainMenuPanelPos;
     ImVec2 escMenuPanelSize;
     ImVec2 escMenuPanelPos;
 
+    bool showEscMenu = false;
     public:
-    static bool showEscMenu;
+    bool getShowEscMenu();
+    void setShowEscMenu(bool b);
     VkRenderPass guiRenderPass; //handle to gui render pass
     VkCommandPool guiCommandPool;
     std::vector<VkCommandBuffer> guiCommandBuffers;
     std::vector<VkFramebuffer> guiFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
-    void initUI(GLFWwindow* window, VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
+    void initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
                         VkDescriptorPool* descriptorPool, uint32_t imageCount, VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
                         VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews);
     void updateUIPanelDimensions();
     void drawUI(); //draw UI
     void passEngine(VulkanEngine* engine);
+    void setWorld(WorldState* worldState);
     void cleanup();
     //UiHandler();
-    UiHandler(VulkanEngine* engine, GLFWwindow* window);
+    UiHandler(GLFWwindow* window, VulkanEngine* engine);
     ~UiHandler();
 };

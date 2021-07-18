@@ -11,6 +11,7 @@
 
 class VulkanEngine; //forward reference, because we reference this before defining it
 class Mesh; //forward reference, because we reference this before defining it
+class WorldInput;
 
 struct WorldObject{
     glm::vec3 pos;
@@ -42,8 +43,48 @@ struct WorldCamera{
 };
 //class VulkanEngine;
 class WorldState{
-    private:
-    static WorldCamera camera;
+public:
+    struct WorldStats{
+        float timeStepMultiplier = 1;
+        float gravitationalForce = 0;
+        float landerVelocity = 0;
+        float lastImpactForce = 0;
+        float largestImpactForce = 0;
+    }worldStats;
+    WorldStats getWorldStats();
+    void setSimSpeedMultiplier(float multiplier);
+    
+    void loadCollisionMeshes(VulkanEngine& engine); //load bullet collision meshes, 
+    static double deltaTime; // Time between current frame and last frame
+    std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
+    void updateDeltaTime();
+    void worldTick();
+    WorldState* getWorld();
+    WorldCamera* getWorldCamera();
+    std::vector<WorldObject>* getWorldObjects();
+    std::vector<WorldPointLightObject>& getWorldPointLightObjects();
+    std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
+
+    void updateCamera(glm::vec3 newPos, glm::vec3 front);
+    
+    WorldLightObject scenelight;
+    std::vector<WorldPointLightObject> pointLights;
+    std::vector<WorldSpotLightObject> spotLights;
+
+    
+    std::vector<WorldObject> objects{}; //init default
+    void addObject(std::vector<WorldObject>& container, WorldObject obj);
+
+    void setInput(WorldInput* input);
+
+    void mainLoop();
+    WorldState();
+    ~WorldState();
+
+private:
+    
+    WorldCamera camera = WorldCamera(); //init default constructor
+    WorldInput* p_worldInput;
     //Bullet vars
     btDiscreteDynamicsWorld* dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
@@ -57,62 +98,17 @@ class WorldState{
     void initLights();
     void initBullet();
     void cleanupBullet();   
-    static bool RANDOMIZE_START;
-    static bool LANDER_COLLISION_COURSE;
-    static float MAX_ASTEROID_ROTATION_VELOCITY;
-    static float LANDER_START_DISTANCE;
-    static float LANDER_PASS_DISTANCE;
-    static float INITIAL_LANDER_SPEED;
-    static float ASTEROID_GRAVITATIONAL_FORCE;
+    bool RANDOMIZE_START = false;
+    bool LANDER_COLLISION_COURSE = false;
+    float MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
+    float LANDER_START_DISTANCE = 150.0f;
+    float LANDER_PASS_DISTANCE = 30.0f;
+    float INITIAL_LANDER_SPEED = 1.5f;
+    float ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
+    //physics sim vars
+    int SUBSTEP_SAFETY_MARGIN = 1; //need to redo timestep code completely
+
     float getRandFloat(float min, float max);
     btVector3 getPointOnSphere(float pitch, float yaw, float radius);
-    //lander physics vars
-    //static float gravitationalForce;
-    //static float landerVelocity;
-    //static float lastImpactForce;
-    //static float largestImpactForce;
-    //physics sim vars
-    static int SUBSTEP_SAFETY_MARGIN;
-
-public:
-    static struct WorldStats{
-        float timeStepMultiplier = 1;
-        float gravitationalForce = 0;
-        float landerVelocity = 0;
-        float lastImpactForce = 0;
-        float largestImpactForce = 0;
-    }worldStats;
-    static WorldStats getWorldStats();
-    //static float timeStepMultiplier;
-    void setSimSpeedMultiplier(float multiplier);
-    //static float getGravitationalForce(); //returns the gravitationalForce var of lander
-    //static float getLanderVelocity(); //returns the velocity of lander
-    //static float getLastImpactForce(); //returns 
-    //static float getLargestImpactForce(); //returns
-    
-    void loadCollisionMeshes(VulkanEngine& engine); //load bullet collision meshes, 
-    static double deltaTime; // Time between current frame and last frame
-    std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
-    void updateDeltaTime();
-    void worldTick();
-    WorldState* getWorld();
-    static WorldCamera& getWorldCamera();
-    static std::vector<WorldObject>& getWorldObjects();
-    std::vector<WorldPointLightObject>& getWorldPointLightObjects();
-    std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
-
-    
-    
-    WorldLightObject scenelight;
-    std::vector<WorldPointLightObject> pointLights;
-    std::vector<WorldSpotLightObject> spotLights;
-
-    static std::vector<WorldObject> objects;
-
-    void addObject(std::vector<WorldObject>& container, WorldObject obj);
-
-    void mainLoop();
-    WorldState();
-    ~WorldState();
 };
 

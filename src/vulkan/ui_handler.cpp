@@ -1,11 +1,10 @@
 #include "ui_handler.h"
 #include "vk_structs.h"
+#include "vk_engine.h"
+#include "world_state.h"
 #include "world_input.h"
 
-//static
-bool UiHandler::showEscMenu = false;
-
-UiHandler::UiHandler(VulkanEngine* engine, GLFWwindow* window) : engine{engine}, window{window}{
+UiHandler::UiHandler(GLFWwindow* window, VulkanEngine* engine) : p_window{window}, p_engine{engine}{
 }
 
 void UiHandler::cleanup(){
@@ -20,15 +19,19 @@ void UiHandler::passEngine(VulkanEngine* engine){
     engine = engine;
 }
 
-void UiHandler::initUI(GLFWwindow* window, VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
+void UiHandler::setWorld(WorldState* worldState){
+    p_worldState = worldState;
+}
+
+void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
                         VkDescriptorPool* descriptorPool, uint32_t imageCount, VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
                         VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews){
-                            //VkExtent2D* swapChainExtent, std::vector<VkImageView, std::allocator<VkImageView>>* swapChainImageViews){
+
     ImGui::CreateContext(); //create ImGui context
-    ImGuiIO& io = ImGui::GetIO(); //;//(void)io;
+    ImGuiIO& io = ImGui::GetIO();
     ImGui::StyleColorsDark();
     // Setup Platform/Renderer bindings
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(p_window, true);
     ImGui_ImplVulkan_InitInfo init_info = {};
     
     init_info.Instance = *instance;
@@ -75,22 +78,22 @@ void UiHandler::initUI(GLFWwindow* window, VkDevice* device, VkPhysicalDevice* p
         throw std::runtime_error("Could not create ImGui render pass");
     }
 
-    engine->_swapDeletionQueue.push_function([=](){vkDestroyRenderPass(*device, guiRenderPass, nullptr);});
+    p_engine->_swapDeletionQueue.push_function([=](){vkDestroyRenderPass(*device, guiRenderPass, nullptr);});
 
     //then pass to ImGui implement vulkan init function
     ImGui_ImplVulkan_Init(&init_info, guiRenderPass);
 
     //now we copy the font texture to the gpu, we can utilize our single time command functions and transfer command pool
-    VkCommandBuffer command_buffer = engine->beginSingleTimeCommands(*transferCommandPool);
+    VkCommandBuffer command_buffer = p_engine->beginSingleTimeCommands(*transferCommandPool);
     ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
-    engine->endSingleTimeCommands(command_buffer, *transferCommandPool, *graphicsQueue);
+    p_engine->endSingleTimeCommands(command_buffer, *transferCommandPool, *graphicsQueue);
 
 
     VkCommandPoolCreateInfo poolInfo = vkStructs::command_pool_create_info(graphicsQueueFamily);
     if(vkCreateCommandPool(*device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
         throw std::runtime_error("Failed to create gui command pool");
     }   
-    engine->_swapDeletionQueue.push_function([=](){vkDestroyCommandPool(*device, guiCommandPool, nullptr);
+    p_engine->_swapDeletionQueue.push_function([=](){vkDestroyCommandPool(*device, guiCommandPool, nullptr);
 	});
 
     guiCommandBuffers.resize(imageCount);
@@ -101,7 +104,7 @@ void UiHandler::initUI(GLFWwindow* window, VkDevice* device, VkPhysicalDevice* p
 	if(vkAllocateCommandBuffers(*device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
             throw std::runtime_error("Unable to allocate gui command buffers");
     }
-    engine->_swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(*device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
+    p_engine->_swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(*device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
 
     //start by resizing the vector to hold all the framebuffers
     guiFramebuffers.resize(imageCount);
@@ -114,9 +117,9 @@ void UiHandler::initUI(GLFWwindow* window, VkDevice* device, VkPhysicalDevice* p
         if(vkCreateFramebuffer(*device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
             throw std::runtime_error("Failed to create gui framebuffer");
         }
-        engine->_swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(*device, guiFramebuffers[i], nullptr);});
+        p_engine->_swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(*device, guiFramebuffers[i], nullptr);});
     }
-    updateUIPanelDimensions(window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
+    updateUIPanelDimensions(p_window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
 }
 
 
@@ -169,8 +172,8 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("P pauses simulation\n");
         ImGui::Text("[ ] controls time\n\n");
 
-        WorldState::WorldStats worldStats = WorldState::getWorldStats();
-        VulkanEngine::RenderStats renderStats = VulkanEngine::getRenderStats();
+        WorldState::WorldStats worldStats = p_worldState->getWorldStats();
+        VulkanEngine::RenderStats renderStats = p_engine->getRenderStats();
 
         ImGui::Text("\nEngine\n");
         ImGui::Separator();
@@ -198,7 +201,7 @@ void UiHandler::gui_ShowEscMenu(){
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("EscMenu", NULL, window_flags)){
         if (ImGui::Button("Return to Sim", ImVec2(150,50)))
-            WorldInput::toggleMenu(window);
+            p_worldInput->toggleMenu(p_window);
         if (ImGui::Button("Options", ImVec2(150,50)))
             std::cout << "Show options\n";
         if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
@@ -231,4 +234,12 @@ void UiHandler::gui_ShowMainMenu(){
         //ImGui::Unindent();
     }
     ImGui::End();
+}
+
+bool UiHandler::getShowEscMenu(){
+    return showEscMenu;
+}
+
+void UiHandler::setShowEscMenu(bool b){
+    showEscMenu = b;
 }

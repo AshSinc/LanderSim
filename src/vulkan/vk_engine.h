@@ -11,10 +11,9 @@
 #include "vk_debug_msg.h"
 #include "vk_mesh.h"
 #include <unordered_map>
-#include "world_state.h"
-#include "ui_handler.h"
 
 class UiHandler; //forward declare
+class WorldState;
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -63,12 +62,12 @@ const bool enableValidationLayers = true; //if we are we want to use Validation 
 class VulkanEngine {
 public:
 
-    static struct RenderStats{
+    struct RenderStats{
         double framerate = 0;
         double fps = 0;
     }renderStats;
 
-    static RenderStats getRenderStats();
+    RenderStats getRenderStats();
 
     struct DeletionQueue{
         std::deque<std::function<void()>> deletors;
@@ -87,9 +86,9 @@ public:
     DeletionQueue _swapDeletionQueue;
 
     //constructor, should have code to enforce one instance
-    VulkanEngine(GLFWwindow* windowptr, WorldState& state);
+    VulkanEngine(GLFWwindow* windowptr, WorldState* state);
     //Exposed Functions for Main.cpp
-    void init(); //initialise engine
+    void init(UiHandler* uiHandler); //initialise engine
     void drawFrame(); //draw a frame
     void cleanup(); //cleanup objects
 
@@ -113,9 +112,9 @@ public:
     std::vector<uint32_t>& get_allIndices();
 
     Mesh* get_mesh(const std::string& name);
-    UiHandler* uiHandler;
+    
 private:
-
+    UiHandler* p_uiHandler;
     void loadScene(); //loads scene 
     void calculateFrameRate();
 
@@ -222,7 +221,7 @@ private:
      * 
      * */
     //Vars
-    WorldState& worldState;
+    WorldState* p_worldState;
     //Functions
     void populateCameraData(GPUCameraData& camData);
     void updateObjectTranslations();

@@ -34,6 +34,10 @@
 #include "vk_pipeline.h"
 #include "vk_mesh.h"
 #include "vk_images.h"
+
+#include "world_state.h"
+#include "ui_handler.h"
+
 //static var declarations
 VmaAllocator VulkanEngine::allocator;
 QueueFamilyIndices VulkanEngine::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
@@ -42,12 +46,9 @@ VkCommandPool VulkanEngine::transferCommandPool; //stores our transient command 
 VkDevice VulkanEngine::device;
 VkPhysicalDevice VulkanEngine::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
-VulkanEngine::RenderStats VulkanEngine::renderStats{RenderStats()}; //needed to make worldstats static because world input callbacks cant see non static
+VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState* state): window{windowptr}, p_worldState{state}{}
 
-
-VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState& state): window{windowptr}, worldState{state}{}
-
-void VulkanEngine::init(){
+void VulkanEngine::init(UiHandler* uiHandler){
 
     createVkInstance();
     if (enableValidationLayers){
@@ -82,9 +83,11 @@ void VulkanEngine::init(){
     createCommandBuffers();
     createSyncObjects();
 
-    uiHandler = new UiHandler(this, window);
-    uiHandler->initUI(window, &device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+    p_uiHandler = uiHandler;
+
+    p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
                 (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
+    
 
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
@@ -175,7 +178,7 @@ void VulkanEngine::createSamplers(){
 void VulkanEngine::init_scene(){   
     _renderables.clear();    
 
-    RenderObject skybox{worldState.objects[0]};
+    RenderObject skybox{p_worldState->objects[0]};
     skybox.meshId = get_mesh("box")->id;
     //box.material = get_material("defaultmesh");
     //box.material->diffuse = glm::vec3(0,0,1);
@@ -184,7 +187,7 @@ void VulkanEngine::init_scene(){
     _renderables.push_back(skybox);
 
     //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject starSphere{worldState.objects[1]};
+    RenderObject starSphere{p_worldState->objects[1]};
     starSphere.meshId = get_mesh("sphere")->id;
     starSphere.material = get_material("unlitmesh");
     starSphere.material->diffuse = glm::vec3(1,0.5f,0.31f);
@@ -193,7 +196,7 @@ void VulkanEngine::init_scene(){
     _renderables.push_back(starSphere);
 
     //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject sphereLight{worldState.pointLights[0]};
+    RenderObject sphereLight{p_worldState->pointLights[0]};
     sphereLight.meshId = get_mesh("sphere")->id;
     sphereLight.material = get_material("unlitmesh");
     sphereLight.material->diffuse = glm::vec3(1,0.5f,0.31f);
@@ -206,7 +209,7 @@ void VulkanEngine::init_scene(){
     //sphere2.material = get_material("unlitmesh");
     //_renderables.push_back(sphere2);
 
-    RenderObject box{worldState.objects[2]};
+    RenderObject box{p_worldState->objects[2]};
     box.meshId = get_mesh("box")->id;
     box.material = get_material("defaultmesh");
     box.material->diffuse = glm::vec3(0,0,1);
@@ -215,18 +218,18 @@ void VulkanEngine::init_scene(){
     _renderables.push_back(box);
 
     //make a copy
-    RenderObject box2{worldState.spotLights[0]};
+    RenderObject box2{p_worldState->spotLights[0]};
     box2.meshId = get_mesh("box")->id;
     box2.material = get_material("unlitmesh");
     _renderables.push_back(box2);
 
-    RenderObject satellite{worldState.objects[3]};
+    RenderObject satellite{p_worldState->objects[3]};
     satellite.meshId = get_mesh("satellite")->id;
     satellite.material = get_material("texturedmesh2");
     satellite.material->extra.x = 2048;
     _renderables.push_back(satellite);
 
-    RenderObject asteroid{worldState.objects[4]};
+    RenderObject asteroid{p_worldState->objects[4]};
     asteroid.meshId = get_mesh("asteroid")->id;
     asteroid.material = get_material("texturedmesh1"); //comment out
     //asteroid.material = get_material("defaultmesh");
@@ -263,9 +266,9 @@ void VulkanEngine::updateObjectTranslations(){
 }
 
 void VulkanEngine::populateCameraData(GPUCameraData& camData){
-    WorldCamera& worldCam = worldState.getWorldCamera();
-    glm::vec3 camPos = worldCam.cameraPos ;
-    glm::mat4 view = glm::lookAt(camPos, camPos + worldCam.cameraFront, worldCam.cameraUp);
+    WorldCamera* worldCam = p_worldState->getWorldCamera();
+    glm::vec3 camPos = worldCam->cameraPos;
+    glm::mat4 view = glm::lookAt(camPos, camPos + worldCam->cameraFront, worldCam->cameraUp);
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 15000.0f);
     //GLM was originally designed for OpenGL, where the Y coordinate of the clip coordinates is inverted, so we simply flip it
     //view[1][1] *= -1; //<--- really trippy :)
@@ -303,7 +306,7 @@ void VulkanEngine::mapLightingDataToGPU(){
 }
 
 void VulkanEngine::updateSceneData(GPUCameraData& camData){
-    WorldLightObject& sceneLight = worldState.scenelight;
+    WorldLightObject& sceneLight = p_worldState->scenelight;
     _sceneParameters.lightDirection = glm::vec4(camData.view * glm::vec4(sceneLight.pos, 0));
     _sceneParameters.lightAmbient = glm::vec4(sceneLight.ambient, 1);
     _sceneParameters.lightDiffuse = glm::vec4(sceneLight.diffuse, 1);
@@ -312,7 +315,7 @@ void VulkanEngine::updateSceneData(GPUCameraData& camData){
 
 //point lights
 void VulkanEngine::updateLightingData(GPUCameraData& camData){
-    std::vector<WorldPointLightObject>& worldPointLights = worldState.getWorldPointLightObjects();
+    std::vector<WorldPointLightObject>& worldPointLights = p_worldState->getWorldPointLightObjects();
     for(int i = 0; i < worldPointLights.size(); i++){
         _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(worldPointLights[i].pos, 1));
         _pointLightParameters[i].diffuse = worldPointLights[i].diffuse;
@@ -320,7 +323,7 @@ void VulkanEngine::updateLightingData(GPUCameraData& camData){
         _pointLightParameters[i].specular = worldPointLights[i].specular;
         _pointLightParameters[i].attenuation = worldPointLights[i].attenuation;
     }
-    std::vector<WorldSpotLightObject>& worldSpotLights = worldState.getWorldSpotLightObjects();
+    std::vector<WorldSpotLightObject>& worldSpotLights = p_worldState->getWorldSpotLightObjects();
     for(int i = 0; i < worldSpotLights.size(); i++){
         _spotLightParameters[i].position = glm::vec3(camData.view * glm::vec4(worldSpotLights[i].pos, 1));
         _spotLightParameters[i].diffuse = worldSpotLights[i].diffuse;
@@ -409,8 +412,8 @@ void VulkanEngine::drawObjects(int curFrame){
         //add material property id for this object to push constant
 		PushConstants constants;
 		constants.matIndex = object.material->propertiesId;
-        constants.numPointLights = worldState.pointLights.size();
-        constants.numSpotLights = worldState.spotLights.size();
+        constants.numPointLights = p_worldState->pointLights.size();
+        constants.numSpotLights = p_worldState->spotLights.size();
 
         //upload the mesh to the GPU via pushconstants
 		vkCmdPushConstants(_frames[curFrame]._mainCommandBuffer, object.material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
@@ -461,27 +464,27 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     }
 
     //now for the UI render pass
-    vkResetCommandBuffer(uiHandler->guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    vkResetCommandBuffer(p_uiHandler->guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
     
     beginInfo = vkStructs::command_buffer_begin_info(0);
-    if(vkBeginCommandBuffer(uiHandler->guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
+    if(vkBeginCommandBuffer(p_uiHandler->guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording gui command buffer");
     }
 
-    uiHandler->drawUI(); //then we will draw UI
+    p_uiHandler->drawUI(); //then we will draw UI
 
     //note that the order of clear values should be identical to the order of attachments 
-    renderPassBeginInfo = vkStructs::render_pass_begin_info(uiHandler->guiRenderPass, uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
-    vkCmdBeginRenderPass(uiHandler->guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    renderPassBeginInfo = vkStructs::render_pass_begin_info(p_uiHandler->guiRenderPass, p_uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    vkCmdBeginRenderPass(p_uiHandler->guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Record Imgui Draw Data and draw funcs into command buffer
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), uiHandler->guiCommandBuffers[i]);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), p_uiHandler->guiCommandBuffers[i]);
 
     //we we can end the render pass
-    vkCmdEndRenderPass(uiHandler->guiCommandBuffers[i]);
+    vkCmdEndRenderPass(p_uiHandler->guiCommandBuffers[i]);
 
      //and we have finished recording, we check for errrors here
-    if (vkEndCommandBuffer(uiHandler->guiCommandBuffers[i]) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(p_uiHandler->guiCommandBuffers[i]) != VK_SUCCESS) {
         throw std::runtime_error("failed to record gui command buffer!");
     }
 }
@@ -518,7 +521,7 @@ void VulkanEngine::drawFrame(){
 
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
-    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, uiHandler->guiCommandBuffers[imageIndex]};
+    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, p_uiHandler->guiCommandBuffers[imageIndex]};
     VkSubmitInfo submitInfo = vkStructs::submit_info(buffers, 2, waitSemaphores, 1, 
         waitStages, signalSemaphores, 1);
     
@@ -569,8 +572,7 @@ void VulkanEngine::cleanup(){
 
     cleanupSwapChain();
 
-    uiHandler->cleanup();
-    delete uiHandler;
+    p_uiHandler->cleanup();
 
     _mainDeletionQueue.flush();
 
@@ -1668,7 +1670,7 @@ void VulkanEngine::recreateSwapChain(){
     init_pipelines(); //viewport and scissor rectangle size is specified during graphics pipeline creation, so the pipeline needs rebuilt    
     createCommandBuffers(); //cammand buffers depend directly on swap chain images
     
-    uiHandler->initUI(window, &device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+    p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
                 (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
 
     //probs then need to link descriptors etc back to the materials?

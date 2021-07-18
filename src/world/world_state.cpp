@@ -2,28 +2,11 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
-#include "world_input.h"
-#include "vk_engine.h"
 #include <random>
 #include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
-
-//static vars world configuration
-bool WorldState::RANDOMIZE_START = false; //set true to randomize starting positions,velocities,rotations
-bool WorldState::LANDER_COLLISION_COURSE = false; //if false will set the lander initial trajectory to narrowly avoid asteroid
-float WorldState::MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
-float WorldState::LANDER_START_DISTANCE = 150.0f;
-float WorldState::LANDER_PASS_DISTANCE = 30.0f;//only used if LANDER_COLLISION_COURSE=false
-float WorldState::INITIAL_LANDER_SPEED = 1.5f;
-float WorldState::ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
-
-//static vars world simulation configuration
-int WorldState::SUBSTEP_SAFETY_MARGIN = 1; //need to test
-
-//static vars
-WorldCamera WorldState::camera{WorldCamera()};
-std::vector<WorldObject> WorldState::objects{};
-WorldState::WorldStats WorldState::worldStats{WorldStats()}; //needed to make worldstats static because world input callbacks cant see non static
+#include "vk_engine.h"
+#include "world_input.h"
 
 void WorldState::addObject(std::vector<WorldObject>& container, WorldObject obj){
     container.push_back(obj);
@@ -33,13 +16,17 @@ WorldState* WorldState::getWorld(){
     return this;
 }
 
-WorldCamera& WorldState::getWorldCamera(){
-    //need semaphore or monitor or some kind of sync system
-    return camera;
+void WorldState::setInput(WorldInput* input){
+    p_worldInput = input;
 }
 
-std::vector<WorldObject>& WorldState::getWorldObjects(){
-    return objects;
+WorldCamera* WorldState::getWorldCamera(){
+    //need semaphore or monitor or some kind of sync system
+    return &camera;
+}
+
+std::vector<WorldObject>* WorldState::getWorldObjects(){
+    return &objects;
 }
 
 std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
@@ -48,6 +35,11 @@ std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
 
 std::vector<WorldSpotLightObject>& WorldState::getWorldSpotLightObjects(){
     return spotLights;
+}
+
+void WorldState::updateCamera(glm::vec3 newPos, glm::vec3 front){
+    camera.cameraPos = newPos;
+    camera.cameraFront = front;
 }
 
 void WorldState::updateDeltaTime(){
@@ -163,7 +155,7 @@ WorldState::WorldStats WorldState::getWorldStats(){
 void WorldState::mainLoop(){
     updateDeltaTime();
     worldTick();
-    WorldInput::updateFixedLookPosition();
+    p_worldInput->updateFixedLookPosition();
 }
 
 void WorldState::initLights(){
