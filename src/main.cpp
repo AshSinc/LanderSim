@@ -3,6 +3,7 @@
 #include <iostream>
 #include "world_state.h"
 #include "world_input.h"
+#include "world_camera.h"
 #include "ui_handler.h"
 
 uint32_t WIDTH = 1920; //defaults, doesnt track resizing, should have a callback function here to update these from engine
@@ -24,14 +25,17 @@ int main(){
         //construct components
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
         WorldState worldState = WorldState();
+        WorldCamera worldCamera = WorldCamera(worldState.getWorldObjectsRef()); //should make LockableCamera(objects&) class extend a CameraBase class,
         WorldInput worldInput = WorldInput(window);
+        worldInput.setWorld(&worldState); //instead of worldInput talking to worldState, it should talk to IInputInterpreter, which then sends messages everywhere
         VulkanEngine engine = VulkanEngine(window, &worldState); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, &engine);
-
-        worldInput.setWorld(&worldState);
         worldInput.setUiHandler(&uiHandler);
-        worldState.setInput(&worldInput);
         uiHandler.setWorld(&worldState);
+
+        worldInput.setCamera(&worldCamera);
+        engine.setCameraData(worldCamera.getCameraDataPtr());
+       
         //Cyclical Dependency note
         //1. Stick to OOAD principles. Don't include a header file, unless the class included is in composition relationship with the current class. Use forward declaration instead.
         //2. Design abstract classes to act as interfaces for two classes. Make the interaction of the classes through that interface.
@@ -41,7 +45,6 @@ int main(){
         // worldState.objects[0].rot = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1,0,0));
         worldState.addObject(worldState.objects, WorldObject{glm::vec3(75,75,20), glm::vec3(0.5f,0.5f,0.5f)}); //lander aka box
         worldState.addObject(worldState.objects, WorldObject{glm::vec3(3900,100,0), glm::vec3(0.2f,0.2f,0.2f)}); //satellite
-        worldState.objects[3].velocity = glm::vec3(1,0,0);
         //worldState.objects[2].rot = glm::vec3(0 , 0, glm::radians(90.0f));
         worldState.addObject(worldState.objects, WorldObject{glm::vec3(0,0,0), glm::vec3(20,20,20)}); //asteroid, set to origin
         
@@ -64,6 +67,7 @@ int main(){
         while (!glfwWindowShouldClose(window)){ //&& appRunning)
             glfwPollEvents(); //keep polling window events
             worldState.mainLoop(); //progress world state
+            worldInput.updateFixedLookPosition(); //have to 
             engine.drawFrame(); //render a frame
         }
         engine.cleanup();

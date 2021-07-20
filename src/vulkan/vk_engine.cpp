@@ -38,6 +38,8 @@
 #include "world_state.h"
 #include "ui_handler.h"
 
+#include "world_camera.h"
+
 //static var declarations
 VmaAllocator VulkanEngine::allocator;
 QueueFamilyIndices VulkanEngine::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
@@ -265,10 +267,14 @@ void VulkanEngine::updateObjectTranslations(){
     }
 }
 
+void VulkanEngine::setCameraData(CameraData* camData){
+    p_cameraData = camData;
+}
+
 void VulkanEngine::populateCameraData(GPUCameraData& camData){
-    WorldCamera* worldCam = p_worldState->getWorldCamera();
-    glm::vec3 camPos = worldCam->cameraPos;
-    glm::mat4 view = glm::lookAt(camPos, camPos + worldCam->cameraFront, worldCam->cameraUp);
+    //CameraData* worldCam = p_CameraData->getWorldCamera();
+    glm::vec3 camPos = p_cameraData->cameraPos;
+    glm::mat4 view = glm::lookAt(camPos, camPos + p_cameraData->cameraFront, p_cameraData->cameraUp);
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 15000.0f);
     //GLM was originally designed for OpenGL, where the Y coordinate of the clip coordinates is inverted, so we simply flip it
     //view[1][1] *= -1; //<--- really trippy :)

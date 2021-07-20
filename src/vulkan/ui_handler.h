@@ -36,15 +36,17 @@ class UiHandler{
 
     bool showEscMenu = false;
     public:
+    void toggleMenu();
     bool getShowEscMenu();
     void setShowEscMenu(bool b);
     VkRenderPass guiRenderPass; //handle to gui render pass
     VkCommandPool guiCommandPool;
     std::vector<VkCommandBuffer> guiCommandBuffers;
     std::vector<VkFramebuffer> guiFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
-    void initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
-                        VkDescriptorPool* descriptorPool, uint32_t imageCount, VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
-                        VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews);
+    void initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, 
+                VkQueue* graphicsQueue, VkDescriptorPool* descriptorPool, uint32_t imageCount, 
+                VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
+                VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews);
     void updateUIPanelDimensions();
     void drawUI(); //draw UI
     void passEngine(VulkanEngine* engine);

@@ -16,17 +16,8 @@ WorldState* WorldState::getWorld(){
     return this;
 }
 
-void WorldState::setInput(WorldInput* input){
-    p_worldInput = input;
-}
-
-WorldCamera* WorldState::getWorldCamera(){
-    //need semaphore or monitor or some kind of sync system
-    return &camera;
-}
-
-std::vector<WorldObject>* WorldState::getWorldObjects(){
-    return &objects;
+std::vector<WorldObject>& WorldState::getWorldObjectsRef(){
+    return objects;
 }
 
 std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
@@ -35,11 +26,6 @@ std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
 
 std::vector<WorldSpotLightObject>& WorldState::getWorldSpotLightObjects(){
     return spotLights;
-}
-
-void WorldState::updateCamera(glm::vec3 newPos, glm::vec3 front){
-    camera.cameraPos = newPos;
-    camera.cameraFront = front;
 }
 
 void WorldState::updateDeltaTime(){
@@ -97,14 +83,11 @@ void WorldState::worldTick(){
                 btVector3 direction = -btVector3(transform.getX(),transform.getY(),transform.getZ());
                 
                 //stored for retrival in UI with getGravitationalForce()
-                //gravitationalForce = ASTEROID_GRAVITATIONAL_FORCE*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
                 worldStats.gravitationalForce = ASTEROID_GRAVITATIONAL_FORCE*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
                 
-                //body->setGravity(direction.normalize()*gravitationalForce);
                 body->setGravity(direction.normalize()*worldStats.gravitationalForce);
 
                 //will also need a local velocity, subtracting the asteroid rotational velocity, maths...
-                //landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
                 worldStats.landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
             }
         }
@@ -132,11 +115,8 @@ void WorldState::worldTick(){
                 std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
 
                 if(totalImpact > 0){
-                    //lastImpactForce = totalImpact;
                     worldStats.lastImpactForce = totalImpact;
-                    //if(lastImpactForce > largestImpactForce)
                     if(worldStats.lastImpactForce > worldStats.largestImpactForce)
-                        //largestImpactForce = lastImpactForce;
                         worldStats.largestImpactForce = worldStats.lastImpactForce;
 
                     if (totalImpact > 5.f)
@@ -155,7 +135,6 @@ WorldState::WorldStats WorldState::getWorldStats(){
 void WorldState::mainLoop(){
     updateDeltaTime();
     worldTick();
-    p_worldInput->updateFixedLookPosition();
 }
 
 void WorldState::initLights(){
@@ -197,9 +176,7 @@ void WorldState::initBullet(){
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     solver = new btSequentialImpulseConstraintSolver();
     dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-    //dynamicsWorld->setGravity(btVector3(0, 0, -0.5f));
     dynamicsWorld->setGravity(btVector3(0, 0, 0));
-    ///-----initialization_end-----
 }
 
 void WorldState::loadCollisionMeshes(VulkanEngine& engine){ 
@@ -303,8 +280,7 @@ void WorldState::loadCollisionMeshes(VulkanEngine& engine){
         else
             //instead of origin pick a random point LANDER_START_DISTANCE away from the asteroid
             direction = getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_PASS_DISTANCE)-landerTransform.getOrigin();
-        //else
-        //     direction = btVector3(, , )-landerTransform.getOrigin();
+
         landerRB->setLinearVelocity(direction.normalize()*INITIAL_LANDER_SPEED); //start box falling towards asteroid
 
 		dynamicsWorld->addRigidBody(landerRB);
@@ -337,6 +313,27 @@ btVector3 WorldState::getPointOnSphere(float pitch, float yaw, float radius){
     return result;
 }
 
+void WorldState::changeSimSpeed(int pos, bool pause){
+    if(pause){ //toggle pause on and off
+        if(getWorldStats().timeStepMultiplier == 0)
+            setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
+        else
+            setSimSpeedMultiplier(0);
+    }
+    else{
+        if(pos == 0) //0 will be a normal speed shortcut eventually?
+            selectedSimSpeedIndex = 2;
+        else{
+            selectedSimSpeedIndex+=pos;
+            if(selectedSimSpeedIndex < 0)
+                selectedSimSpeedIndex = 0;
+            else if(selectedSimSpeedIndex > 6) //need to add a var for array init so we dont have a hardcoded size here
+                selectedSimSpeedIndex = 6;
+            setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
+        }
+    }
+}
+
 //instanciate the world space
 //adds default objects to scene
 WorldState::WorldState(){
@@ -348,7 +345,6 @@ WorldState::WorldState(){
 WorldState::~WorldState(){
     cleanupBullet();
 }
-
 
 void WorldState::cleanupBullet(){
     //cleanup in the reverse order of creation/initialization
@@ -370,13 +366,10 @@ void WorldState::cleanupBullet(){
 		collisionShapes[j] = 0;
 		delete shape;
 	}
-	//delete dynamics world
 	delete dynamicsWorld;
-	//delete solver
 	delete solver;
 	//delete broadphase
 	delete overlappingPairCache;
-	//delete dispatcher
 	delete dispatcher;
 	delete collisionConfiguration;
 	//next line is optional: it will be cleared by the destructor when the array goes out of scope

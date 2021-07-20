@@ -21,31 +21,22 @@ class WorldInput{
         void changeFocus();
         void setWorld(WorldState* world);
         void setUiHandler(UiHandler* uiHandler);
-        void toggleMenu(GLFWwindow* window);
+        void setCamera(WorldCamera* camera);
+        void toggleMenu();
         void changeSimSpeed(int pos, bool pause);
         void mouseMoved(double xpos, double ypos);
         void scrollMoved(double xoffset, double yoffset);        
     private:
         WorldState* p_world;
-        GLFWwindow* p_window;
-        UiHandler* p_uiHandler;
-        int selectedSimSpeedIndex = 2;
-        float SIM_SPEEDS[7] {0.25f,0.5f,1,2,4,8,16};
-        
+        //GLFWwindow* p_window;
+        UiHandler* p_uiHandler;        
         WorldCamera* p_camera;
         int objectFocusIndex = 2; //start at the first worldState.object[i] that we want to be able to track, have to set in update function too
         float lastMouseX, lastMouseY, yaw, pitch;
         bool firstMouseInput = true;
         bool freelook = false;
         int winHeight;
-        int winWidth;
-        std::vector<WorldObject>* p_objects;
-        const float CAMERA_SPEED = 5;
+        int winWidth;       
         const float MOUSELOOK_SENSITIVITY = 0.1f;
-        const float MOUSESCROLL_SENSITIVITY = 0.5f;
-        float fixedLookRadius = 2;
-        float fixedObjectScaleFactor = 1;
-
-        
-        
+        const float MOUSESCROLL_SENSITIVITY = 0.5f;       
 };

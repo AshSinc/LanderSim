@@ -7,13 +7,14 @@
 #include <iostream>
 #include <algorithm>
 #include "world_state.h"
-#include <ui_handler.h>
+#include "ui_handler.h"
+#include "world_camera.h"
 
 //regular functions, callbacks from main.cpp for glfw, which needs either regular functions or static because its written in C
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods){
     WorldInput* input = (WorldInput*)glfwGetWindowUserPointer(window);
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        input->toggleMenu(window);
+        input->toggleMenu();
     if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
         input->changeFocus();
     if (key == GLFW_KEY_LEFT_BRACKET && action == GLFW_PRESS)
@@ -35,14 +36,16 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset){
 }
 
 WorldInput::WorldInput(GLFWwindow* window){
-    p_window = window;
-    glfwGetFramebufferSize(p_window, &winWidth, &winHeight);
+    //p_window = window;
+    glfwGetFramebufferSize(window, &winWidth, &winHeight);
 };
 
 void WorldInput::setWorld(WorldState* world){
     p_world = world;
-    p_camera = world->getWorldCamera();
-    p_objects = world->getWorldObjects();
+}
+
+void WorldInput::setCamera(WorldCamera* camera){
+    p_camera = camera;
 }
 
 void WorldInput::setUiHandler(UiHandler* uiHandler){
@@ -50,14 +53,7 @@ void WorldInput::setUiHandler(UiHandler* uiHandler){
 }
 
 void WorldInput::scrollMoved(double xoffset, double yoffset){
-    if(!freelook){
-        fixedLookRadius -= yoffset * MOUSESCROLL_SENSITIVITY;
-        if(fixedLookRadius > 10)
-            fixedLookRadius = 10;
-        if(fixedLookRadius < 1)
-            fixedLookRadius = 1;
-        updateFixedLookPosition();
-    }
+    p_camera->changeZoom(yoffset * MOUSESCROLL_SENSITIVITY);
 }
 
 void WorldInput::mouseMoved(double xpos, double ypos){
@@ -87,61 +83,23 @@ void WorldInput::mouseMoved(double xpos, double ypos){
             yaw = yaw - 360.0f;
         if(yaw < 0.0f)
             yaw = 360.0f + yaw;
-        updateFixedLookPosition();
     }
 }
 
 void WorldInput::changeSimSpeed(int pos, bool pause){
-    if(pause){ //toggle pause on and off
-        if(p_world->getWorldStats().timeStepMultiplier == 0)
-            p_world->setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
-        else
-            p_world->setSimSpeedMultiplier(0);
-    }
-    else{
-        if(pos == 0) //0 will be a normal speed shortcut eventually?
-            selectedSimSpeedIndex = 2;
-        else{
-            selectedSimSpeedIndex+=pos;
-            if(selectedSimSpeedIndex < 0)
-                selectedSimSpeedIndex = 0;
-            else if(selectedSimSpeedIndex > 6) //need to add a var for array init so we dont have a hardcoded size here
-                selectedSimSpeedIndex = 6;
-            p_world->setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
-        }
-    }
+    p_world->changeSimSpeed(pos, pause);
 }
 
 void WorldInput::updateFixedLookPosition(){
-    fixedObjectScaleFactor = std::max(p_objects->at(objectFocusIndex).scale.x, 1.0f);
-    glm::vec3 newPos;
-    float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
-    newPos.x = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + p_objects->at(objectFocusIndex).pos.x;
-    newPos.y = fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + p_objects->at(objectFocusIndex).pos.y;
-    newPos.z = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(offsetPitch)) + p_objects->at(objectFocusIndex).pos.z;
-    p_world->updateCamera(newPos, normalize(p_objects->at(objectFocusIndex).pos - newPos));
+    p_camera->updateFixedLookPosition(pitch, yaw);
 }
 
 //switches focus object when not in freelook
 void WorldInput::changeFocus(){
-    if(!freelook){
-        objectFocusIndex++;
-        if(objectFocusIndex == p_objects->size())
-            objectFocusIndex = 2;
-        updateFixedLookPosition();
-    }
+    p_camera->changeFocus();
 }
 
 //toggles menu on and off, should be moved to a UI handler
-void WorldInput::toggleMenu(GLFWwindow* window){
-    if(p_uiHandler->getShowEscMenu()){
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
-        p_uiHandler->setShowEscMenu(false);
-        changeSimSpeed(0, true);
-    }
-    else{
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture the cursor, for mouse movement
-        p_uiHandler->setShowEscMenu(true);
-        changeSimSpeed(0, true);
-    }
+void WorldInput::toggleMenu(){
+    p_uiHandler->toggleMenu();
 }

@@ -12,8 +12,11 @@
 #include "vk_mesh.h"
 #include <unordered_map>
 
+//#include "world_camera.h" // cant forward declare coz the struct is in the scope
+
 class UiHandler; //forward declare
 class WorldState;
+class CameraData;
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -112,6 +115,9 @@ public:
     std::vector<uint32_t>& get_allIndices();
 
     Mesh* get_mesh(const std::string& name);
+
+    CameraData* p_cameraData;
+    void setCameraData(CameraData* camData);
     
 private:
     UiHandler* p_uiHandler;
@@ -212,7 +218,6 @@ private:
     void createUniformBuffers();
     void allocateDescriptorSetForTexture(Material* material, std::string name);
     void allocateDescriptorSetForSkybox();
-    //void allocateDescriptorSetForTexture(Material* material, std::string name);
     //void allocateDescriptorSetForMaterial(Material* material);
 
     /****** Reference Variables && functions

@@ -149,6 +149,19 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     statsPanelSize = ImVec2(width/8, height);
 }
 
+//toggles menu on and off, should be moved to a UI handler
+void UiHandler::toggleMenu(){
+    if(getShowEscMenu()){
+        glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+        showEscMenu = false;
+    }
+    else{
+        glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture the cursor, for mouse movement
+        showEscMenu = true;
+    }
+    p_worldState->changeSimSpeed(0, true);
+}
+
 void UiHandler::gui_ShowOverlay(){
     static int corner = 0;
     ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
@@ -180,9 +193,8 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("Framerate: %.1f ms\n", renderStats.framerate);
         ImGui::Text("FPS: %.1f fps\n", renderStats.fps);
         ImGui::Text("Tickrate: %f\n", 0.0f);
-        ImGui::Text("Simulation Speed: %.1f x\n\n", worldStats.timeStepMultiplier); //directly accessing it, because sharing with worldinput was really annoying me
-        
-        //all the static calls to worldstate should probably be contained within one struct and called once instead
+        ImGui::Text("Simulation Speed: %.1f x\n\n", worldStats.timeStepMultiplier);
+
         ImGui::Text("\nLander\n");     
         ImGui::Separator();
         ImGui::Text("Velocity: %f m/s\n", worldStats.landerVelocity);
@@ -201,7 +213,7 @@ void UiHandler::gui_ShowEscMenu(){
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("EscMenu", NULL, window_flags)){
         if (ImGui::Button("Return to Sim", ImVec2(150,50)))
-            p_worldInput->toggleMenu(p_window);
+            toggleMenu();
         if (ImGui::Button("Options", ImVec2(150,50)))
             std::cout << "Show options\n";
         if (ImGui::Button("Exit to Menu", ImVec2(150,50)))

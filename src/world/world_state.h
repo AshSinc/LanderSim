@@ -36,12 +36,6 @@ struct WorldSpotLightObject : WorldPointLightObject{
     glm::vec2 cutoffs; // x is inner y is outer
 };
 
-struct WorldCamera{
-    glm::vec3 cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
-    glm::vec3 cameraFront = glm::vec3(-2.0f, -2.0f, -2.0f);
-    glm::vec3 cameraUp = glm::vec3(0.0f, 0.0f, 1.0f);
-};
-//class VulkanEngine;
 class WorldState{
 public:
     struct WorldStats{
@@ -60,8 +54,7 @@ public:
     void updateDeltaTime();
     void worldTick();
     WorldState* getWorld();
-    WorldCamera* getWorldCamera();
-    std::vector<WorldObject>* getWorldObjects();
+    std::vector<WorldObject>& getWorldObjectsRef();
     std::vector<WorldPointLightObject>& getWorldPointLightObjects();
     std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
 
@@ -71,20 +64,16 @@ public:
     std::vector<WorldPointLightObject> pointLights;
     std::vector<WorldSpotLightObject> spotLights;
 
-    
     std::vector<WorldObject> objects{}; //init default
     void addObject(std::vector<WorldObject>& container, WorldObject obj);
-
-    void setInput(WorldInput* input);
 
     void mainLoop();
     WorldState();
     ~WorldState();
 
+    void changeSimSpeed(int pos, bool pause);
+
 private:
-    
-    WorldCamera camera = WorldCamera(); //init default constructor
-    WorldInput* p_worldInput;
     //Bullet vars
     btDiscreteDynamicsWorld* dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
@@ -110,5 +99,7 @@ private:
 
     float getRandFloat(float min, float max);
     btVector3 getPointOnSphere(float pitch, float yaw, float radius);
+    int selectedSimSpeedIndex = 2;
+    float SIM_SPEEDS[7] {0.25f,0.5f,1,2,4,8,16};
 };
 
