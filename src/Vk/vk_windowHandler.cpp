@@ -1,13 +1,7 @@
-#include "glfw_WindowHandler.h"
+#include "vk_windowHandler.h"
 #include <stdexcept>
 
-//#include "vk_engine.h"
-
-//#define GLFW_INCLUDE_VULKAN
-//#include <GLFW/glfw3.h>
-
-
-GLFWwindow* WindowHandler::initWindow(const uint32_t width,const uint32_t height, const char* windowName){
+GLFWwindow* Vk::WindowHandler::initWindow(const uint32_t width,const uint32_t height, const char* windowName){
     glfwInit();                                   //always first call
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API); //tell it not to create OpenGL context
     window = glfwCreateWindow(width, height, windowName, nullptr, nullptr); //create window, 4th is specific monitor, 5th is for OpenGL
@@ -23,7 +17,7 @@ GLFWwindow* WindowHandler::initWindow(const uint32_t width,const uint32_t height
 }
 
 //VkSurfaceKHR surface; //represents an abstract type of surface to present rendered images to
-void WindowHandler::createSurface(VkInstance instance, GLFWwindow* window, VkSurfaceKHR* surface){
+void Vk::WindowHandler::createSurface(VkInstance instance, GLFWwindow* window, VkSurfaceKHR* surface){
     //glfwCreateWindowSurface simply takes params and sets up a platform specific surface for us
     //params are the VkInstance, the GLFW window pointer, custom allocators and poitner to VkSurfaceKHR variable to store the handle.
     //it simply passes throw the VkResult from the relevant platform call 
@@ -33,7 +27,7 @@ void WindowHandler::createSurface(VkInstance instance, GLFWwindow* window, VkSur
 }
 
 //callback from glfw on window resize
-static void frameBufferResizeCallback(GLFWwindow* window, int width, int height){
+static void Vk::frameBufferResizeCallback(GLFWwindow* window, int width, int height){
     // we can retrieve our stored instance pointer we submitted to glfw earlier with glfwGetWindowUserPointer()
     //disabled for now to avoid importing vk_engine again, causing vma implementation to double up
     //auto app = reinterpret_cast<VulkanEngine*>(glfwGetWindowUserPointer(window));

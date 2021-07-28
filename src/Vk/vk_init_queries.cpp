@@ -2,17 +2,17 @@
 #include "vk_types.h"
 #include <set>
 #include <cstring>
-#include "glfw_WindowHandler.h"
+#include "vk_windowHandler.h"
 #include <vector>
 #include <fstream>
 
-VkPhysicalDeviceProperties init_query::getPhysicalDeviceProperties(VkPhysicalDevice& device){
+VkPhysicalDeviceProperties Vk::Init::getPhysicalDeviceProperties(VkPhysicalDevice& device){
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
     return physicalDeviceProperties;
 }
 
-uint32_t init_query::geMinUniformBufferOffsetAlignment(VkPhysicalDevice& device){
+uint32_t Vk::Init::geMinUniformBufferOffsetAlignment(VkPhysicalDevice& device){
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
 
@@ -23,7 +23,7 @@ uint32_t init_query::geMinUniformBufferOffsetAlignment(VkPhysicalDevice& device)
 //the exact max number of samples can be extracted from the VkPhysicalDeviceProperties associated with our selected physical device,
 //we're using a depth buffer, so we need to take into account the sample count for both colour and depth. the highest sample count
 //supproted by both (&) will be the max we can support
-VkSampleCountFlagBits init_query::getMaxUsableSampleCount(VkPhysicalDevice& device) {
+VkSampleCountFlagBits Vk::Init::getMaxUsableSampleCount(VkPhysicalDevice& device) {
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(device,
     &physicalDeviceProperties);
@@ -40,7 +40,7 @@ VkSampleCountFlagBits init_query::getMaxUsableSampleCount(VkPhysicalDevice& devi
     return VK_SAMPLE_COUNT_1_BIT;
 }
 
-bool init_query::isDeviceSuitable(const VkPhysicalDevice& device, VkSurfaceKHR& surface, const std::vector<const char *>& deviceExtensions){
+bool Vk::Init::isDeviceSuitable(const VkPhysicalDevice& device, VkSurfaceKHR& surface, const std::vector<const char *>& deviceExtensions){
     //get basic device info like name type and supported vulkan version
     //VkPhysicalDeviceProperties deviceProperties;
     //vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -71,7 +71,7 @@ bool init_query::isDeviceSuitable(const VkPhysicalDevice& device, VkSurfaceKHR& 
 }
 
 //check which queue families are supported by the device
-QueueFamilyIndices init_query::findQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR& surface){
+QueueFamilyIndices Vk::Init::findQueueFamilies(const VkPhysicalDevice& device, VkSurfaceKHR& surface){
     QueueFamilyIndices indices;
 
     //as usual get number first
@@ -116,7 +116,7 @@ QueueFamilyIndices init_query::findQueueFamilies(const VkPhysicalDevice& device,
     return indices;
 }
 
-SwapChainSupportDetails init_query::querySwapChainSupport(const VkPhysicalDevice& device, VkSurfaceKHR& surface){
+SwapChainSupportDetails Vk::Init::querySwapChainSupport(const VkPhysicalDevice& device, VkSurfaceKHR& surface){
     SwapChainSupportDetails details;
     //lets start with the easy one, basic surface capabilities returned into a single VkSurfaceCapabilitiesKHR struct
     //it required the VkPhysicalDevice and VkSurfaceKHR
@@ -148,7 +148,7 @@ SwapChainSupportDetails init_query::querySwapChainSupport(const VkPhysicalDevice
 }
 
 //checks for supported extensions
-bool init_query::checkDeviceExtensionSupport(const VkPhysicalDevice& device, const std::vector<const char *>& deviceExtensions){
+bool Vk::Init::checkDeviceExtensionSupport(const VkPhysicalDevice& device, const std::vector<const char *>& deviceExtensions){
     //first get the count of extensions
     uint32_t extensionCount;
     vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -180,7 +180,7 @@ bool init_query::checkDeviceExtensionSupport(const VkPhysicalDevice& device, con
 
 ///if swapChainAdequate conditions were met then support is adequate, but there may be different modes of varying optimality
 //we will use some functions to try to get an ideal value or the next best thing
-VkSurfaceFormatKHR init_query::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
+VkSurfaceFormatKHR Vk::Init::chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats){
     //std::vector<VkSurfaceFormatKHR>& availableFormats
     //each VkSurfaceFormatKHR entry contains a format and colorSpace member. 
     //format member specifies colour channels and type, 
@@ -210,7 +210,7 @@ VkSurfaceFormatKHR init_query::chooseSwapSurfaceFormat(const std::vector<VkSurfa
 //VK_PRESENT_MODE_MAILBOX_KHR: another variation of the second mode. Instead of blocking on a full queue, the images already queued are overwitten.
 //this mode can be used to implement triple buffering, which allows significantly less latency and still avoid tearing
 //only VK_PRESENT_MODE_FIFO_KHR is gauranteed to be available
-VkPresentModeKHR init_query::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
+VkPresentModeKHR Vk::Init::chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes){
     //lets go with triple buffering
     for(const auto& availablePresentMode : availablePresentModes){
         if(availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR){
@@ -222,7 +222,7 @@ VkPresentModeKHR init_query::chooseSwapPresentMode(const std::vector<VkPresentMo
 
 //the swap extent is the resolution of the swap chain images, and its almost always the same as the res of the window we are drawing to
 //the range of resolutions is defined in VkSurfaceCapabilitiesKHR structure
-VkExtent2D init_query::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* pWindow){
+VkExtent2D Vk::Init::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities, GLFWwindow* pWindow){
     //Vulkan recommends matching the resolution of window by setting width and height in the currentExtent member
     //however some window managers allow us to set widfth and height in currentExtent to a special value: max value of uint32_t
     //in that case we will pick the resolution that best matches the window between minImageExtent and maxImageExtent bounds
@@ -241,7 +241,7 @@ VkExtent2D init_query::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabili
 }
 
 //optional, used in setting up message callback
-std::vector<const char *> init_query::getRequiredExtensions(bool enableValidationLayers){
+std::vector<const char *> Vk::Init::getRequiredExtensions(bool enableValidationLayers){
     uint32_t glfwExtensionCount = 0;
     const char **glfwExtensions;
     glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -256,7 +256,7 @@ std::vector<const char *> init_query::getRequiredExtensions(bool enableValidatio
 }
 
 //optional, checks if all the requested layers are available
-bool init_query::checkValidationLayerSupport(std::vector<const char *>  validationLayers){
+bool Vk::Init::checkValidationLayerSupport(std::vector<const char *>  validationLayers){
     uint32_t layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
@@ -283,13 +283,13 @@ bool init_query::checkValidationLayerSupport(std::vector<const char *>  validati
 }
 
 //helper function that returns a depthFormat for us to use as a depth image, utilises another helper function findSupportedFormat()
-VkFormat init_query::findDepthFormat(VkPhysicalDevice& physicalDevice){
-    return init_query::findSupportedFormat(physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,VK_FORMAT_D24_UNORM_S8_UINT},
+VkFormat Vk::Init::findDepthFormat(VkPhysicalDevice& physicalDevice){
+    return Vk::Init::findSupportedFormat(physicalDevice, {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT,VK_FORMAT_D24_UNORM_S8_UINT},
         VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
 }
 
 //helper function to find supported formats for images, accepts a set of candidate formats and the tiling and features required
-VkFormat init_query::findSupportedFormat(VkPhysicalDevice& physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features){
+VkFormat Vk::Init::findSupportedFormat(VkPhysicalDevice& physicalDevice, const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features){
     for (VkFormat format : candidates) {
         VkFormatProperties props;
         vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &props);
@@ -308,13 +308,13 @@ VkFormat init_query::findSupportedFormat(VkPhysicalDevice& physicalDevice, const
 
 //another helper function that just checks if a format has a stencil component
 //because we need to know which components it has when performing layout transitions on images with stencil formats
-bool init_query::hasStencilComponent(VkFormat format) {
+bool Vk::Init::hasStencilComponent(VkFormat format) {
     return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
 }
 
 //helper function to read a file, used for reading shaders
 //read all the bytes from a file and return them in a byte array managed by vector
-std::vector<char> init_query::readFile(const std::string& filename){
+std::vector<char> Vk::Init::readFile(const std::string& filename){
     //start by opening the file with 2 flags
     //ate: start reading at the end, binary: read as a binary file (avoid text transformations)
     std::ifstream file(filename, std::ios::ate | std::ios::binary);

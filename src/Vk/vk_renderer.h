@@ -7,16 +7,20 @@
 #include <vector>
 #include <string>
 #include "vk_types.h"
-#include "glfw_WindowHandler.h"
+#include "vk_windowHandler.h"
 #include "vk_debug_msg.h"
 #include "vk_mesh.h"
 #include <unordered_map>
-
 //#include "world_camera.h" // cant forward declare coz the struct is in the scope
 
 class UiHandler; //forward declare
 class WorldState;
 class CameraData;
+
+
+namespace Vk{
+
+  
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
@@ -24,33 +28,38 @@ const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i t
 const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
 const int MAX_LIGHTS = 10;
 
+struct ModelInfo{
+    std::string modelName;
+    std::string filePath;
+};
+
 //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
 const std::vector<ModelInfo> MODEL_INFOS = {
-    {"satellite", "models/Satellite.obj"},
-    {"asteroid", "models/asteroid.obj"},
+    {"satellite", "../models/Satellite.obj"},
+    {"asteroid", "../models/asteroid.obj"},
     //{"asteroid", "models/Bennu.obj"},
-    {"sphere", "models/sphere.obj"},
-    {"box", "models/box.obj"}
+    {"sphere", "../models/sphere.obj"},
+    {"box", "../models/box.obj"}
 };
 
 //texture identifier and path pairs, used in loading and assigning to map
 const std::vector<TextureInfo> TEXTURE_INFOS = {
-    {"satellite_diff", "textures/Satellite.jpg"},
-    {"satellite_spec", "textures/Satellite_Specular.jpg"},
+    {"satellite_diff", "../textures/Satellite.jpg"},
+    {"satellite_spec", "../textures/Satellite_Specular.jpg"},
     //{"asteroid_diff", "textures/ASTEROID_COLOR.jpg"},
     //{"asteroid_spec", "textures/ASTEROID_SPECULAR.jpg"}
-    {"asteroid_diff", "textures/ASTEROID_COLORB.jpg"},
-    {"asteroid_spec", "textures/ASTEROID_COLORB.jpg"}
+    {"asteroid_diff", "../textures/ASTEROID_COLORB.jpg"},
+    {"asteroid_spec", "../textures/ASTEROID_COLORB.jpg"}
 };
 
 //texture identifier and path pairs, used in loading and assigning to map
 const std::vector<std::string> SKYBOX_PATHS = {
-    {"textures/skybox/GalaxyTex_PositiveX.jpg"},
-    {"textures/skybox/GalaxyTex_NegativeX.jpg"},
-    {"textures/skybox/GalaxyTex_PositiveZ.jpg"},
-    {"textures/skybox/GalaxyTex_NegativeZ.jpg"},
-    {"textures/skybox/GalaxyTex_NegativeY.jpg"},
-    {"textures/skybox/GalaxyTex_PositiveY.jpg"}
+    {"../textures/skybox/GalaxyTex_PositiveX.jpg"},
+    {"../textures/skybox/GalaxyTex_NegativeX.jpg"},
+    {"../textures/skybox/GalaxyTex_PositiveZ.jpg"},
+    {"../textures/skybox/GalaxyTex_NegativeZ.jpg"},
+    {"../textures/skybox/GalaxyTex_NegativeY.jpg"},
+    {"../textures/skybox/GalaxyTex_PositiveY.jpg"}
 };
 
 //required extensions and debug validation layers
@@ -62,7 +71,7 @@ const bool enableValidationLayers = false;
 const bool enableValidationLayers = true; //if we are we want to use Validation layers to be able to define error checking
 #endif
 
-class VulkanEngine {
+class Renderer {
 public:
 
     struct RenderStats{
@@ -89,7 +98,7 @@ public:
     DeletionQueue _swapDeletionQueue;
 
     //constructor, should have code to enforce one instance
-    VulkanEngine(GLFWwindow* windowptr, WorldState* state);
+    Renderer(GLFWwindow* windowptr, WorldState* state);
     //Exposed Functions for Main.cpp
     void init(UiHandler* uiHandler); //initialise engine
     void drawFrame(); //draw a frame
@@ -132,7 +141,7 @@ private:
     //Vars
     VkInstance instance;
     VkDebugUtilsMessengerEXT debugMessenger; //can have as many of these debug messenger obj as we want
-    DebugMessenger extDebug; //external debug trying to remove from code
+    Vk::Debug::Messenger extDebug; //external debug trying to remove from code
     WindowHandler windowHandler;
     GLFWwindow* window; //pointer to the window
     VkSurfaceKHR surface; //represents an abstract type of surface to present rendered images to
@@ -355,5 +364,5 @@ private:
     //so useful!
     
 };
-
+}
 #endif /* !VK_ENGINE_D */

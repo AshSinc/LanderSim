@@ -5,12 +5,9 @@
 #include <glm/vec3.hpp>
 #include "world_state.h"
 
-//class WorldObject;
+//this all needs cleaner up or moved into relevant classes/namespaces?
 
-struct ModelInfo{
-    std::string modelName;
-    std::string filePath;
-};
+
 
 struct VertexInputDescription {
 	std::vector<VkVertexInputBindingDescription> bindings;

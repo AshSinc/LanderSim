@@ -38,5 +38,5 @@ class WorldInput{
         int winHeight;
         int winWidth;       
         const float MOUSELOOK_SENSITIVITY = 0.1f;
-        const float MOUSESCROLL_SENSITIVITY = 0.5f;       
+        const float MOUSESCROLL_SENSITIVITY = 0.5f;
 };

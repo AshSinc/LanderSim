@@ -1,10 +1,10 @@
 #include "ui_handler.h"
 #include "vk_structs.h"
-#include "vk_engine.h"
+#include "vk_renderer.h"
 #include "world_state.h"
 #include "world_input.h"
 
-UiHandler::UiHandler(GLFWwindow* window, VulkanEngine* engine) : p_window{window}, p_engine{engine}{
+UiHandler::UiHandler(GLFWwindow* window, Vk::Renderer* engine) : p_window{window}, p_engine{engine}{
 }
 
 void UiHandler::cleanup(){
@@ -15,7 +15,7 @@ void UiHandler::cleanup(){
 
 UiHandler::~UiHandler(){}
 
-void UiHandler::passEngine(VulkanEngine* engine){
+void UiHandler::passEngine(Vk::Renderer* engine){
     engine = engine;
 }
 
@@ -47,10 +47,10 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
     init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
 
     //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
-    VkAttachmentDescription attachmentDesc = vkStructs::attachment_description(*swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
+    VkAttachmentDescription attachmentDesc = Vk::Structs::attachment_description(*swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    VkAttachmentReference colourAttachmentRef = vkStructs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -72,7 +72,7 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
     std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
     attachments.push_back(attachmentDesc);
 
-    VkRenderPassCreateInfo renderPassInfo = vkStructs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
 
     if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
         throw std::runtime_error("Could not create ImGui render pass");
@@ -89,7 +89,7 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
     p_engine->endSingleTimeCommands(command_buffer, *transferCommandPool, *graphicsQueue);
 
 
-    VkCommandPoolCreateInfo poolInfo = vkStructs::command_pool_create_info(graphicsQueueFamily);
+    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(graphicsQueueFamily);
     if(vkCreateCommandPool(*device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
         throw std::runtime_error("Failed to create gui command pool");
     }   
@@ -99,7 +99,7 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
     guiCommandBuffers.resize(imageCount);
 
 	//allocate the gui command buffer
-	VkCommandBufferAllocateInfo cmdAllocInfo = vkStructs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
+	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
     
 	if(vkAllocateCommandBuffers(*device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
             throw std::runtime_error("Unable to allocate gui command buffers");
@@ -112,7 +112,7 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
     for(size_t i = 0; i < imageCount; i++){
         std::vector<VkImageView> attachment;
         attachment.push_back(swapChainImageViews->at(i));
-        VkFramebufferCreateInfo framebufferInfo = vkStructs::framebuffer_create_info(guiRenderPass, attachment, *swapChainExtent, 1);
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(guiRenderPass, attachment, *swapChainExtent, 1);
 
         if(vkCreateFramebuffer(*device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
             throw std::runtime_error("Failed to create gui framebuffer");
@@ -186,7 +186,7 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("[ ] controls time\n\n");
 
         WorldState::WorldStats worldStats = p_worldState->getWorldStats();
-        VulkanEngine::RenderStats renderStats = p_engine->getRenderStats();
+        Vk::Renderer::RenderStats renderStats = p_engine->getRenderStats();
 
         ImGui::Text("\nEngine\n");
         ImGui::Separator();

@@ -5,7 +5,7 @@
 #define VMA_IMPLEMENTATION 
 #include "vk_mem_alloc.h" //we are using VMA (Vulkan Memory Allocator to handle allocating blocks of memory for resources)
 #include "world_state.h"
-#include "vk_engine.h"
+#include "vk_renderer.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <iostream>
@@ -28,7 +28,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION //same as with STD, define in one source file to avoid linker errors
 #include <tiny_obj_loader.h> //we will use tiny obj loader to load our meshes from file (could use fast_obj_loader.h if this is too slow)
 #include "vk_debug_msg.h" //our seperated debug messenger, just to get some of the code out
-#include "glfw_WindowHandler.h" //our window manager, just to get some of the code out
+#include "vk_windowHandler.h" //our window manager, just to get some of the code out
 #include "vk_structs.h"
 #include "vk_init_queries.h"
 #include "vk_pipeline.h"
@@ -40,23 +40,25 @@
 
 #include "world_camera.h"
 
+//#include "to_loadModels.h"
+
 //static var declarations
-VmaAllocator VulkanEngine::allocator;
-QueueFamilyIndices VulkanEngine::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
-VkQueue VulkanEngine::graphicsQueue;
-VkCommandPool VulkanEngine::transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
-VkDevice VulkanEngine::device;
-VkPhysicalDevice VulkanEngine::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
+VmaAllocator Vk::Renderer::allocator;
+QueueFamilyIndices Vk::Renderer::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
+VkQueue Vk::Renderer::graphicsQueue;
+VkCommandPool Vk::Renderer::transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
+VkDevice Vk::Renderer::device;
+VkPhysicalDevice Vk::Renderer::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
-VulkanEngine::VulkanEngine(GLFWwindow* windowptr, WorldState* state): window{windowptr}, p_worldState{state}{}
+Vk::Renderer::Renderer(GLFWwindow* windowptr, WorldState* state): window{windowptr}, p_worldState{state}{}
 
-void VulkanEngine::init(UiHandler* uiHandler){
+void Vk::Renderer::init(UiHandler* uiHandler){
 
     createVkInstance();
     if (enableValidationLayers){
-        DebugMessenger::setupDebugMessenger(instance, &debugMessenger);
+        Vk::Debug::Messenger::setupDebugMessenger(instance, &debugMessenger);
         _mainDeletionQueue.push_function([=]() {
-		    DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+		    Vk::Debug::DestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
 	    });
     }
     //passes the instance and window and a pointer to surface to update the surface value
@@ -97,7 +99,7 @@ void VulkanEngine::init(UiHandler* uiHandler){
 }
 
 //loads all scene data, this should be called only when the user hits run
-void VulkanEngine::loadScene(){
+void Vk::Renderer::loadScene(){
     //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
     loadModels();
     createVertexBuffer(); //error here if load models later
@@ -110,17 +112,17 @@ void VulkanEngine::loadScene(){
     mapMaterialDataToGPU();    
 }
 
-void VulkanEngine::allocateDescriptorSetForSkybox(){
+void Vk::Renderer::allocateDescriptorSetForSkybox(){
     VkWriteDescriptorSet setWrite{};
     VkDescriptorImageInfo skyImageInfo;
     skyImageInfo.sampler = skyboxSampler;
     skyImageInfo.imageView = skyboxImageView; //this should exist before this call
     skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    setWrite = vkStructs::write_descriptorset(0, skyboxSet, 1, 
+    setWrite = Vk::Structs::write_descriptorset(0, skyboxSet, 1, 
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
     vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
 }
-void VulkanEngine::allocateDescriptorSetForTexture(Material* material, std::string name){
+void Vk::Renderer::allocateDescriptorSetForTexture(Material* material, std::string name){
     if(material != nullptr){
         
         material->_multiTextureSets.resize(1);
@@ -147,37 +149,37 @@ void VulkanEngine::allocateDescriptorSetForTexture(Material* material, std::stri
         specImageInfo.imageView = _loadedTextures[name+"_spec"].imageView;
         specImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        setWrite[0] = vkStructs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
+        setWrite[0] = Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo);
 
-        setWrite[1] = vkStructs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
+        setWrite[1] = Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo);
         
         vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr);
     }
 }
 
-void VulkanEngine::createSamplers(){
+void Vk::Renderer::createSamplers(){
     //create a sampler for texture
-	VkSamplerCreateInfo difSamplerInfo = vkStructs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
+	VkSamplerCreateInfo difSamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
         static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &difSamplerInfo, nullptr, &diffuseSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, diffuseSampler, nullptr);});
 
-    VkSamplerCreateInfo specSamplerInfo = vkStructs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
+    VkSamplerCreateInfo specSamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
         static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &specSamplerInfo, nullptr, &specularSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, specularSampler, nullptr);});
 
-    VkSamplerCreateInfo skySamplerInfo = vkStructs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
+    VkSamplerCreateInfo skySamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
 	vkCreateSampler(device, &skySamplerInfo, nullptr, &skyboxSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, skyboxSampler, nullptr);});
 }
 
-void VulkanEngine::init_scene(){   
+void Vk::Renderer::init_scene(){   
     _renderables.clear();    
 
     RenderObject skybox{p_worldState->objects[0]};
@@ -254,7 +256,7 @@ void VulkanEngine::init_scene(){
     allocateDescriptorSetForSkybox(); //skybox hs its own descriptor set because it behaves differently from normal texture
 }
 
-void VulkanEngine::updateObjectTranslations(){
+void Vk::Renderer::updateObjectTranslations(){
     //temp code, scaling fixed and _renderables/WorldObjects may need changed
     glm::mat4 scale;
     glm::mat4 translation;
@@ -267,11 +269,11 @@ void VulkanEngine::updateObjectTranslations(){
     }
 }
 
-void VulkanEngine::setCameraData(CameraData* camData){
+void Vk::Renderer::setCameraData(CameraData* camData){
     p_cameraData = camData;
 }
 
-void VulkanEngine::populateCameraData(GPUCameraData& camData){
+void Vk::Renderer::populateCameraData(GPUCameraData& camData){
     //CameraData* worldCam = p_CameraData->getWorldCamera();
     glm::vec3 camPos = p_cameraData->cameraPos;
     glm::mat4 view = glm::lookAt(camPos, camPos + p_cameraData->cameraFront, p_cameraData->cameraUp);
@@ -284,7 +286,7 @@ void VulkanEngine::populateCameraData(GPUCameraData& camData){
 	camData.viewproj = proj * view;
 }
 
-void VulkanEngine::mapMaterialDataToGPU(){ //not sure i need 3 of these if they were going to be read only anyway, test at some point
+void Vk::Renderer::mapMaterialDataToGPU(){ //not sure i need 3 of these if they were going to be read only anyway, test at some point
     for(int i = 0; i < swapChainImages.size(); i++){
         //copy material data array into position, can i do this outside of the render loop as it will be static? lets try
         char* materialData;
@@ -294,7 +296,7 @@ void VulkanEngine::mapMaterialDataToGPU(){ //not sure i need 3 of these if they 
     }
 }
 
-void VulkanEngine::mapLightingDataToGPU(){
+void Vk::Renderer::mapLightingDataToGPU(){
     for(int i = 0; i < swapChainImages.size(); i++){
         //copy current point light data array into buffer
         char* pointLightingData;
@@ -311,7 +313,7 @@ void VulkanEngine::mapLightingDataToGPU(){
     }
 }
 
-void VulkanEngine::updateSceneData(GPUCameraData& camData){
+void Vk::Renderer::updateSceneData(GPUCameraData& camData){
     WorldLightObject& sceneLight = p_worldState->scenelight;
     _sceneParameters.lightDirection = glm::vec4(camData.view * glm::vec4(sceneLight.pos, 0));
     _sceneParameters.lightAmbient = glm::vec4(sceneLight.ambient, 1);
@@ -320,7 +322,7 @@ void VulkanEngine::updateSceneData(GPUCameraData& camData){
 }
 
 //point lights
-void VulkanEngine::updateLightingData(GPUCameraData& camData){
+void Vk::Renderer::updateLightingData(GPUCameraData& camData){
     std::vector<WorldPointLightObject>& worldPointLights = p_worldState->getWorldPointLightObjects();
     for(int i = 0; i < worldPointLights.size(); i++){
         _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(worldPointLights[i].pos, 1));
@@ -341,7 +343,7 @@ void VulkanEngine::updateLightingData(GPUCameraData& camData){
     }
 }
 
-void VulkanEngine::drawObjects(int curFrame){
+void Vk::Renderer::drawObjects(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
     populateCameraData(camData);
@@ -439,16 +441,16 @@ void VulkanEngine::drawObjects(int curFrame){
 }
 
 
-void VulkanEngine::rerecordCommandBuffer(int i){
+void Vk::Renderer::rerecordCommandBuffer(int i){
     vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
     
-    VkCommandBufferBeginInfo beginInfo = vkStructs::command_buffer_begin_info(0);
+    VkCommandBufferBeginInfo beginInfo = Vk::Structs::command_buffer_begin_info(0);
     if(vkBeginCommandBuffer(_frames[i]._mainCommandBuffer, &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording command buffer");
     }
    
     //note that the order of clear values should be identical to the order of attachments
-    VkRenderPassBeginInfo renderPassBeginInfo = vkStructs::render_pass_begin_info(renderPass, swapChainFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structs::render_pass_begin_info(renderPass, swapChainFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
 
     vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
    
@@ -472,7 +474,7 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     //now for the UI render pass
     vkResetCommandBuffer(p_uiHandler->guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
     
-    beginInfo = vkStructs::command_buffer_begin_info(0);
+    beginInfo = Vk::Structs::command_buffer_begin_info(0);
     if(vkBeginCommandBuffer(p_uiHandler->guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording gui command buffer");
     }
@@ -480,7 +482,7 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     p_uiHandler->drawUI(); //then we will draw UI
 
     //note that the order of clear values should be identical to the order of attachments 
-    renderPassBeginInfo = vkStructs::render_pass_begin_info(p_uiHandler->guiRenderPass, p_uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    renderPassBeginInfo = Vk::Structs::render_pass_begin_info(p_uiHandler->guiRenderPass, p_uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
     vkCmdBeginRenderPass(p_uiHandler->guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Record Imgui Draw Data and draw funcs into command buffer
@@ -495,7 +497,7 @@ void VulkanEngine::rerecordCommandBuffer(int i){
     }
 }
  
-void VulkanEngine::drawFrame(){
+void Vk::Renderer::drawFrame(){
     
     vkWaitForFences(device, 1, &_frames[currentFrame]._renderFence, VK_TRUE, UINT64_MAX); 
     
@@ -528,7 +530,7 @@ void VulkanEngine::drawFrame(){
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
     VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, p_uiHandler->guiCommandBuffers[imageIndex]};
-    VkSubmitInfo submitInfo = vkStructs::submit_info(buffers, 2, waitSemaphores, 1, 
+    VkSubmitInfo submitInfo = Vk::Structs::submit_info(buffers, 2, waitSemaphores, 1, 
         waitStages, signalSemaphores, 1);
     
     //move our reset fences here, its best to simply reset a fence right before its used
@@ -542,7 +544,7 @@ void VulkanEngine::drawFrame(){
     //Presentation
     //The last step of drawing a frame is submitting the result back to the swapchain
     VkSwapchainKHR swapChains[] = {swapChain};
-    VkPresentInfoKHR presentInfo = vkStructs::present_info(&_frames[currentFrame]._renderSemaphore, 1, swapChains, &imageIndex);
+    VkPresentInfoKHR presentInfo = Vk::Structs::present_info(&_frames[currentFrame]._renderSemaphore, 1, swapChains, &imageIndex);
 
     //now we submit the request to present an image to the swapchain. We'll add error handling later, as failure here doesnt necessarily mean we should stop
     result = vkQueuePresentKHR(presentQueue, &presentInfo);
@@ -563,7 +565,7 @@ void VulkanEngine::drawFrame(){
     calculateFrameRate();
 }
 
-void VulkanEngine::calculateFrameRate(){
+void Vk::Renderer::calculateFrameRate(){
     double currentFrameTime = glfwGetTime();
     if(currentFrameTime - previousFrameTime >= 1.0 ){ // If last update was more than 1 sec ago
         renderStats.framerate = 1000.0/double(frameCounter-previousFrameCount);
@@ -573,7 +575,7 @@ void VulkanEngine::calculateFrameRate(){
      }
 }
 
-void VulkanEngine::cleanup(){
+void Vk::Renderer::cleanup(){
     vkDeviceWaitIdle(device); //maske sure device is idle and not mid draw
 
     cleanupSwapChain();
@@ -588,14 +590,14 @@ void VulkanEngine::cleanup(){
     glfwTerminate(); //then glfw
 }
 
-void VulkanEngine::createVkInstance()
+void Vk::Renderer::createVkInstance()
 {
-    if (enableValidationLayers && !init_query::checkValidationLayerSupport(validationLayers))
+    if (enableValidationLayers && !Vk::Init::checkValidationLayerSupport(validationLayers))
     {
         throw std::runtime_error("Validation layers requested, but not available.");
     }
 
-    VkApplicationInfo appInfo = vkStructs::app_info("Vulkan Testing App Name");
+    VkApplicationInfo appInfo = Vk::Structs::app_info("Vulkan Testing App Name");
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo; //also set up debug callbacks for create and destroy
     uint32_t enabledLayerCount = 0;
     const char *const *enabledLayerNames; //wtf 
@@ -607,8 +609,8 @@ void VulkanEngine::createVkInstance()
         extDebug.populateDebugMessengerCreateInfo(debugCreateInfo);
         next = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
     }
-    auto extensions = init_query::getRequiredExtensions(enableValidationLayers);
-    VkInstanceCreateInfo createInfo = vkStructs::instance_create_info(appInfo, extensions, enabledLayerNames, enabledLayerCount, next);
+    auto extensions = Vk::Init::getRequiredExtensions(enableValidationLayers);
+    VkInstanceCreateInfo createInfo = Vk::Structs::instance_create_info(appInfo, extensions, enabledLayerNames, enabledLayerCount, next);
 
     //call create instance, passing pointer to createInfo and instance, instance handle is stored in VKInstance instance
     if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
@@ -617,8 +619,8 @@ void VulkanEngine::createVkInstance()
     }
 }
 
-//picks physical device, moved most of the queries to init_query namespace in vk_init_queries.h
-void VulkanEngine::pickPhysicalDevice(){
+//picks physical device, moved most of the queries to Vk::Init namespace in vk_init_queries.h
+void Vk::Renderer::pickPhysicalDevice(){
     //query the number of devices with vulkan support
     uint32_t deviceCount = 0;
     vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
@@ -633,10 +635,10 @@ void VulkanEngine::pickPhysicalDevice(){
 
     //check each device is suitable, stop at first suitable device
     for(const auto& device : devices){
-        if(init_query::isDeviceSuitable(device, surface, deviceExtensions)){
+        if(Vk::Init::isDeviceSuitable(device, surface, deviceExtensions)){
             physicalDevice = device;
-            msaaSamples = init_query::getMaxUsableSampleCount(physicalDevice); //check our max sample count supported
-            _gpuProperties = init_query::getPhysicalDeviceProperties(physicalDevice);
+            msaaSamples = Vk::Init::getMaxUsableSampleCount(physicalDevice); //check our max sample count supported
+            _gpuProperties = Vk::Init::getPhysicalDeviceProperties(physicalDevice);
             break;
         }
     }
@@ -648,17 +650,17 @@ void VulkanEngine::pickPhysicalDevice(){
 
 //after selecting a physical device we need to create a logical device to interface with it
 //also need to specify which queues we want to create now that we've queuried available queue families
-void VulkanEngine::createLogicalDevice(){
+void Vk::Renderer::createLogicalDevice(){
     //we need to have multiple VkDeviceQueueCreateInfo structs to create a queue for both families
 
     //find and store the queue family indices for the physical device we picked
-    queueFamilyIndicesStruct = init_query::findQueueFamilies(physicalDevice, surface);
+    queueFamilyIndicesStruct = Vk::Init::findQueueFamilies(physicalDevice, surface);
 
     std::set<uint32_t> uniqueQueueFamilies = {queueFamilyIndicesStruct.graphicsFamily.value(), 
         queueFamilyIndicesStruct.presentFamily.value(), queueFamilyIndicesStruct.transferFamily.value()};
 
     float queuePriority = 1.0f;
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos = vkStructs::queue_create_infos(uniqueQueueFamilies, &queuePriority);
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos = Vk::Structs::queue_create_infos(uniqueQueueFamilies, &queuePriority);
 
     //currently available drivers only support a small number of queues for each family,
     //and we dont really need mroe than one because you can create all of the command buffers omn multiple threads
@@ -668,7 +670,7 @@ void VulkanEngine::createLogicalDevice(){
     deviceFeatures.samplerAnisotropy = VK_TRUE; //we want to enable the sampler anisotropy features for our sampler
 
     //with the previous 2 structs in place we can begin filling in the main VkDeviceCreateInfo struct
-    VkDeviceCreateInfo createInfo = vkStructs::device_create_info(deviceFeatures, queueCreateInfos, deviceExtensions);
+    VkDeviceCreateInfo createInfo = Vk::Structs::device_create_info(deviceFeatures, queueCreateInfos, deviceExtensions);
     
     //now we are ready to instantiate the logical device with a call to vkCreateDevice
     // params are the physical device to interface with, the queue and usage info we just specified,
@@ -693,19 +695,19 @@ void VulkanEngine::createLogicalDevice(){
 	});
 }
 
-void VulkanEngine::createMemAlloc(){
-    VmaAllocatorCreateInfo allocatorInfo = vkStructs::vma_allocator_info(physicalDevice, device, instance, allocator);  
+void Vk::Renderer::createMemAlloc(){
+    VmaAllocatorCreateInfo allocatorInfo = Vk::Structs::vma_allocator_info(physicalDevice, device, instance, allocator);  
     vmaCreateAllocator(&allocatorInfo, &allocator);
     _mainDeletionQueue.push_function([=](){vmaDestroyAllocator(allocator);});
 }
 
 //now we can use all our helper functions to create a swap chain based on their choices
-void VulkanEngine::createSwapChain(){
-    SwapChainSupportDetails swapChainSupport = init_query::querySwapChainSupport(physicalDevice, surface);
-    VkSurfaceFormatKHR surfaceFormat = init_query::chooseSwapSurfaceFormat(swapChainSupport.formats); //HERE
-    VkPresentModeKHR presentMode = init_query::chooseSwapPresentMode(swapChainSupport.presentModes);
+void Vk::Renderer::createSwapChain(){
+    SwapChainSupportDetails swapChainSupport = Vk::Init::querySwapChainSupport(physicalDevice, surface);
+    VkSurfaceFormatKHR surfaceFormat = Vk::Init::chooseSwapSurfaceFormat(swapChainSupport.formats); //HERE
+    VkPresentModeKHR presentMode = Vk::Init::chooseSwapPresentMode(swapChainSupport.presentModes);
 
-    VkExtent2D extent = init_query::chooseSwapExtent(swapChainSupport.capabilities, window);
+    VkExtent2D extent = Vk::Init::chooseSwapExtent(swapChainSupport.capabilities, window);
     //we also need to set the number of images we would like in the swap chain
     //it is recommended to do at least one more than the minimum 
     //so that if the driver is working on internal operations we can acquire another to render to
@@ -717,7 +719,7 @@ void VulkanEngine::createSwapChain(){
     }
     uint32_t queueFamilyIndices[] = {queueFamilyIndicesStruct.graphicsFamily.value(), queueFamilyIndicesStruct.presentFamily.value()};
    
-    VkSwapchainCreateInfoKHR createInfo = vkStructs::swapchain_create_info(surface, imageCount, surfaceFormat, extent, queueFamilyIndices, swapChainSupport.capabilities.currentTransform, presentMode);
+    VkSwapchainCreateInfoKHR createInfo = Vk::Structs::swapchain_create_info(surface, imageCount, surfaceFormat, extent, queueFamilyIndices, swapChainSupport.capabilities.currentTransform, presentMode);
 
     //now we can create the swap chain with the call
     //params are logical device, the swapchain creation info, optional custom allocators, and a pointer to the variable to store the handle
@@ -740,21 +742,21 @@ void VulkanEngine::createSwapChain(){
 }
 
 //VkImageViews describe how to access VkImage such as those in the swap chain and which part of the image to use
-void VulkanEngine::createSwapChainImageViews(){
+void Vk::Renderer::createSwapChainImageViews(){
     //first resize the array to the required size
     swapChainImageViews.resize(swapChainImages.size());
     //loop through all swap chain iamges
     for(size_t i = 0; i < swapChainImages.size(); i++){
-        swapChainImageViews[i] = image_func::createImageView(swapChainImages[i], VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+        swapChainImageViews[i] = Vk::Images::createImageView(swapChainImages[i], VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
         _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, swapChainImageViews[i], nullptr);});
     }
 }    
 
 //before we can finish creating the pipeline, we need to tell vulkan about the framebuffer attachments that will be used while rendering
 //How many colour and depth buffers there will be, how many samples of each and how their contents should be handled throughout rendering ops
-void VulkanEngine::createRenderPass(){
+void Vk::Renderer::createRenderPass(){
     //in our case we will need a colour buffer represented by one of the images from the swap chain
-    VkAttachmentDescription colourAttachment = vkStructs::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+    VkAttachmentDescription colourAttachment = Vk::Structs::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //Subpasses and attachment references
@@ -764,19 +766,19 @@ void VulkanEngine::createRenderPass(){
     //For our first triangle we will just have one subpass.
     
     //Every subpass references one or more of the attachments described in the previous sections. These references are VkAttachmentReference structs
-    VkAttachmentReference colourAttachmentRef = vkStructs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //because we need to resolve the above multisampled image before presentation (you cant present a multisampled image because
     //it contains multiple pixel values per pixel) we need an attachment that will resolve the image back to something we can 
     //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR and in standard 1 bit sampling
-    //VkAttachmentDescription colourAttachmentResolve = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    //VkAttachmentDescription colourAttachmentResolve = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
     //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    VkAttachmentDescription colourAttachmentResolve = vkStructs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    VkAttachmentDescription colourAttachmentResolve = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
     
     //the render pass now has to be instructed to resolve the multisampled colour image into the regular attachment
-    VkAttachmentReference colourAttachmentResolveRef = vkStructs::attachment_reference(2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentResolveRef = Vk::Structs::attachment_reference(2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     // why is that index 2 and not 1? need to check
 
     // we also want to add a Subpass Dependency as described in drawFrame() to wait for VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT before proceeding 
@@ -784,15 +786,15 @@ void VulkanEngine::createRenderPass(){
     //special value VK_SUBPASS_EXTERNAL refers to implicit subpass before or after the the render pass depending on whether specified in srcSubpass/dstSubpass
     //The operations that should waiti on this are in the colour attachment stage and involve the writing of the colour attachment
     //these settings will prevent the transition from happening until its actually necessary and allowed, ie when we want to start writing colours to it
-    VkSubpassDependency dependency = vkStructs::subpass_dependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    VkSubpassDependency dependency = Vk::Structs::subpass_dependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     
     //we want to include a depth attachment for depth testing
     // VK_ATTACHMENT_STORE_OP_DONT_CARE; //we dont need to store depth data as it will be discarded every pass
     // VK_IMAGE_LAYOUT_UNDEFINED; //same as colour buffer, we dont care about previous depth contents
-    VkAttachmentDescription depthAttachment = vkStructs::attachment_description(init_query::findDepthFormat(physicalDevice), msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+    VkAttachmentDescription depthAttachment = Vk::Structs::attachment_description(Vk::Init::findDepthFormat(physicalDevice), msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
  
-    VkAttachmentReference depthAttachmentRef = vkStructs::attachment_reference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference depthAttachmentRef = Vk::Structs::attachment_reference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     // and here is index 1, just described in wrong order
 
     //we add a reference to the attachment for the first (and only) subpass
@@ -800,12 +802,12 @@ void VulkanEngine::createRenderPass(){
     //we pass in the colourAttachmentResolveRef struct which will let the render pass define a multisample resolve operation
     //described in the struct, which will let us render the image to screen by resolving it to the right layout
     //pDepthStencilAttachment: Attachment for depth and stencil data        
-    VkSubpassDescription subpass = vkStructs::subpass_description(VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &colourAttachmentResolveRef, &colourAttachmentRef, &depthAttachmentRef);
+    VkSubpassDescription subpass = Vk::Structs::subpass_description(VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &colourAttachmentResolveRef, &colourAttachmentRef, &depthAttachmentRef);
 
     //now we udpate the VkRenderPassCreateInfo struct to refer to both attachments 
     //and the colourAttachmentResolve
     std::vector<VkAttachmentDescription> attachments = {colourAttachment, depthAttachment, colourAttachmentResolve};
-    VkRenderPassCreateInfo renderPassInfo = vkStructs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
 
     if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS){
         throw std::runtime_error("Failed to create render pass");
@@ -816,16 +818,16 @@ void VulkanEngine::createRenderPass(){
 //ubo Descriptor layout
 //we need to provide details about every descriptor binding used in the shader for pipeline creation. Just like we had to do for every vertrex attribute
 //and its location index. Because we will need to use it in pipeline creation we will do this first
-void VulkanEngine::createDescriptorSetLayouts(){
+void Vk::Renderer::createDescriptorSetLayouts(){
 
     //Create Descriptor Set layout describing the _globalSetLayout containing global scene and camera data
     //Cam is set 0 binding 0 because its first in this binding set
     //Scene is set 0 binding 1 because its second in this binding set
-    VkDescriptorSetLayoutBinding camBufferBinding = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding camBufferBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     //binding for scene data at 1 in vertex and frag
-	VkDescriptorSetLayoutBinding sceneBind = vkStructs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+	VkDescriptorSetLayoutBinding sceneBind = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     std::vector<VkDescriptorSetLayoutBinding> bindings =  {camBufferBinding, sceneBind};
-    VkDescriptorSetLayoutCreateInfo setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+    VkDescriptorSetLayoutCreateInfo setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_globalSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -836,10 +838,10 @@ void VulkanEngine::createDescriptorSetLayouts(){
     //bind object storage buffer to 0 in vertex
     //this needs to be binding 1 because in allocatedescset for materials we add it to the write set in the second position (after texture set)
     //VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-    VkDescriptorSetLayoutBinding materialsBind = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding materialsBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings = {materialsBind};
-	setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_materialSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -847,10 +849,10 @@ void VulkanEngine::createDescriptorSetLayouts(){
 
     //we will create the descriptor set layout for the objects as a seperate descriptor set
     //bind object storage buffer to 0 in vertex
-    VkDescriptorSetLayoutBinding objectBind = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding objectBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     bindings.clear();
     bindings = {objectBind};
-	setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_objectSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -858,11 +860,11 @@ void VulkanEngine::createDescriptorSetLayouts(){
 
     //we will create the descriptor set layout for the lights, could maybe be combined with materials? or object?
     //bind light storage buffer to 0 in frag
-    VkDescriptorSetLayoutBinding pointLightsBind = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    VkDescriptorSetLayoutBinding spotLightsBind = vkStructs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding pointLightsBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding spotLightsBind = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings = {pointLightsBind, spotLightsBind};
-	setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_lightingSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -870,46 +872,46 @@ void VulkanEngine::createDescriptorSetLayouts(){
 
     //then we will create the descriptor set layout for the sampler as another seperate descriptor set
     //bind samplerBuffer to 0 in frag 
-    VkDescriptorSetLayoutBinding textureLayoutBinding = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding textureLayoutBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear(); //clean this up no need for vectors here
     bindings =  {textureLayoutBinding};
-	setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_singleTextureSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create sampler texture set layout");
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _singleTextureSetLayout, nullptr);});
 
-    VkDescriptorSetLayoutBinding diffuseSetBinding = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding diffuseSetBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     //binding for scene data at 1 in vertex and frag
-	VkDescriptorSetLayoutBinding specularSetBinding = vkStructs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+	VkDescriptorSetLayoutBinding specularSetBinding = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings =  {diffuseSetBinding, specularSetBinding};
-    setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+    setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_multiTextureSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _multiTextureSetLayout, nullptr);});
 
-    VkDescriptorSetLayoutBinding skyboxSetBinding = vkStructs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding skyboxSetBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings =  {skyboxSetBinding};
-    setinfo = vkStructs::descriptorset_layout_create_info(bindings);
+    setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_skyboxSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create skybox set layout");
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _skyboxSetLayout, nullptr);});
 }
 
-void VulkanEngine::init_pipelines(){
+void Vk::Renderer::init_pipelines(){
 
     //load and create all shader stages
-    auto default_lit_vert_c = init_query::readFile("shaders/default_lit_vert.spv"); 
-    auto default_lit_frag_c = init_query::readFile("shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto unlit_frag_c = init_query::readFile("shaders/unlit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto textured_lit_frag_c = init_query::readFile("shaders/textured_lit_frag.spv");
+    auto default_lit_vert_c = Vk::Init::readFile("../shaders/default_lit_vert.spv"); 
+    auto default_lit_frag_c = Vk::Init::readFile("../shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto unlit_frag_c = Vk::Init::readFile("../shaders/unlit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto textured_lit_frag_c = Vk::Init::readFile("../shaders/textured_lit_frag.spv");
 
-    auto skybox_vert_c = init_query::readFile("shaders/skybox_vert.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto skybox_frag_c = init_query::readFile("shaders/skybox_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto skybox_vert_c = Vk::Init::readFile("../shaders/skybox_vert.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto skybox_frag_c = Vk::Init::readFile("../shaders/skybox_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
 
     auto default_lit_vert_m = createShaderModule(default_lit_vert_c);
     auto default_lit_frag_m = createShaderModule(default_lit_frag_c);
@@ -922,7 +924,7 @@ void VulkanEngine::init_pipelines(){
     //begin default mesh pipeline creation (lit untextured mesh)
 	PipelineBuilder pipelineBuilder;
     VkDescriptorSetLayout defaultSetLayouts[] = { _globalSetLayout, _objectSetLayout, _materialSetLayout, _lightingSetLayout };
-    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = vkStructs::pipeline_layout_create_info(4, defaultSetLayouts);
+    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = Vk::Structs::pipeline_layout_create_info(4, defaultSetLayouts);
     
 	//setup push constants
 	VkPushConstantRange push_constant;
@@ -943,21 +945,21 @@ void VulkanEngine::init_pipelines(){
     _swapDeletionQueue.push_function([=](){vkDestroyPipelineLayout(device, meshPipelineLayout, nullptr);});
 
     //general setup of the pipeline
-    pipelineBuilder.viewport = vkStructs::viewport(0.0f, 0.0f, (float) swapChainExtent.width, (float) swapChainExtent.height, 0.0f, 1.0f);
-    pipelineBuilder.scissor = vkStructs::scissor(0,0,swapChainExtent);
+    pipelineBuilder.viewport = Vk::Structs::viewport(0.0f, 0.0f, (float) swapChainExtent.width, (float) swapChainExtent.height, 0.0f, 1.0f);
+    pipelineBuilder.scissor = Vk::Structs::scissor(0,0,swapChainExtent);
     VertexInputDescription vertexInputDescription = Vertex::get_vertex_description();
-    pipelineBuilder.vertexInputInfo = vkStructs::pipeline_vertex_input_create_info(vertexInputDescription);
-    pipelineBuilder.inputAssembly = vkStructs::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
-    pipelineBuilder.rasterizer = vkStructs::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    pipelineBuilder.multisampling = vkStructs::pipeline_msaa_state_create_info(msaaSamples);
-    pipelineBuilder.depthStencil = vkStructs::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);//VK_COMPARE_OP_LESS
-    pipelineBuilder.colourBlendAttachment = vkStructs::pipeline_colour_blend_attachment(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+    pipelineBuilder.vertexInputInfo = Vk::Structs::pipeline_vertex_input_create_info(vertexInputDescription);
+    pipelineBuilder.inputAssembly = Vk::Structs::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
+    pipelineBuilder.rasterizer = Vk::Structs::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.multisampling = Vk::Structs::pipeline_msaa_state_create_info(msaaSamples);
+    pipelineBuilder.depthStencil = Vk::Structs::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);//VK_COMPARE_OP_LESS
+    pipelineBuilder.colourBlendAttachment = Vk::Structs::pipeline_colour_blend_attachment(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
     pipelineBuilder.pipelineLayout = meshPipelineLayout;
 
     //add required shaders for this stage
     pipelineBuilder.shaderStages.clear();
-    pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, default_lit_frag_m, nullptr));
+    pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, default_lit_frag_m, nullptr));
 
     VkPipeline meshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, meshPipeline, nullptr);});
@@ -968,8 +970,8 @@ void VulkanEngine::init_pipelines(){
 
     //now we will make an unlit pipeline with no texture sampler
     pipelineBuilder.shaderStages.clear();
-    pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, unlit_frag_m, nullptr));
+    pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, unlit_frag_m, nullptr));
 
     VkPipeline unlitMeshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, unlitMeshPipeline, nullptr);});
@@ -995,8 +997,8 @@ void VulkanEngine::init_pipelines(){
 
     //now for the textured pipeline
     pipelineBuilder.shaderStages.clear();
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_lit_frag_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_lit_frag_m, nullptr));
 
     pipelineBuilder.pipelineLayout = texturedPipeLayout;
 
@@ -1009,7 +1011,7 @@ void VulkanEngine::init_pipelines(){
 
     //Skybox
     VkDescriptorSetLayout skyboxSetLayouts[] = {_globalSetLayout, _objectSetLayout, _skyboxSetLayout};
-    VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = vkStructs::pipeline_layout_create_info(3, skyboxSetLayouts);
+    VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = Vk::Structs::pipeline_layout_create_info(3, skyboxSetLayouts);
 
     if(vkCreatePipelineLayout(device, &skybox_pipeline_layout_info, nullptr, &_skyboxPipelineLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create skybox pipeline layout");
@@ -1019,8 +1021,8 @@ void VulkanEngine::init_pipelines(){
 
      //now for the skybox pipeline
     pipelineBuilder.shaderStages.clear();
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, skybox_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(vkStructs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, skybox_frag_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, skybox_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, skybox_frag_m, nullptr));
 
     pipelineBuilder.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT; //because we are drawing on the inside of the cube
 
@@ -1041,8 +1043,8 @@ void VulkanEngine::init_pipelines(){
 
 //before we can pass shader code to the pipeline we have to wrap it in a VkShaderModule object
 //lets create a helper function to do that
-VkShaderModule VulkanEngine::createShaderModule(const std::vector<char>& code){
-    VkShaderModuleCreateInfo createInfo = vkStructs::shader_module_create_info(code);
+VkShaderModule Vk::Renderer::createShaderModule(const std::vector<char>& code){
+    VkShaderModuleCreateInfo createInfo = Vk::Structs::shader_module_create_info(code);
     VkShaderModule shaderModule;
     if(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS){
         throw std::runtime_error("Failed to create shader module");
@@ -1055,7 +1057,7 @@ VkShaderModule VulkanEngine::createShaderModule(const std::vector<char>& code){
 //However the image we have to use for the attachment depends on which image the swapchain returns when we retrieve one for presentation
 //that means we have to create a frambuffer for all the images in the swap chain and the one that corresponds to the retrieved image at draw time
 // so we create a vector class member called swapChainFramebuffers, and then create the objects here
-void VulkanEngine::createFramebuffers(){
+void Vk::Renderer::createFramebuffers(){
     //start by resizing the vector to hold all the framebuffers
     swapChainFramebuffers.resize(swapChainImageViews.size());
 
@@ -1063,7 +1065,7 @@ void VulkanEngine::createFramebuffers(){
     for(size_t i = 0; i < swapChainImageViews.size(); i++){
         std::vector<VkImageView> attachments = {colourImageView, depthImageView, swapChainImageViews[i]};
 
-        VkFramebufferCreateInfo framebufferInfo = vkStructs::framebuffer_create_info(renderPass, attachments, swapChainExtent, 1);
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(renderPass, attachments, swapChainExtent, 1);
 
         if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS){
             throw std::runtime_error("Failed to create framebuffer");
@@ -1077,10 +1079,10 @@ void VulkanEngine::createFramebuffers(){
 //commands can be done in advance and in multiple threads. After that you just have to tell Vulkan to execute the commands in the main loop
 //Before we create command buffers we need a command pool. Command pools manage the memory that is used to store the buffers and 
 //command buffers are alocated to them. Lets create a class member to store our VkCommandPool commandPool
-void VulkanEngine::createCommandPools(){
+void Vk::Renderer::createCommandPools(){
     //Command buffers are execued by submitting them on one of the device queues, liek graphics or presentation queues we retrieved.
     //Each command pool can only allocate command buffers that are submitted on a single type of queue.
-    VkCommandPoolCreateInfo poolInfo = vkStructs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
 
     for (int i = 0; i < _frames.size(); i++) {
         if(vkCreateCommandPool(device, &poolInfo, nullptr, &_frames[i]._commandPool) != VK_SUCCESS){
@@ -1099,7 +1101,7 @@ void VulkanEngine::createCommandPools(){
 		vkDestroyCommandPool(device, transferCommandPool, nullptr);
 	});
 
-    VkCommandPoolCreateInfo uploadCommandPoolInfo = vkStructs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    VkCommandPoolCreateInfo uploadCommandPoolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
 	//create pool for upload context //unused?
 	if(vkCreateCommandPool(device, &uploadCommandPoolInfo, nullptr, &_uploadContext._commandPool)!= VK_SUCCESS){
         throw std::runtime_error("Failed to create upload command pool");
@@ -1122,39 +1124,39 @@ void VulkanEngine::createCommandPools(){
 
 //we will create colour resources here, this is used for MSAA and creates a single colour image that can be drawn to for calculating msaa 
 //samples
-void VulkanEngine::createColourResources(){
+void Vk::Renderer::createColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
 
-    image_func::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+    Vk::Images::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colourImage,
         colourImageAllocation);
 
-    colourImageView = image_func::createImageView(colourImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    colourImageView = Vk::Images::createImageView(colourImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, colourImage, colourImageAllocation);});
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, colourImageView, nullptr);});
 }
 
 //create depth image
-void VulkanEngine::createDepthResources(){
+void Vk::Renderer::createDepthResources(){
     // we will go with VK_FORMAT_D32_SFLOAT but will add a findSupportedFormat() first to get something supported
-    VkFormat depthFormat = init_query::findDepthFormat(physicalDevice);
-    image_func::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
+    VkFormat depthFormat = Vk::Init::findDepthFormat(physicalDevice);
+    Vk::Images::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageAllocation);
 
-    depthImageView = image_func::createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
+    depthImageView = Vk::Images::createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
     
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, depthImage, depthImageAllocation);});
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, depthImageView, nullptr);});
 }
 
 //creates texture images by loading them from file and 
-void VulkanEngine::createTextureImages(){
+void Vk::Renderer::createTextureImages(){
     _loadedTextures.clear();
     for(TextureInfo info : TEXTURE_INFOS){
         Texture texture;
-        image_func::loadTextureImage(*this, info.filePath.c_str(), texture.image, texture.alloc, texture.mipLevels);
-        VkImageViewCreateInfo imageinfo = vkStructs::image_view_create_info(texture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
+        Vk::Images::loadTextureImage(*this, info.filePath.c_str(), texture.image, texture.alloc, texture.mipLevels);
+        VkImageViewCreateInfo imageinfo = Vk::Structs::image_view_create_info(texture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_ASPECT_COLOR_BIT, 0, texture.mipLevels, 0, 1);
         vkCreateImageView(device, &imageinfo, nullptr, &texture.imageView);  
         _loadedTextures[info.textureName] = texture;
@@ -1171,7 +1173,7 @@ void VulkanEngine::createTextureImages(){
     
     int i{0};
     for(std::string path : SKYBOX_PATHS){
-        image_func::simpleLoadTexture(path.c_str(), width, height, textureData[i]);
+        Vk::Images::simpleLoadTexture(path.c_str(), width, height, textureData[i]);
         i++;
     }
         
@@ -1183,41 +1185,41 @@ void VulkanEngine::createTextureImages(){
     //we will now create a host visible staging buffer so that we can map memory and copy pixels to it
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferAllocation;
-    VulkanEngine::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    Vk::Renderer::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
     
     //map the memory
     char* dataMemory;
-    vmaMapMemory(VulkanEngine::allocator, stagingBufferAllocation, (void**)&dataMemory);
+    vmaMapMemory(Vk::Renderer::allocator, stagingBufferAllocation, (void**)&dataMemory);
     
 
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
         memcpy(dataMemory + (layerSize * i), textureData[i], static_cast<size_t>(layerSize));
     }
-    vmaUnmapMemory(VulkanEngine::allocator, stagingBufferAllocation);
+    vmaUnmapMemory(Vk::Renderer::allocator, stagingBufferAllocation);
 
     
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
-        image_func::simpleFreeTexture(textureData[i]);
+        Vk::Images::simpleFreeTexture(textureData[i]);
     }
 
-    image_func::createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    Vk::Images::createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyboxImage, skyboxAllocation);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps
     //we first transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     //note because the iamge was created with VK_IMAGE_LAYOUT_UNDEFINED, we specify that as the initial layout. We can do this because we dont care
     //about its contents before performing the copy operation
-    image_func::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, 6);
+    Vk::Images::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, 6);
     //then execute the buffer to image copy operation
-    image_func::copyBufferToImage(stagingBuffer, skyboxImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
+    Vk::Images::copyBufferToImage(stagingBuffer, skyboxImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
 
-    image_func::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, 6);
+    Vk::Images::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, 6);
 
-    vmaDestroyBuffer(VulkanEngine::allocator, stagingBuffer, stagingBufferAllocation);
+    vmaDestroyBuffer(Vk::Renderer::allocator, stagingBuffer, stagingBufferAllocation);
 
-    skyboxImageView = image_func::createImageView(skyboxImage, VK_IMAGE_VIEW_TYPE_CUBE, VK_FORMAT_R8G8B8A8_SRGB,  VK_IMAGE_ASPECT_COLOR_BIT, 1, 6);
+    skyboxImageView = Vk::Images::createImageView(skyboxImage, VK_IMAGE_VIEW_TYPE_CUBE, VK_FORMAT_R8G8B8A8_SRGB,  VK_IMAGE_ASPECT_COLOR_BIT, 1, 6);
 
 
     _mainDeletionQueue.push_function([=](){vmaDestroyImage(allocator, skyboxImage, skyboxAllocation);});
@@ -1225,7 +1227,8 @@ void VulkanEngine::createTextureImages(){
 }
 
 //this is where we will load the model data into vertices and indices member variables
-void VulkanEngine::loadModels(){
+void Vk::Renderer::loadModels(){
+    //Service::loadModels(_meshes, _loadedMeshes);
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
     std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
 
@@ -1242,7 +1245,7 @@ void VulkanEngine::loadModels(){
     std::cout << "Indices count for all " << allIndices.size() << "\n";
 }
 
-void VulkanEngine::populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour){
+void Vk::Renderer::populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour){
     Mesh mesh;
     _loadedMeshes.push_back(mesh);
     int numMeshes = _loadedMeshes.size() - 1;
@@ -1300,10 +1303,10 @@ void VulkanEngine::populateVerticesIndices(std::string path, std::unordered_map<
 }
 
 //used to pass vertices and indices to WorldState for building collision meshes from objects directly (only used for asteroid mesh)
-std::vector<Vertex>& VulkanEngine::get_allVertices(){
+std::vector<Vertex>& Vk::Renderer::get_allVertices(){
     return allVertices;
 }
-std::vector<uint32_t>& VulkanEngine::get_allIndices(){
+std::vector<uint32_t>& Vk::Renderer::get_allIndices(){
     return allIndices;
 }
 
@@ -1314,17 +1317,17 @@ std::vector<uint32_t>& VulkanEngine::get_allIndices(){
 //We have a lot of control but have to manage the memory
 //because we are going to create multiple buffers we will seperate the buffer creation into a helper function
 //parms, size of buffer in bytes, uage flags, propert flags, buffer and buffer memory pointers to store the buffer and memory addresses
-void VulkanEngine::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation){
+void Vk::Renderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation){
     uint32_t queueFamilyIndices[] = {queueFamilyIndicesStruct.graphicsFamily.value(), queueFamilyIndicesStruct.transferFamily.value()};
     //both graphics and transfer queue families involved so count 2 and concurrent sharing for now
-    VkBufferCreateInfo bufferInfo = vkStructs::buffer_create_info(size, usage, VK_SHARING_MODE_CONCURRENT, 2, queueFamilyIndices);
+    VkBufferCreateInfo bufferInfo = Vk::Structs::buffer_create_info(size, usage, VK_SHARING_MODE_CONCURRENT, 2, queueFamilyIndices);
     
-    VmaAllocationCreateInfo vmaAllocInfo = vkStructs::vma_allocation_create_info(vmaUsage);
+    VmaAllocationCreateInfo vmaAllocInfo = Vk::Structs::vma_allocation_create_info(vmaUsage);
 
     vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &buffer, &allocation, nullptr);
 }
     
-void VulkanEngine::createVertexBuffer(){       //uploading vertex data to the gpu    
+void Vk::Renderer::createVertexBuffer(){       //uploading vertex data to the gpu    
     VkDeviceSize bufferSize = sizeof(allVertices[0]) * allVertices.size(); // should add up all meshes loaded? not sure
 
     //Staging Buffer
@@ -1363,7 +1366,7 @@ void VulkanEngine::createVertexBuffer(){       //uploading vertex data to the gp
 //Just like vertex data we need a VkBuffer for the GPU to be able to access them
 //This function is almost identical to createVertexBuffer
 //only differences are specifying indices and the size and data. and VK_BUFFER_USAGE_INDEX_BUFFER_BIT as the usage type
-void VulkanEngine::createIndexBuffer(){
+void Vk::Renderer::createIndexBuffer(){
     VkDeviceSize bufferSize = sizeof(allIndices[0]) * allIndices.size();
     //VkDeviceSize bufferSize = sizeof(buildingMesh.indices[0]) * buildingMesh.indices.size();
     //VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
@@ -1388,7 +1391,7 @@ void VulkanEngine::createIndexBuffer(){
 //we need multiple buffers because multiple frames may be in flight and we dont want to update the buffer in preperation for the next frame
 //while a previous one is still reading it! We can eithe rhave a uniform buffer per frame or per swap image. Because we need to refer to the uniform
 //buffer from the command buffer that we have per swao chain image, it makes sense to also have a uniform buffer per swap chain image
-void VulkanEngine::createUniformBuffers(){
+void Vk::Renderer::createUniformBuffers(){
     for(size_t i = 0; i < swapChainImages.size(); i++){ //loop through each in swapChainImages
 
         //create a uniform buffer for each frame, will hold camera buffer information (matrices)
@@ -1433,18 +1436,18 @@ void VulkanEngine::createUniformBuffers(){
 }
 
 //helper function that begins single time commands, accepts a pool 
-VkCommandBuffer VulkanEngine::beginSingleTimeCommands(VkCommandPool pool){
+VkCommandBuffer Vk::Renderer::beginSingleTimeCommands(VkCommandPool pool){
     //memory transfer operation are executed using command buffers, just like drawing commands. Therfor we must first allocate a temp command buffer.
     //You may wish to create a seperate command pool for these kinds of short lived buffers, because the implementation may be able to apply memory
     //allocation optimizations. You should use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT flag during command pool generation in that case.
-    VkCommandBufferAllocateInfo allocInfo = vkStructs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, pool, 1);
+    VkCommandBufferAllocateInfo allocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, pool, 1);
 
     VkCommandBuffer commandBuffer;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     //now we immediately start recording the command buffer
     //good practice to signal this is a one time submission.
-    VkCommandBufferBeginInfo beginInfo = vkStructs::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VkCommandBufferBeginInfo beginInfo = Vk::Structs::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
@@ -1452,11 +1455,11 @@ VkCommandBuffer VulkanEngine::beginSingleTimeCommands(VkCommandPool pool){
 }
 
 //helper function that ends single time commands, accepts a commandBuffer and a queue to submit to and wait on
-void VulkanEngine::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue) {
+void Vk::Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue) {
     vkEndCommandBuffer(commandBuffer);
 
     //now we execute the command buffer to complete the transfer
-    VkSubmitInfo submitInfo = vkStructs::submit_info(&commandBuffer);
+    VkSubmitInfo submitInfo = Vk::Structs::submit_info(&commandBuffer);
 
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE); //error here, we needed to submit to the transfer queue
     vkQueueWaitIdle(queue);
@@ -1471,9 +1474,9 @@ void VulkanEngine::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkComman
     vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
 }
 
-void VulkanEngine::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
+void Vk::Renderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(transientCommandPool);
-    VkBufferCopy copyRegion = vkStructs::buffer_copy(size);
+    VkBufferCopy copyRegion = Vk::Structs::buffer_copy(size);
     //contents of buffers are transferred using the vkCmdCopyBuffer command. Takes source and dest buffer as arguments and an array of regions to copy.
     //the regions are defined in VkBufferCopy structs and consist of a source buffer offset, destination buffer offset and size. 
     //note Can't specify VK_WHOLE_SIZE here unlike vkMapMemory
@@ -1487,7 +1490,7 @@ void VulkanEngine::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSi
 //now we create a descriptor set for each VkBuffer resource to binf it to the uniform buffer descriptor
 //Descriptor sets can’t be created directly, they must be allocated from a pool like command buffers
 //The equivalent for descriptor sets is unsurprisingly called a descriptor pool
-void VulkanEngine::createDescriptorPool(){
+void Vk::Renderer::createDescriptorPool(){
     //create a descriptor pool that will hold 10 uniform buffers
 	std::vector<VkDescriptorPoolSize> poolSizes = {
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20},
@@ -1495,7 +1498,7 @@ void VulkanEngine::createDescriptorPool(){
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}
     };
-    VkDescriptorPoolCreateInfo poolInfo = vkStructs::descriptor_pool_create_info(poolSizes, 30);
+    VkDescriptorPoolCreateInfo poolInfo = Vk::Structs::descriptor_pool_create_info(poolSizes, 30);
     //now we can create the descriptor pool and store in the member variable descriptorPool
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool");
@@ -1507,29 +1510,29 @@ void VulkanEngine::createDescriptorPool(){
 //Descriptor Set
 //described with a VkDescriptorSetAllocateInfo struct. You need to specify the descriptor pool to allocate from, the number of
 //descriptor sets to allocate, and the descriptor layout to base them on
-void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain image??????????????????
+void Vk::Renderer::createDescriptorSets(){//do we really need one per swapchain image??????????????????
     for(size_t i = 0; i < swapChainImages.size(); i++){
         //descriptors that refer to buffers, like our uniform buffer descriptor, are configured with VkDescriptorBufferInfo
         //it specifies the buffer and region within it that contains the data for the descriptor
         
         //allocate globalDescriptor set for each frame
-		VkDescriptorSetAllocateInfo globalSetAllocInfo = vkStructs::descriptorset_allocate_info(descriptorPool, &_globalSetLayout);
+		VkDescriptorSetAllocateInfo globalSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_globalSetLayout);
 		if(vkAllocateDescriptorSets(device, &globalSetAllocInfo, &_frames[i].globalDescriptor) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for globalDescriptor set");
         }
 
         //allocate a storage object descriptor set for each frame
-        VkDescriptorSetAllocateInfo objectSetAllocInfo = vkStructs::descriptorset_allocate_info(descriptorPool, &_objectSetLayout);
+        VkDescriptorSetAllocateInfo objectSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_objectSetLayout);
 		if(vkAllocateDescriptorSets(device, &objectSetAllocInfo, &_frames[i].objectDescriptor) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for object descriptor set");
         }
         //allocate a uniform material descriptor set for each frame
-        VkDescriptorSetAllocateInfo materialSetAllocInfo = vkStructs::descriptorset_allocate_info(descriptorPool, &_materialSetLayout);
+        VkDescriptorSetAllocateInfo materialSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_materialSetLayout);
 		if(vkAllocateDescriptorSets(device, &materialSetAllocInfo, &_frames[i].materialSet) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for material decriptor set");
         }
         //allocate a uniform lighting descriptor set for each frame
-        VkDescriptorSetAllocateInfo lightingSetAllocInfo = vkStructs::descriptorset_allocate_info(descriptorPool, &_lightingSetLayout);
+        VkDescriptorSetAllocateInfo lightingSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_lightingSetLayout);
 		if(vkAllocateDescriptorSets(device, &lightingSetAllocInfo, &_frames[i].lightSet) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for lighting descriptor set");
         }
@@ -1541,7 +1544,7 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
 		cameraInfo.offset = 0; //at 0 offset
 		cameraInfo.range = sizeof(GPUCameraData); //of the size of a camera data struct
         //binding camera uniform buffer to 0
-        setWrite[0] = vkStructs::write_descriptorset(0, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &cameraInfo);
+        setWrite[0] = Vk::Structs::write_descriptorset(0, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &cameraInfo);
 
         VkDescriptorBufferInfo sceneInfo;
 		sceneInfo.buffer = _sceneParameterBuffer;
@@ -1550,7 +1553,7 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
         //and they will be reading from the same buffer
 		sceneInfo.range = sizeof(GPUSceneData);
         //binding scene uniform buffer to 1, we are using dynamic offsets so set the flag
-        setWrite[1] = vkStructs::write_descriptorset(1, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
+        setWrite[1] = Vk::Structs::write_descriptorset(1, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo objectBufferInfo;
@@ -1558,7 +1561,7 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
 		objectBufferInfo.offset = 0;
 		objectBufferInfo.range = sizeof(GPUObjectData) * MAX_OBJECTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[2] = vkStructs::write_descriptorset(0, _frames[i].objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
+        setWrite[2] = Vk::Structs::write_descriptorset(0, _frames[i].objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo materialBufferInfo;
@@ -1566,7 +1569,7 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
 		materialBufferInfo.offset = 0;
 		materialBufferInfo.range = sizeof(GPUMaterialData) * MATERIALS_COUNT;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[3] = vkStructs::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
+        setWrite[3] = Vk::Structs::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo pointlightsBufferInfo;
@@ -1574,7 +1577,7 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
 		pointlightsBufferInfo.offset = 0;
 		pointlightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[4] = vkStructs::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
+        setWrite[4] = Vk::Structs::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo spotLightsBufferInfo;
@@ -1582,30 +1585,30 @@ void VulkanEngine::createDescriptorSets(){//do we really need one per swapchain 
 		spotLightsBufferInfo.offset = 0;
 		spotLightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[5] = vkStructs::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
+        setWrite[5] = Vk::Structs::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
     }
 
      //allocate a skybox descriptor set for each frame
-    VkDescriptorSetAllocateInfo skyboxSetAllocInfo = vkStructs::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
+    VkDescriptorSetAllocateInfo skyboxSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
     if(vkAllocateDescriptorSets(device, &skyboxSetAllocInfo, &skyboxSet) != VK_SUCCESS){
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");
     }
 }
 
-//void VulkanEngine::
+//void Vulkan::Renderer::
 
 //Command buffer allocation
 //Because one of the drawing commands involves binding the right VkFramebuffer, we will need to record a command buffer for every image in the swap chain
-void VulkanEngine::createCommandBuffers(){
+void Vk::Renderer::createCommandBuffers(){
     clearValues.resize(2);
     clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
     clearValues[1].depthStencil = {1.0f, 0};
 
     for (size_t i = 0; i < _frames.size(); i++){
 		//allocate the default command buffer that we will use for rendering
-		VkCommandBufferAllocateInfo cmdAllocInfo = vkStructs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, _frames[i]._commandPool, 1);
+		VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, _frames[i]._commandPool, 1);
 
 		if(vkAllocateCommandBuffers(device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer) != VK_SUCCESS){
             throw std::runtime_error("Unable to allocate command buffer");
@@ -1615,7 +1618,7 @@ void VulkanEngine::createCommandBuffers(){
 }
 
 //create VkSemaphores we need to use a struct, only the sType argument is required at this time
-void VulkanEngine::createSyncObjects(){
+void Vk::Renderer::createSyncObjects(){
     //this is to track for each swap chain image if a frame in flight is currently accessing it, 
     //we initialise as null because the list is empty to begin with as we dont have any frames in flight
     imagesInFlight.resize(swapChainImages.size(), VK_NULL_HANDLE); 
@@ -1656,7 +1659,7 @@ void VulkanEngine::createSyncObjects(){
 //Swap Chain Recreation
 //if the window surface changes (eg it is resized) then the swap chain becomes incompatible with it
 //we have to catch these events and then the swap chain must be recreated. Here we recreate the chain
-void VulkanEngine::recreateSwapChain(){
+void Vk::Renderer::recreateSwapChain(){
     int width = 0, height = 0;
     while(width == 0 || height == 0){ //handles minimizing, just pause if minimized
         glfwGetFramebufferSize(window, &width, &height); //keep checking the size
@@ -1687,7 +1690,7 @@ void VulkanEngine::recreateSwapChain(){
     //ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount); //do i need to resize imgui? probably
 }
 
-Material* VulkanEngine::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name, int id){
+Material* Vk::Renderer::create_material(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name, int id){
     if(id >= MATERIALS_COUNT){
         throw std::runtime_error("Materials id assigned higher value than material properties array in create_material");
     }
@@ -1698,7 +1701,7 @@ Material* VulkanEngine::create_material(VkPipeline pipeline, VkPipelineLayout la
 	_materials[name] = mat;
 	return &_materials[name];
 }
-Material* VulkanEngine::get_material(const std::string& name){
+Material* Vk::Renderer::get_material(const std::string& name){
 	//search for the object, and return nullpointer if not found
 	auto it = _materials.find(name);
 	if (it == _materials.end()) {
@@ -1708,7 +1711,7 @@ Material* VulkanEngine::get_material(const std::string& name){
 		return &(*it).second;
 	}
 }
-Mesh* VulkanEngine::get_mesh(const std::string& name){
+Mesh* Vk::Renderer::get_mesh(const std::string& name){
 	auto it = _meshes.find(name);
 	if (it == _meshes.end()) {
 		return nullptr;
@@ -1719,11 +1722,11 @@ Mesh* VulkanEngine::get_mesh(const std::string& name){
 }
 
 //because we need to free swapChain resources before recreating it, we should have a seperate function to andle the cleanup that can be called from recreateSwapChain()
-void VulkanEngine::cleanupSwapChain(){
+void Vk::Renderer::cleanupSwapChain(){
     _swapDeletionQueue.flush();
 }
 
-size_t VulkanEngine::pad_uniform_buffer_size(size_t originalSize){
+size_t Vk::Renderer::pad_uniform_buffer_size(size_t originalSize){
 	// Calculate required alignment based on minimum device offset alignment
 	size_t minUboAlignment = _gpuProperties.limits.minUniformBufferOffsetAlignment;
 	size_t alignedSize = originalSize;
@@ -1733,6 +1736,6 @@ size_t VulkanEngine::pad_uniform_buffer_size(size_t originalSize){
 	return alignedSize;
 }
 
-VulkanEngine::RenderStats VulkanEngine::getRenderStats(){
+Vk::Renderer::RenderStats Vk::Renderer::getRenderStats(){
     return renderStats;
 }

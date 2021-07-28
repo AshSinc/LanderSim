@@ -9,13 +9,15 @@
 #include <vector>
 
 //forward declare
-class VulkanEngine;
+namespace Vk{
+    class Renderer;
+}
 class WorldState;
 class WorldInput;
 
 class UiHandler{
     private:
-    VulkanEngine* p_engine;
+    Vk::Renderer* p_engine;
     GLFWwindow* p_window;
     WorldState* p_worldState;
     WorldInput* p_worldInput;
@@ -49,10 +51,10 @@ class UiHandler{
                 VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews);
     void updateUIPanelDimensions();
     void drawUI(); //draw UI
-    void passEngine(VulkanEngine* engine);
+    void passEngine(Vk::Renderer* engine);
     void setWorld(WorldState* worldState);
     void cleanup();
     //UiHandler();
-    UiHandler(GLFWwindow* window, VulkanEngine* engine);
+    UiHandler(GLFWwindow* window, Vk::Renderer* renderer);
     ~UiHandler();
 };

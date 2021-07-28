@@ -3,7 +3,7 @@
 #include "vk_mesh.h"
 #include <set>
 
-namespace vkStructs{
+namespace Vk::Structs{
 
   VkSubmitInfo submit_info(VkCommandBuffer* commandBuffer);
 

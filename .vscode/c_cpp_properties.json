@@ -4,18 +4,22 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/src/**",
-                "/opt/bullet3-master/src/",
+                //"/opt/bullet3-master/src/",
+                // "/home/ash/vcpkg/installed/x64-linux/include/**",
+                "/home/ash/vcpkg/packages/bullet3_x64-linux/include/**",
                 "${VULKAN_SDK}/include",
                 "/opt/vk_mem_alloc/",
                 "/opt/stb_image/",
                 "/opt/tiny_obj_loader/",
-                "/opt/imgui-vulkan/"
+                "/opt/imgui-vulkan/",
+                "/opt/catch-header/"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
             "cStandard": "gnu17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "linux-gcc-x64"
+            //"configurationProvider": "ms-vscode.cmake-tools"
         }
     ],
     "version": 4

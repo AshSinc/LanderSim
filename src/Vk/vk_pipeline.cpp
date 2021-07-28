@@ -2,16 +2,16 @@
 #include "vk_structs.h"
 #include <stdexcept>
 
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass renderPass){ 
+VkPipeline Vk::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass renderPass){ 
     //viewport and scissor rectangle needs to be combined into a viewport state using VkPipelineViewportStateCreateInfo struct
-    VkPipelineViewportStateCreateInfo viewportState = vkStructs::pipeline_viewport_state_create_info(1, &viewport, 1, &scissor);
+    VkPipelineViewportStateCreateInfo viewportState = Vk::Structs::pipeline_viewport_state_create_info(1, &viewport, 1, &scissor);
     //build the pipeline here
 
-    VkPipelineColorBlendStateCreateInfo colourBlending = vkStructs::pipeline_colour_blend_state_create_info(1, &colourBlendAttachment);
+    VkPipelineColorBlendStateCreateInfo colourBlending = Vk::Structs::pipeline_colour_blend_state_create_info(1, &colourBlendAttachment);
 
     //finally we can begin bringing the pipeline together
     //we start by referencing the array of VkPipelineShaderStageCreateInfo structs
-    VkGraphicsPipelineCreateInfo pipelineInfo = vkStructs::graphics_pipeline_create_info(2, shaderStages, &vertexInputInfo, &inputAssembly, &viewportState,
+    VkGraphicsPipelineCreateInfo pipelineInfo = Vk::Structs::graphics_pipeline_create_info(2, shaderStages, &vertexInputInfo, &inputAssembly, &viewportState,
         &rasterizer, &multisampling, &depthStencil, &colourBlending, pipelineLayout, renderPass, 0);
 
     VkPipeline createdPipeline;

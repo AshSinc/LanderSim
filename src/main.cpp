@@ -1,4 +1,4 @@
-#include "vk_engine.h"
+#include "vk_renderer.h"
 #include <stdexcept>
 #include <iostream>
 #include "world_state.h"
@@ -9,8 +9,9 @@
 uint32_t WIDTH = 1920; //defaults, doesnt track resizing, should have a callback function here to update these from engine
 uint32_t HEIGHT = 1080;
 
+#ifndef CATCH_CONFIG_MAIN
 int main(){
-    WindowHandler windowHandler;
+    Vk::WindowHandler windowHandler;
     GLFWwindow* window; //pointer to the window, freed on cleanup() in VulkanRenderer just now
 
     //ISSUES
@@ -28,7 +29,7 @@ int main(){
         WorldCamera worldCamera = WorldCamera(worldState.getWorldObjectsRef()); //should make LockableCamera(objects&) class extend a CameraBase class,
         WorldInput worldInput = WorldInput(window);
         worldInput.setWorld(&worldState); //instead of worldInput talking to worldState, it should talk to IInputInterpreter, which then sends messages everywhere
-        VulkanEngine engine = VulkanEngine(window, &worldState); //instanciate render engine
+        Vk::Renderer engine = Vk::Renderer(window, &worldState); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, &engine);
         worldInput.setUiHandler(&uiHandler);
         uiHandler.setWorld(&worldState);
@@ -78,3 +79,4 @@ int main(){
     }
     return EXIT_SUCCESS;
 }
+#endif

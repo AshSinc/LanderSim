@@ -1,11 +1,11 @@
-#include <world_state.h>
+#include "world_state.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
 #include <random>
 #include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
-#include "vk_engine.h"
+#include "vk_renderer.h"
 #include "world_input.h"
 
 void WorldState::addObject(std::vector<WorldObject>& container, WorldObject obj){
@@ -179,7 +179,7 @@ void WorldState::initBullet(){
     dynamicsWorld->setGravity(btVector3(0, 0, 0));
 }
 
-void WorldState::loadCollisionMeshes(VulkanEngine& engine){ 
+void WorldState::loadCollisionMeshes(Vk::Renderer& engine){ 
     //load asteroid mesh and configure rigidbody and GImpactShape
     {
         //misleading naming, this method should be renamed to get_mesh_indices

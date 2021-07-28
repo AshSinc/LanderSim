@@ -6,13 +6,18 @@
 #include <vector>
 #include <chrono>
 #include <btBulletDynamicsCommon.h>
+//#include <btBulletDynamicsCommon.h>
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 
-class VulkanEngine; //forward reference, because we reference this before defining it
+namespace Vk{
+    class Renderer; //forward reference, because we reference this before defining it
+}
+
 class Mesh; //forward reference, because we reference this before defining it
 class WorldInput;
 
+//these should be moved out of here
 struct WorldObject{
     glm::vec3 pos;
     glm::vec3 scale{1,1,1};
@@ -35,6 +40,7 @@ struct WorldSpotLightObject : WorldPointLightObject{
     glm::vec3 direction; // 
     glm::vec2 cutoffs; // x is inner y is outer
 };
+//these should be moved out of here
 
 class WorldState{
 public:
@@ -48,7 +54,7 @@ public:
     WorldStats getWorldStats();
     void setSimSpeedMultiplier(float multiplier);
     
-    void loadCollisionMeshes(VulkanEngine& engine); //load bullet collision meshes, 
+    void loadCollisionMeshes(Vk::Renderer& engine); //load bullet collision meshes, 
     static double deltaTime; // Time between current frame and last frame
     std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
     void updateDeltaTime();

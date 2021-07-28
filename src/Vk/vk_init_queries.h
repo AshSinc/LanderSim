@@ -1,9 +1,10 @@
 #pragma once
 
 #include "vk_types.h"
-#include "glfw_WindowHandler.h"
+//#include "vk_windowHandler.h"
+class GLFWwindow;
 
-namespace init_query{
+namespace Vk::Init{
 
     VkPhysicalDeviceProperties getPhysicalDeviceProperties(VkPhysicalDevice& device);
 
