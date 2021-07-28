@@ -61,7 +61,12 @@
         "compare": "cpp",
         "concepts": "cpp",
         "ranges": "cpp",
-        "stop_token": "cpp"
+        "stop_token": "cpp",
+        "bitset": "cpp",
+        "regex": "cpp",
+        "future": "cpp",
+        "variant": "cpp",
+        "codecvt": "cpp"
     },
     "cmake.configureOnOpen": true
 }

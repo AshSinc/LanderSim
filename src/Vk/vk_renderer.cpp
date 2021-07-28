@@ -901,17 +901,19 @@ void Vk::Renderer::createDescriptorSetLayouts(){
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _skyboxSetLayout, nullptr);});
 }
-
+#include <filesystem>
 void Vk::Renderer::init_pipelines(){
-
+    
+    using std::filesystem::current_path;
+    std::cout << "Current working directory: " << current_path() << "\n";
     //load and create all shader stages
-    auto default_lit_vert_c = Vk::Init::readFile("../shaders/default_lit_vert.spv"); 
-    auto default_lit_frag_c = Vk::Init::readFile("../shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto unlit_frag_c = Vk::Init::readFile("../shaders/unlit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto textured_lit_frag_c = Vk::Init::readFile("../shaders/textured_lit_frag.spv");
+    auto default_lit_vert_c = Vk::Init::readFile("resources/shaders/default_lit_vert.spv"); 
+    auto default_lit_frag_c = Vk::Init::readFile("resources/shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto unlit_frag_c = Vk::Init::readFile("resources/shaders/unlit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto textured_lit_frag_c = Vk::Init::readFile("resources/shaders/textured_lit_frag.spv");
 
-    auto skybox_vert_c = Vk::Init::readFile("../shaders/skybox_vert.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto skybox_frag_c = Vk::Init::readFile("../shaders/skybox_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto skybox_vert_c = Vk::Init::readFile("resources/shaders/skybox_vert.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto skybox_frag_c = Vk::Init::readFile("resources/shaders/skybox_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
 
     auto default_lit_vert_m = createShaderModule(default_lit_vert_c);
     auto default_lit_frag_m = createShaderModule(default_lit_frag_c);
