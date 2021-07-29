@@ -6,7 +6,6 @@
 #include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
 #include "vk_renderer.h"
-#include "world_input.h"
 
 void WorldState::addObject(std::vector<WorldObject>& container, WorldObject obj){
     container.push_back(obj);
@@ -16,8 +15,12 @@ WorldState* WorldState::getWorld(){
     return this;
 }
 
-std::vector<WorldObject>& WorldState::getWorldObjectsRef(){
-    return objects;
+WorldObject& WorldState::getWorldObject(int index){
+    return objects.at(index);
+}
+
+int WorldState::getWorldObjectsCount(){
+    return objects.size();
 }
 
 std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
@@ -128,7 +131,7 @@ void WorldState::worldTick(){
 }
 
 //needs a semaphore or sync protection
-WorldState::WorldStats WorldState::getWorldStats(){
+WorldState::WorldStats& WorldState::getWorldStats(){
     return worldStats;
 }
 
@@ -313,7 +316,7 @@ btVector3 WorldState::getPointOnSphere(float pitch, float yaw, float radius){
     return result;
 }
 
-void WorldState::changeSimSpeed(int pos, bool pause){
+void WorldState::changeSimSpeed(int direction, bool pause){
     if(pause){ //toggle pause on and off
         if(getWorldStats().timeStepMultiplier == 0)
             setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
@@ -321,10 +324,10 @@ void WorldState::changeSimSpeed(int pos, bool pause){
             setSimSpeedMultiplier(0);
     }
     else{
-        if(pos == 0) //0 will be a normal speed shortcut eventually?
+        if(direction == 0) //0 will be a normal speed shortcut eventually?
             selectedSimSpeedIndex = 2;
         else{
-            selectedSimSpeedIndex+=pos;
+            selectedSimSpeedIndex+=direction;
             if(selectedSimSpeedIndex < 0)
                 selectedSimSpeedIndex = 0;
             else if(selectedSimSpeedIndex > 6) //need to add a var for array init so we dont have a hardcoded size here

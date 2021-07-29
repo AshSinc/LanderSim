@@ -2,14 +2,14 @@
 #include <stdexcept>
 #include <iostream>
 #include "world_state.h"
-#include "world_input.h"
+#include "ui_input.h"
 #include "world_camera.h"
 #include "ui_handler.h"
+#include "mediator.h"
 
 uint32_t WIDTH = 1920; //defaults, doesnt track resizing, should have a callback function here to update these from engine
 uint32_t HEIGHT = 1080;
 
-#ifndef CATCH_CONFIG_MAIN
 int main(){
     Vk::WindowHandler windowHandler;
     GLFWwindow* window; //pointer to the window, freed on cleanup() in VulkanRenderer just now
@@ -22,20 +22,24 @@ int main(){
     //then move object instanciation to WorldState
     //this means we can then load parts of the rendering engine we need first, show a gui, and then load the simulation along with final texture loading etc for the renderer
 
-    try{
-        //construct components
-        window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
-        WorldState worldState = WorldState();
-        WorldCamera worldCamera = WorldCamera(worldState.getWorldObjectsRef()); //should make LockableCamera(objects&) class extend a CameraBase class,
-        WorldInput worldInput = WorldInput(window);
-        worldInput.setWorld(&worldState); //instead of worldInput talking to worldState, it should talk to IInputInterpreter, which then sends messages everywhere
-        Vk::Renderer engine = Vk::Renderer(window, &worldState); //instanciate render engine
-        UiHandler uiHandler = UiHandler(window, &engine);
-        worldInput.setUiHandler(&uiHandler);
-        uiHandler.setWorld(&worldState);
+    //construct components
+    Mediator mediator = Mediator();
+    WorldState worldState = WorldState();
+    WorldCamera worldCamera = WorldCamera(mediator); //should make LockableCamera(objects&) class extend a CameraBase class,
+    UiInput uiInput = UiInput(mediator);
 
-        worldInput.setCamera(&worldCamera);
-        engine.setCameraData(worldCamera.getCameraDataPtr());
+    try{
+
+        window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
+
+        Vk::Renderer engine = Vk::Renderer(window, &worldState, mediator); //instanciate render engine
+        UiHandler uiHandler = UiHandler(window, &engine, mediator);
+
+        //associate objects with mediator class
+        mediator.setCamera(&worldCamera);
+        mediator.setUiHandler(&uiHandler);
+        mediator.setPhysicsEngine(&worldState);
+        mediator.setRenderEngine(&engine);
        
         //Cyclical Dependency note
         //1. Stick to OOAD principles. Don't include a header file, unless the class included is in composition relationship with the current class. Use forward declaration instead.
@@ -51,7 +55,8 @@ int main(){
         
         //uiHandler should be moved elsewhere?, or all classes should call init first and require pointers, and should warn on first use? or check notes above and redesign with abstract interfaces
         engine.init(&uiHandler); //initialise engine (note that model and texture loading might need moved out of init, when we have multiple options and a menu)
-
+        // ^^^^^^^^^ cycline dependency between engine and uiHandler, because of the init() function in uiHandler
+        
         //ISSUE
         // worldState.loadCollisionMeshes(engine) is needed after loading the models in to the engine, we want to be able to do this in the main loop in respone to loading complete or a button being pressed
         //SOLUTION
@@ -60,7 +65,7 @@ int main(){
         worldState.loadCollisionMeshes(engine); //once models are loaded in engine worldState can reuse for creating asteroid collision mesh (will probs need moved too)
 
         //set glfw callbacks for input and then capture the mouse 
-        glfwSetWindowUserPointer(window, &worldInput);
+        glfwSetWindowUserPointer(window, &uiInput);
         glfwSetKeyCallback(window, key_callback); //key_callback is defined in world_input, they must be regular functions though, not member functions because glfw is written in C and doesnt understand objects
         glfwSetCursorPosCallback(window, mouse_callback);
         glfwSetScrollCallback(window, scroll_callback);
@@ -68,7 +73,7 @@ int main(){
         while (!glfwWindowShouldClose(window)){ //&& appRunning)
             glfwPollEvents(); //keep polling window events
             worldState.mainLoop(); //progress world state
-            worldInput.updateFixedLookPosition(); //have to 
+            worldCamera.updateFixedLookPosition(); //have to 
             engine.drawFrame(); //render a frame
         }
         engine.cleanup();
@@ -79,4 +84,3 @@ int main(){
     }
     return EXIT_SUCCESS;
 }
-#endif

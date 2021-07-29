@@ -1,10 +1,9 @@
 #include "ui_handler.h"
 #include "vk_structs.h"
 #include "vk_renderer.h"
-#include "world_state.h"
-#include "world_input.h"
+#include "mediator.h"
 
-UiHandler::UiHandler(GLFWwindow* window, Vk::Renderer* engine) : p_window{window}, p_engine{engine}{
+UiHandler::UiHandler(GLFWwindow* window, Vk::Renderer* engine, Mediator& mediator) : p_window{window}, p_engine{engine}, r_mediator{mediator}{
 }
 
 void UiHandler::cleanup(){
@@ -15,14 +14,7 @@ void UiHandler::cleanup(){
 
 UiHandler::~UiHandler(){}
 
-void UiHandler::passEngine(Vk::Renderer* engine){
-    engine = engine;
-}
-
-void UiHandler::setWorld(WorldState* worldState){
-    p_worldState = worldState;
-}
-
+//this needs moved back to Vk Renderer?
 void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
                         VkDescriptorPool* descriptorPool, uint32_t imageCount, VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
                         VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews){
@@ -151,15 +143,17 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
 
 //toggles menu on and off, should be moved to a UI handler
 void UiHandler::toggleMenu(){
-    if(getShowEscMenu()){
+    if(showEscMenu){
         glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
         showEscMenu = false;
+        r_mediator.camera_setMouseLookActive(true);
     }
     else{
         glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture the cursor, for mouse movement
         showEscMenu = true;
+        r_mediator.camera_setMouseLookActive(false);
     }
-    p_worldState->changeSimSpeed(0, true);
+    r_mediator.physics_changeSimSpeed(0, true);
 }
 
 void UiHandler::gui_ShowOverlay(){
@@ -185,8 +179,8 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("P pauses simulation\n");
         ImGui::Text("[ ] controls time\n\n");
 
-        WorldState::WorldStats worldStats = p_worldState->getWorldStats();
-        Vk::Renderer::RenderStats renderStats = p_engine->getRenderStats();
+        WorldState::WorldStats& worldStats = r_mediator.physics_getWorldStats();
+        Vk::Renderer::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
 
         ImGui::Text("\nEngine\n");
         ImGui::Separator();
@@ -246,12 +240,4 @@ void UiHandler::gui_ShowMainMenu(){
         //ImGui::Unindent();
     }
     ImGui::End();
-}
-
-bool UiHandler::getShowEscMenu(){
-    return showEscMenu;
-}
-
-void UiHandler::setShowEscMenu(bool b){
-    showEscMenu = b;
 }

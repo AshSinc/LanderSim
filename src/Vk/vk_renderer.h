@@ -16,6 +16,7 @@
 class UiHandler; //forward declare
 class WorldState;
 class CameraData;
+class Mediator;
 
 
 namespace Vk{
@@ -79,7 +80,7 @@ public:
         double fps = 0;
     }renderStats;
 
-    RenderStats getRenderStats();
+    RenderStats& getRenderStats();
 
     struct DeletionQueue{
         std::deque<std::function<void()>> deletors;
@@ -98,7 +99,7 @@ public:
     DeletionQueue _swapDeletionQueue;
 
     //constructor, should have code to enforce one instance
-    Renderer(GLFWwindow* windowptr, WorldState* state);
+    Renderer(GLFWwindow* windowptr, WorldState* state, Mediator& mediator);
     //Exposed Functions for Main.cpp
     void init(UiHandler* uiHandler); //initialise engine
     void drawFrame(); //draw a frame
@@ -129,6 +130,7 @@ public:
     void setCameraData(CameraData* camData);
     
 private:
+    Mediator& r_mediator;
     UiHandler* p_uiHandler;
     void loadScene(); //loads scene 
     void calculateFrameRate();

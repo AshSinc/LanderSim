@@ -2,11 +2,13 @@
 #include <imgui.h> //basic gui library for drawing simple guis
 #include <imgui_impl_glfw.h> //backends for glfw
 #include <imgui_impl_vulkan.h> //and vulkan
-#include <imconfig.h> //empty by default, user config
+//#include <imconfig.h> //empty by default, user config
 #include <imstb_rectpack.h>
 #include <imstb_textedit.h>
 #include <imstb_truetype.h>
 #include <vector>
+
+class Mediator;
 
 //forward declare
 namespace Vk{
@@ -17,9 +19,9 @@ class WorldInput;
 
 class UiHandler{
     private:
+    Mediator& r_mediator;
     Vk::Renderer* p_engine;
     GLFWwindow* p_window;
-    WorldState* p_worldState;
     WorldInput* p_worldInput;
     
     void loadScene(); //loads scene 
@@ -39,8 +41,7 @@ class UiHandler{
     bool showEscMenu = false;
     public:
     void toggleMenu();
-    bool getShowEscMenu();
-    void setShowEscMenu(bool b);
+
     VkRenderPass guiRenderPass; //handle to gui render pass
     VkCommandPool guiCommandPool;
     std::vector<VkCommandBuffer> guiCommandBuffers;
@@ -49,12 +50,10 @@ class UiHandler{
                 VkQueue* graphicsQueue, VkDescriptorPool* descriptorPool, uint32_t imageCount, 
                 VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
                 VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews);
-    void updateUIPanelDimensions();
     void drawUI(); //draw UI
-    void passEngine(Vk::Renderer* engine);
-    void setWorld(WorldState* worldState);
+
     void cleanup();
-    //UiHandler();
-    UiHandler(GLFWwindow* window, Vk::Renderer* renderer);
+
+    UiHandler(GLFWwindow* window, Vk::Renderer* renderer, Mediator& mediator);
     ~UiHandler();
 };

@@ -6,6 +6,7 @@
 #include <vector>
 
 class WorldObject;
+class Mediator;
 
 struct CameraData{
     glm::vec3 cameraPos = glm::vec3(2.0f, 2.0f, 2.0f);
@@ -15,18 +16,28 @@ struct CameraData{
 
 class WorldCamera{
 private:
+    bool mouselookActive = true;
+    Mediator& r_mediator;
     bool freelook = false;
     const float CAMERA_SPEED = 5;
     float fixedLookRadius = 2;  
     float fixedObjectScaleFactor = 1;        
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
-    std::vector<WorldObject>& r_objects;
+
     int objectFocusIndex = 2; //start at the first worldState.object[i] that we want to be able to track, have to set in update function too
     CameraData cameraData;
+
+    float lastMouseX, lastMouseY, yaw, pitch;
+    bool firstMouseInput = true;     
+    const float MOUSELOOK_SENSITIVITY = 0.1f;
+    const float MOUSESCROLL_SENSITIVITY = 0.5f;
+
 public:   
-    WorldCamera(std::vector<WorldObject>& r_objects);
+    void calculatePitchYaw(double xpos, double ypos);
+    WorldCamera(Mediator& mediator);
     CameraData* getCameraDataPtr();
-    void updateFixedLookPosition(float pitch, float yaw);
+    void updateFixedLookPosition();
     void changeFocus();
-    void changeZoom(float yoffset);
+    void calculateZoom(float yoffset);
+    void setMouseLookActive(bool state);
 };

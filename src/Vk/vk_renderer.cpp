@@ -40,6 +40,8 @@
 
 #include "world_camera.h"
 
+#include "mediator.h"
+
 //#include "to_loadModels.h"
 
 //static var declarations
@@ -50,7 +52,7 @@ VkCommandPool Vk::Renderer::transferCommandPool; //stores our transient command 
 VkDevice Vk::Renderer::device;
 VkPhysicalDevice Vk::Renderer::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
-Vk::Renderer::Renderer(GLFWwindow* windowptr, WorldState* state): window{windowptr}, p_worldState{state}{}
+Vk::Renderer::Renderer(GLFWwindow* windowptr, WorldState* state, Mediator& mediator): window{windowptr}, p_worldState{state}, r_mediator{mediator}{}
 
 void Vk::Renderer::init(UiHandler* uiHandler){
 
@@ -109,7 +111,9 @@ void Vk::Renderer::loadScene(){
     //creates RenderObjects and associates with WorldObjects, then allocates the textures 
     //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
     init_scene(); 
-    mapMaterialDataToGPU();    
+    mapMaterialDataToGPU();
+
+    setCameraData(r_mediator.camera_getCameraDataPointer());
 }
 
 void Vk::Renderer::allocateDescriptorSetForSkybox(){
@@ -274,7 +278,6 @@ void Vk::Renderer::setCameraData(CameraData* camData){
 }
 
 void Vk::Renderer::populateCameraData(GPUCameraData& camData){
-    //CameraData* worldCam = p_CameraData->getWorldCamera();
     glm::vec3 camPos = p_cameraData->cameraPos;
     glm::mat4 view = glm::lookAt(camPos, camPos + p_cameraData->cameraFront, p_cameraData->cameraUp);
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 15000.0f);
@@ -1738,6 +1741,6 @@ size_t Vk::Renderer::pad_uniform_buffer_size(size_t originalSize){
 	return alignedSize;
 }
 
-Vk::Renderer::RenderStats Vk::Renderer::getRenderStats(){
+Vk::Renderer::RenderStats& Vk::Renderer::getRenderStats(){
     return renderStats;
 }

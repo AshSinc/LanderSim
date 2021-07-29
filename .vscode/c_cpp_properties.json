@@ -4,8 +4,10 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/src/**",
-                //"/opt/bullet3-master/src/",
-                // "/home/ash/vcpkg/installed/x64-linux/include/**",
+                //"${workspaceFolder}/src/Vk/*",
+                //"${workspaceFolder}/src/Domain/*",
+                //"${workspaceFolder}/src/Ui/*",
+                //"${workspaceFolder}/src/Service/*",
                 "/home/ash/vcpkg/packages/bullet3_x64-linux/include/**",
                 "${VULKAN_SDK}/include",
                 "/opt/vk_mem_alloc/",

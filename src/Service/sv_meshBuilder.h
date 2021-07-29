@@ -26,11 +26,9 @@ struct ModelInfo{
     std::string filePath;
 };*/
 
-namespace Service{
-    class MeshBuilder{
-        
+class MeshBuilder{
+    
 
-        //void loadModels();
-        //void populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour);
-    };
-}
+    //void loadModels();
+    //void populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour);
+};

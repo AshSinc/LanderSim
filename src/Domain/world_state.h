@@ -6,7 +6,6 @@
 #include <vector>
 #include <chrono>
 #include <btBulletDynamicsCommon.h>
-//#include <btBulletDynamicsCommon.h>
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 
@@ -51,7 +50,7 @@ public:
         float lastImpactForce = 0;
         float largestImpactForce = 0;
     }worldStats;
-    WorldStats getWorldStats();
+    WorldStats& getWorldStats();
     void setSimSpeedMultiplier(float multiplier);
     
     void loadCollisionMeshes(Vk::Renderer& engine); //load bullet collision meshes, 
@@ -60,9 +59,11 @@ public:
     void updateDeltaTime();
     void worldTick();
     WorldState* getWorld();
-    std::vector<WorldObject>& getWorldObjectsRef();
+
     std::vector<WorldPointLightObject>& getWorldPointLightObjects();
     std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
+    WorldObject& getWorldObject(int index);
+    int getWorldObjectsCount();
 
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
     
@@ -77,7 +78,7 @@ public:
     WorldState();
     ~WorldState();
 
-    void changeSimSpeed(int pos, bool pause);
+    void changeSimSpeed(int direction, bool pause);
 
 private:
     //Bullet vars

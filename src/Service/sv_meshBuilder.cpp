@@ -11,7 +11,7 @@
 
 
 //this is where we will load the model data into vertices and indices member variables
-/*void Service::MeshBuilder::loadModels(){
+/*void MeshBuilder::loadModels(){
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
     std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
 
@@ -28,7 +28,7 @@
     //std::cout << "Indices count for all " << allIndices.size() << "\n";
 }
 
-void Service::MeshBuilder::populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour){
+void MeshBuilder::populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour){
     Mesh mesh;
     _loadedMeshes.push_back(mesh);
     int numMeshes = _loadedMeshes.size() - 1;
