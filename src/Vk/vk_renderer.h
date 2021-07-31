@@ -13,8 +13,13 @@
 #include <unordered_map>
 //#include "world_camera.h" // cant forward declare coz the struct is in the scope
 
+#include "obj_render.h"
+
+
+#include "dmn_iScene.h"
+
 class UiHandler; //forward declare
-class WorldState;
+class WorldPhysics;
 class CameraData;
 class Mediator;
 
@@ -29,7 +34,7 @@ const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i t
 const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
 const int MAX_LIGHTS = 10;
 
-struct ModelInfo{
+/*struct ModelInfo{
     std::string modelName;
     std::string filePath;
 };
@@ -61,7 +66,7 @@ const std::vector<std::string> SKYBOX_PATHS = {
     {"resources/textures/skybox/GalaxyTex_NegativeZ.jpg"},
     {"resources/textures/skybox/GalaxyTex_NegativeY.jpg"},
     {"resources/textures/skybox/GalaxyTex_PositiveY.jpg"}
-};
+};*/
 
 //required extensions and debug validation layers
 const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}; //list of required extensions (macro expands to VK_KHR_swapchain)
@@ -99,9 +104,9 @@ public:
     DeletionQueue _swapDeletionQueue;
 
     //constructor, should have code to enforce one instance
-    Renderer(GLFWwindow* windowptr, WorldState* state, Mediator& mediator);
+    Renderer(GLFWwindow* windowptr, Mediator& mediator);
     //Exposed Functions for Main.cpp
-    void init(UiHandler* uiHandler); //initialise engine
+    void init(); //initialise engine (WorldPhysics* worldPhysics)
     void drawFrame(); //draw a frame
     void cleanup(); //cleanup objects
 
@@ -125,16 +130,29 @@ public:
     std::vector<uint32_t>& get_allIndices();
 
     Mesh* get_mesh(const std::string& name);
+    int getMeshId(const std::string& name);
+    Material* get_material(const std::string& name);
+
+    void createTextureImages(const std::vector<TextureInfo>& TEXTURE_INFOS, const std::vector<std::string>& SKYBOX_PATHS);
+    void loadModels(const std::vector<ModelInfo>& MODEL_INFOS);
 
     CameraData* p_cameraData;
     void setCameraData(CameraData* camData);
-    
+    void setRenderablesPointer(std::vector<RenderObject&>* renderableObjects);
+    void allocateDescriptorSetForTexture(std::string materialName, std::string name);
+    void allocateDescriptorSetForSkybox();
+    void setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights);
+
 private:
+    WorldLightObject* p_sceneLight;
+    std::vector<WorldPointLightObject>* p_pointLights;
+    std::vector<WorldSpotLightObject>* p_spotLights;
+    
     Mediator& r_mediator;
     UiHandler* p_uiHandler;
     void loadScene(); //loads scene 
     void calculateFrameRate();
-
+    void initUI();
     /****** Engine Variables && Functions
      * 
      * 
@@ -156,6 +174,12 @@ private:
     VkExtent2D swapChainExtent; //stores the extent we specified in the swap chain for later use
     std::vector<VkImageView> swapChainImageViews; //stores the image views
     VkRenderPass renderPass; //handle to render pass object
+
+
+    VkRenderPass guiRenderPass; //handle to gui render pass
+    VkCommandPool guiCommandPool;
+    std::vector<VkCommandBuffer> guiCommandBuffers;
+    std::vector<VkFramebuffer> guiFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
     
     std::vector<VkFramebuffer> swapChainFramebuffers; //holds a framebuffer foreach VkImage in the swapchain
     
@@ -227,8 +251,7 @@ private:
     void createDescriptorPool();
     void createDescriptorSets();
     void createUniformBuffers();
-    void allocateDescriptorSetForTexture(Material* material, std::string name);
-    void allocateDescriptorSetForSkybox();
+    
     //void allocateDescriptorSetForMaterial(Material* material);
 
     /****** Reference Variables && functions
@@ -237,7 +260,7 @@ private:
      * 
      * */
     //Vars
-    WorldState* p_worldState;
+    //WorldPhysics* p_worldPhysics;
     //Functions
     void populateCameraData(GPUCameraData& camData);
     void updateObjectTranslations();
@@ -272,7 +295,7 @@ private:
     std::vector<Vertex> allVertices;
     std::vector<uint32_t> allIndices;
     //functions
-    void loadModels();
+    
     //Mesh* get_mesh(const std::string& name);
     void populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour);
     void createVertexBuffer(); //depends on vertex sizes and layout, might be able to overallocate?
@@ -291,7 +314,7 @@ private:
     std::unordered_map<std::string,Material> _materials;
     //Functions
     Material* create_material(VkPipeline pipeline, VkPipelineLayout layout,const std::string& name, int id);
-    Material* get_material(const std::string& name);
+    
     void mapMaterialDataToGPU();
 
     /****** Texture Variables && Functions
@@ -314,7 +337,7 @@ private:
     //VkImageView textureImage2View; //stores image view for the texture like the swap chain images and framebuffer, that images are accessed through views not directly
     //uint32_t mipLevels2;
     //Functions
-    void createTextureImages();
+    
 
     /****** Lighting Variables && Functions
      * 
@@ -331,7 +354,7 @@ private:
      * 
      * 
      * */
-    std::vector<RenderObject> _renderables;
+    std::vector<RenderObject&>* p_renderables;
     
     /****** Render image variables && Functions
      * 

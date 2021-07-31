@@ -30,7 +30,7 @@ class UiHandler{
     void gui_ShowEscMenu(); //holds esc menu
     void gui_ShowLoading(); //holds configuration for main loading bar
     void calculateFrameRate();
-    void updateUIPanelDimensions(GLFWwindow* window);
+    
     
     ImVec2 statsPanelSize;
     ImVec2 mainMenuPanelSize;
@@ -41,7 +41,8 @@ class UiHandler{
     bool showEscMenu = false;
     public:
     void toggleMenu();
-
+    void initUI();
+    void updateUIPanelDimensions(GLFWwindow* window);
     VkRenderPass guiRenderPass; //handle to gui render pass
     VkCommandPool guiCommandPool;
     std::vector<VkCommandBuffer> guiCommandBuffers;

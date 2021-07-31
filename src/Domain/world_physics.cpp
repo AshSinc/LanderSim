@@ -1,4 +1,4 @@
-#include "world_state.h"
+#include "world_physics.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -7,44 +7,44 @@
 #include <glm/gtx/fast_square_root.hpp>
 #include "vk_renderer.h"
 
-void WorldState::addObject(std::vector<WorldObject>& container, WorldObject obj){
+/*void WorldPhysics::addObject(std::vector<WorldObject>& container, WorldObject obj){
     container.push_back(obj);
 }
 
-WorldState* WorldState::getWorld(){
+/*WorldPhysics* WorldPhysics::getWorld(){
     return this;
 }
 
-WorldObject& WorldState::getWorldObject(int index){
+WorldObject& WorldPhysics::getWorldObject(int index){
     return objects.at(index);
 }
 
-int WorldState::getWorldObjectsCount(){
+int WorldPhysics::getWorldObjectsCount(){
     return objects.size();
 }
 
-std::vector<WorldPointLightObject>& WorldState::getWorldPointLightObjects(){
+std::vector<WorldPointLightObject>& WorldPhysics::getWorldPointLightObjects(){
     return pointLights;
 }
 
-std::vector<WorldSpotLightObject>& WorldState::getWorldSpotLightObjects(){
+std::vector<WorldSpotLightObject>& WorldPhysics::getWorldSpotLightObjects(){
     return spotLights;
-}
+}*/
 
-void WorldState::updateDeltaTime(){
+void WorldPhysics::updateDeltaTime(){
     auto now = std::chrono::high_resolution_clock::now();
     deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(now - lastTime).count();
     lastTime = now;
 }
 
 //need a sync object here, semaphore 
-void WorldState::setSimSpeedMultiplier(float multiplier){
+void WorldPhysics::setSimSpeedMultiplier(float multiplier){
     worldStats.timeStepMultiplier = multiplier;
 }
 
-double WorldState::deltaTime = 0.0;
+double WorldPhysics::deltaTime = 0.0;
 
-void WorldState::worldTick(){
+void WorldPhysics::worldTick(){
 	///-----stepsimulation_start-----
     if(worldStats.timeStepMultiplier != 0){ //if we are not paused
         //ISSUE
@@ -131,16 +131,16 @@ void WorldState::worldTick(){
 }
 
 //needs a semaphore or sync protection
-WorldState::WorldStats& WorldState::getWorldStats(){
+WorldPhysics::WorldStats& WorldPhysics::getWorldStats(){
     return worldStats;
 }
 
-void WorldState::mainLoop(){
+void WorldPhysics::mainLoop(){
     updateDeltaTime();
     worldTick();
 }
 
-void WorldState::initLights(){
+/*void WorldPhysics::initLights(){
     //set directional scene light values
     scenelight.pos = glm::vec3(1,0,0);
     scenelight.ambient = glm::vec3(0.025f,0.025f,0.1f);
@@ -166,10 +166,10 @@ void WorldState::initLights(){
     spotlight.cutoffs = {glm::cos(glm::radians(10.0f)), glm::cos(glm::radians(25.0f))};
 
     spotLights.push_back(spotlight);
-}
+}*/
 
 //initialize bullet physics engine
-void WorldState::initBullet(){
+void WorldPhysics::initBullet(){
     ///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
     collisionConfiguration = new btDefaultCollisionConfiguration();
     dispatcher = new btCollisionDispatcher(collisionConfiguration);
@@ -182,7 +182,7 @@ void WorldState::initBullet(){
     dynamicsWorld->setGravity(btVector3(0, 0, 0));
 }
 
-void WorldState::loadCollisionMeshes(Vk::Renderer& engine){ 
+void WorldPhysics::loadCollisionMeshes(Vk::Renderer& engine){ 
     //load asteroid mesh and configure rigidbody and GImpactShape
     {
         //misleading naming, this method should be renamed to get_mesh_indices
@@ -291,7 +291,7 @@ void WorldState::loadCollisionMeshes(Vk::Renderer& engine){
 }
 
 //helper, gets random btvector between min and max
-float WorldState::getRandFloat(float min, float max){
+float WorldPhysics::getRandFloat(float min, float max){
     float offset = 0.0f;
     if(min < 0){
         offset = -min;
@@ -308,7 +308,7 @@ float WorldState::getRandFloat(float min, float max){
 }
 
 //helper, gets point on sphere of given radius, origin 0
-btVector3 WorldState::getPointOnSphere(float pitch, float yaw, float radius){
+btVector3 WorldPhysics::getPointOnSphere(float pitch, float yaw, float radius){
     btVector3 result;
     result.setX(radius * cos(glm::radians(yaw)) * sin(glm::radians(pitch)));
     result.setY(radius * sin(glm::radians(yaw)) * sin(glm::radians(pitch)));
@@ -316,7 +316,7 @@ btVector3 WorldState::getPointOnSphere(float pitch, float yaw, float radius){
     return result;
 }
 
-void WorldState::changeSimSpeed(int direction, bool pause){
+void WorldPhysics::changeSimSpeed(int direction, bool pause){
     if(pause){ //toggle pause on and off
         if(getWorldStats().timeStepMultiplier == 0)
             setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
@@ -339,17 +339,17 @@ void WorldState::changeSimSpeed(int direction, bool pause){
 
 //instanciate the world space
 //adds default objects to scene
-WorldState::WorldState(){
+WorldPhysics::WorldPhysics(){
     initLights();
     initBullet();
     updateDeltaTime();
 }
 
-WorldState::~WorldState(){
+WorldPhysics::~WorldPhysics(){
     cleanupBullet();
 }
 
-void WorldState::cleanupBullet(){
+void WorldPhysics::cleanupBullet(){
     //cleanup in the reverse order of creation/initialization
 	///-----cleanup_start-----
 	//remove the rigidbodies from the dynamics world and delete them

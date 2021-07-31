@@ -3,7 +3,7 @@
 #include "vk_types.h"
 #include <vector>
 #include <glm/vec3.hpp>
-#include "world_state.h"
+#include "world_physics.h"
 
 //this all needs cleaner up or moved into relevant classes/namespaces?
 
@@ -49,15 +49,14 @@ struct Material {
 };
 
 //this shouldnt be here really
-struct RenderObject {
+/*struct RenderObject {
     WorldObject& rWorldObject; //pointer to the WorldObject this is rendering
 	Material* material;
 	glm::mat4 transformMatrix; //base transform, not rotations they will need to be held seperately i think, per object and then 
     uint32_t indexCount; //how many indices in this mesh (used for referencing )
     uint32_t indexBase; //what was the starting  index of this mesh
     int meshId; //id used to identify which mesh to index in indexed draw from storage buffer
-    
-};
+};*/
 
 //ccpreference.com recommends the following approach to hashing, combining the fields of a struct to create a decent quality hash function
 //a hash function for Vertex is implemented by specifying a template specialisation for std::hash<T>

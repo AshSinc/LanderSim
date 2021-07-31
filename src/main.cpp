@@ -1,7 +1,7 @@
 #include "vk_renderer.h"
 #include <stdexcept>
 #include <iostream>
-#include "world_state.h"
+#include "world_physics.h"
 #include "ui_input.h"
 #include "world_camera.h"
 #include "ui_handler.h"
@@ -24,7 +24,7 @@ int main(){
 
     //construct components
     Mediator mediator = Mediator();
-    WorldState worldState = WorldState();
+    WorldPhysics worldPhysics = WorldPhysics();
     WorldCamera worldCamera = WorldCamera(mediator); //should make LockableCamera(objects&) class extend a CameraBase class,
     UiInput uiInput = UiInput(mediator);
 
@@ -32,37 +32,29 @@ int main(){
 
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
-        Vk::Renderer engine = Vk::Renderer(window, &worldState, mediator); //instanciate render engine
+        Vk::Renderer engine = Vk::Renderer(window, mediator); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, &engine, mediator);
 
         //associate objects with mediator class
         mediator.setCamera(&worldCamera);
         mediator.setUiHandler(&uiHandler);
-        mediator.setPhysicsEngine(&worldState);
+        mediator.setPhysicsEngine(&worldPhysics);
         mediator.setRenderEngine(&engine);
        
         //Cyclical Dependency note
         //1. Stick to OOAD principles. Don't include a header file, unless the class included is in composition relationship with the current class. Use forward declaration instead.
         //2. Design abstract classes to act as interfaces for two classes. Make the interaction of the classes through that interface.
-
-        worldState.addObject(worldState.objects, WorldObject{glm::vec3(0,0,0), glm::vec3(10000,10000,10000)}); //skybox, scale is scene size effectively
-        worldState.addObject(worldState.objects, WorldObject{glm::vec3(-5000,0,0), glm::vec3(100,100,100)}); //star
-        // worldState.objects[0].rot = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1,0,0));
-        worldState.addObject(worldState.objects, WorldObject{glm::vec3(75,75,20), glm::vec3(0.5f,0.5f,0.5f)}); //lander aka box
-        worldState.addObject(worldState.objects, WorldObject{glm::vec3(3900,100,0), glm::vec3(0.2f,0.2f,0.2f)}); //satellite
-        //worldState.objects[2].rot = glm::vec3(0 , 0, glm::radians(90.0f));
-        worldState.addObject(worldState.objects, WorldObject{glm::vec3(0,0,0), glm::vec3(20,20,20)}); //asteroid, set to origin
         
         //uiHandler should be moved elsewhere?, or all classes should call init first and require pointers, and should warn on first use? or check notes above and redesign with abstract interfaces
-        engine.init(&uiHandler); //initialise engine (note that model and texture loading might need moved out of init, when we have multiple options and a menu)
+        engine.init(); //initialise engine (note that model and texture loading might need moved out of init, when we have multiple options and a menu) (&worldPhysics)
         // ^^^^^^^^^ cycline dependency between engine and uiHandler, because of the init() function in uiHandler
-        
+
         //ISSUE
         // worldState.loadCollisionMeshes(engine) is needed after loading the models in to the engine, we want to be able to do this in the main loop in respone to loading complete or a button being pressed
         //SOLUTION
         //move to main while loop. trigger in response to an event, probably need to refactor the rendering loop
 
-        worldState.loadCollisionMeshes(engine); //once models are loaded in engine worldState can reuse for creating asteroid collision mesh (will probs need moved too)
+        worldPhysics.loadCollisionMeshes(engine); //once models are loaded in engine worldState can reuse for creating asteroid collision mesh (will probs need moved too)
 
         //set glfw callbacks for input and then capture the mouse 
         glfwSetWindowUserPointer(window, &uiInput);
@@ -72,7 +64,7 @@ int main(){
     
         while (!glfwWindowShouldClose(window)){ //&& appRunning)
             glfwPollEvents(); //keep polling window events
-            worldState.mainLoop(); //progress world state
+            worldPhysics.mainLoop(); //progress world state
             worldCamera.updateFixedLookPosition(); //have to 
             engine.drawFrame(); //render a frame
         }

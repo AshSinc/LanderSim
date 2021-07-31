@@ -4,7 +4,6 @@
 //  } while(false)
 #define VMA_IMPLEMENTATION 
 #include "vk_mem_alloc.h" //we are using VMA (Vulkan Memory Allocator to handle allocating blocks of memory for resources)
-#include "world_state.h"
 #include "vk_renderer.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -35,12 +34,15 @@
 #include "vk_mesh.h"
 #include "vk_images.h"
 
-#include "world_state.h"
+//#include "world_state.h"
 #include "ui_handler.h"
 
 #include "world_camera.h"
 
 #include "mediator.h"
+
+#include "obj_render.h"
+
 
 //#include "to_loadModels.h"
 
@@ -52,10 +54,12 @@ VkCommandPool Vk::Renderer::transferCommandPool; //stores our transient command 
 VkDevice Vk::Renderer::device;
 VkPhysicalDevice Vk::Renderer::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
 
-Vk::Renderer::Renderer(GLFWwindow* windowptr, WorldState* state, Mediator& mediator): window{windowptr}, p_worldState{state}, r_mediator{mediator}{}
+Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): window{windowptr}, r_mediator{mediator}{}
 
-void Vk::Renderer::init(UiHandler* uiHandler){
-
+//uiHandler needs moved here
+void Vk::Renderer::init(){
+    //void Vk::Renderer::init(UiHandler* uiHandler){
+    //p_worldPhysics = worldPhysics;
     createVkInstance();
     if (enableValidationLayers){
         Vk::Debug::Messenger::setupDebugMessenger(instance, &debugMessenger);
@@ -89,25 +93,142 @@ void Vk::Renderer::init(UiHandler* uiHandler){
     createCommandBuffers();
     createSyncObjects();
 
-    p_uiHandler = uiHandler;
+    //p_uiHandler = uiHandler;
 
-    p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
-                (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
+    //p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+    //            (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
     
-
+    initUI();
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
     loadScene();
 }
 
+void Vk::Renderer::setRenderablesPointer(std::vector<RenderObject&>* renderableObjects){
+    p_renderables = renderableObjects;
+
+    //this is temporarily here
+    for(auto iter : _materials){
+        _materialParameters[iter.second.propertiesId].diffuse = iter.second.diffuse;
+        _materialParameters[iter.second.propertiesId].specular = iter.second.specular;
+        _materialParameters[iter.second.propertiesId].extra = iter.second.extra;
+    }
+}
+
+void Vk::Renderer::setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
+    
+}
+
+void Vk::Renderer::initUI(){
+    //this needs moved back to Vk Renderer?
+    ImGui::CreateContext(); //create ImGui context
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::StyleColorsDark();
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
+    uint32_t imageCount = (uint32_t)swapChainImages.size();
+
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    init_info.Instance = instance;
+    init_info.PhysicalDevice = physicalDevice;
+    init_info.Device = device;
+    init_info.QueueFamily = queueFamilyIndicesStruct.graphicsFamily.value();
+    init_info.Queue = graphicsQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = descriptorPool;
+    init_info.Allocator = nullptr;
+    init_info.MinImageCount = imageCount-1;
+    init_info.ImageCount = imageCount;
+    init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
+
+    //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
+    VkAttachmentDescription attachmentDesc = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colourAttachmentRef;
+
+    //we are using a SubpassDependency that acts as synchronisation
+    //so we tell Vulkan not to render this subpass until the subpass at index 0 has completed
+    //or specifically at VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage, which is after colour output
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //now we create the actual renderpass
+    std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
+    attachments.push_back(attachmentDesc);
+
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Could not create ImGui render pass");
+    }
+
+    _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, guiRenderPass, nullptr);});
+
+    //then pass to ImGui implement vulkan init function
+    ImGui_ImplVulkan_Init(&init_info, guiRenderPass);
+
+    //now we copy the font texture to the gpu, we can utilize our single time command functions and transfer command pool
+    VkCommandBuffer command_buffer = beginSingleTimeCommands(transferCommandPool);
+    ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+    endSingleTimeCommands(command_buffer,transferCommandPool, graphicsQueue);
+
+
+    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    if(vkCreateCommandPool(device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create gui command pool");
+    }   
+    _swapDeletionQueue.push_function([=](){vkDestroyCommandPool(device, guiCommandPool, nullptr);
+	});
+
+    guiCommandBuffers.resize(imageCount);
+
+	//allocate the gui command buffer
+	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
+    
+	if(vkAllocateCommandBuffers(device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
+            throw std::runtime_error("Unable to allocate gui command buffers");
+    }
+    _swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
+
+    //start by resizing the vector to hold all the framebuffers
+    guiFramebuffers.resize(imageCount);
+    //then iterative through create the framebuffers for each
+    for(size_t i = 0; i < imageCount; i++){
+        std::vector<VkImageView> attachment;
+        attachment.push_back(swapChainImageViews.at(i));
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(guiRenderPass, attachment, swapChainExtent, 1);
+
+        if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create gui framebuffer");
+        }
+        _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, guiFramebuffers[i], nullptr);});
+    }
+    //uiHandler.updateUIPanelDimensions(window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
+    r_mediator.ui_updateUIPanelDimensions(window);
+}
+
 //loads all scene data, this should be called only when the user hits run
 void Vk::Renderer::loadScene(){
     //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
-    loadModels();
-    createVertexBuffer(); //error here if load models later
-    createIndexBuffer(); //error here if load models later
+    //loadModels();
+    //createVertexBuffer(); //error here if load models later
+    //createIndexBuffer(); //error here if load models later
     //now we can load the textures and create imageviews
-    createTextureImages(); //pretty slow, probs texture number and size
+
+    //createTextureImages(); //pretty slow, probs texture number and size
+
     //creates RenderObjects and associates with WorldObjects, then allocates the textures 
     //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
     init_scene(); 
@@ -126,7 +247,9 @@ void Vk::Renderer::allocateDescriptorSetForSkybox(){
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
     vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
 }
-void Vk::Renderer::allocateDescriptorSetForTexture(Material* material, std::string name){
+
+void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std::string name){
+    Material* material = get_material(materialName);
     if(material != nullptr){
         
         material->_multiTextureSets.resize(1);
@@ -183,10 +306,11 @@ void Vk::Renderer::createSamplers(){
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, skyboxSampler, nullptr);});
 }
 
+//this all needs moved to myScene objects... with iScene interface
 void Vk::Renderer::init_scene(){   
-    _renderables.clear();    
+    /*_renderables.clear();    
 
-    RenderObject skybox{p_worldState->objects[0]};
+    RenderObject skybox{p_worldPhysics->objects[0]};
     skybox.meshId = get_mesh("box")->id;
     //box.material = get_material("defaultmesh");
     //box.material->diffuse = glm::vec3(0,0,1);
@@ -195,7 +319,7 @@ void Vk::Renderer::init_scene(){
     _renderables.push_back(skybox);
 
     //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject starSphere{p_worldState->objects[1]};
+    RenderObject starSphere{p_worldPhysics->objects[1]};
     starSphere.meshId = get_mesh("sphere")->id;
     starSphere.material = get_material("unlitmesh");
     starSphere.material->diffuse = glm::vec3(1,0.5f,0.31f);
@@ -204,7 +328,7 @@ void Vk::Renderer::init_scene(){
     _renderables.push_back(starSphere);
 
     //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject sphereLight{p_worldState->pointLights[0]};
+    RenderObject sphereLight{p_worldPhysics->pointLights[0]};
     sphereLight.meshId = get_mesh("sphere")->id;
     sphereLight.material = get_material("unlitmesh");
     sphereLight.material->diffuse = glm::vec3(1,0.5f,0.31f);
@@ -217,7 +341,7 @@ void Vk::Renderer::init_scene(){
     //sphere2.material = get_material("unlitmesh");
     //_renderables.push_back(sphere2);
 
-    RenderObject box{p_worldState->objects[2]};
+    RenderObject box{p_worldPhysics->objects[2]};
     box.meshId = get_mesh("box")->id;
     box.material = get_material("defaultmesh");
     box.material->diffuse = glm::vec3(0,0,1);
@@ -226,18 +350,18 @@ void Vk::Renderer::init_scene(){
     _renderables.push_back(box);
 
     //make a copy
-    RenderObject box2{p_worldState->spotLights[0]};
+    RenderObject box2{p_worldPhysics->spotLights[0]};
     box2.meshId = get_mesh("box")->id;
     box2.material = get_material("unlitmesh");
     _renderables.push_back(box2);
 
-    RenderObject satellite{p_worldState->objects[3]};
+    RenderObject satellite{p_worldPhysics->objects[3]};
     satellite.meshId = get_mesh("satellite")->id;
     satellite.material = get_material("texturedmesh2");
     satellite.material->extra.x = 2048;
     _renderables.push_back(satellite);
 
-    RenderObject asteroid{p_worldState->objects[4]};
+    RenderObject asteroid{p_worldPhysics->objects[4]};
     asteroid.meshId = get_mesh("asteroid")->id;
     asteroid.material = get_material("texturedmesh1"); //comment out
     //asteroid.material = get_material("defaultmesh");
@@ -258,18 +382,22 @@ void Vk::Renderer::init_scene(){
     allocateDescriptorSetForTexture(get_material("texturedmesh2"), "satellite");
     allocateDescriptorSetForTexture(get_material("texturedmesh1"), "asteroid");
     allocateDescriptorSetForSkybox(); //skybox hs its own descriptor set because it behaves differently from normal texture
+    */
 }
 
 void Vk::Renderer::updateObjectTranslations(){
     //temp code, scaling fixed and _renderables/WorldObjects may need changed
+
+    //_renderables[i]/rWorldObject should be changed, they should extend a renderable object? tostop position scale rotation being duplicated
+    //and keep the code contained, should make new class
     glm::mat4 scale;
     glm::mat4 translation;
     glm::mat4 rotation;
-    for (int i = 0; i < _renderables.size(); i++){
-        scale = glm::scale(glm::mat4{ 1.0 }, _renderables[i].rWorldObject.scale);
-        translation = glm::translate(glm::mat4{ 1.0 }, _renderables[i].rWorldObject.pos);
-        rotation = _renderables[i].rWorldObject.rot;
-         _renderables[i].transformMatrix = translation * rotation * scale;
+    for (int i = 0; i < p_renderables->size(); i++){
+        scale = glm::scale(glm::mat4{ 1.0 }, p_renderables->at(i).scale);
+        translation = glm::translate(glm::mat4{ 1.0 }, p_renderables->at(i).pos);
+        rotation = p_renderables->at(i).rot;
+        p_renderables->at(i).transformMatrix = translation * rotation * scale;
     }
 }
 
@@ -316,33 +444,34 @@ void Vk::Renderer::mapLightingDataToGPU(){
     }
 }
 
+
+
+//
 void Vk::Renderer::updateSceneData(GPUCameraData& camData){
-    WorldLightObject& sceneLight = p_worldState->scenelight;
-    _sceneParameters.lightDirection = glm::vec4(camData.view * glm::vec4(sceneLight.pos, 0));
-    _sceneParameters.lightAmbient = glm::vec4(sceneLight.ambient, 1);
-    _sceneParameters.lightDiffuse = glm::vec4(sceneLight.diffuse, 1);
-    _sceneParameters.lightSpecular = glm::vec4(sceneLight.specular, 1);
+    _sceneParameters.lightDirection = glm::vec4(camData.view * glm::vec4(p_sceneLight->pos, 0));
+    _sceneParameters.lightAmbient = glm::vec4(p_sceneLight->ambient, 1);
+    _sceneParameters.lightDiffuse = glm::vec4(p_sceneLight->diffuse, 1);
+    _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
 }
 
 //point lights
 void Vk::Renderer::updateLightingData(GPUCameraData& camData){
-    std::vector<WorldPointLightObject>& worldPointLights = p_worldState->getWorldPointLightObjects();
-    for(int i = 0; i < worldPointLights.size(); i++){
-        _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(worldPointLights[i].pos, 1));
-        _pointLightParameters[i].diffuse = worldPointLights[i].diffuse;
-        _pointLightParameters[i].ambient = worldPointLights[i].ambient;
-        _pointLightParameters[i].specular = worldPointLights[i].specular;
-        _pointLightParameters[i].attenuation = worldPointLights[i].attenuation;
+    for(int i = 0; i < p_pointLights->size(); i++){
+        _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_pointLights->at(i).pos, 1));
+        _pointLightParameters[i].diffuse = p_pointLights->at(i).diffuse;
+        _pointLightParameters[i].ambient = p_pointLights->at(i).ambient;
+        _pointLightParameters[i].specular = p_pointLights->at(i).specular;
+        _pointLightParameters[i].attenuation = p_pointLights->at(i).attenuation;
     }
-    std::vector<WorldSpotLightObject>& worldSpotLights = p_worldState->getWorldSpotLightObjects();
-    for(int i = 0; i < worldSpotLights.size(); i++){
-        _spotLightParameters[i].position = glm::vec3(camData.view * glm::vec4(worldSpotLights[i].pos, 1));
-        _spotLightParameters[i].diffuse = worldSpotLights[i].diffuse;
-        _spotLightParameters[i].ambient = worldSpotLights[i].ambient;
-        _spotLightParameters[i].specular = worldSpotLights[i].specular;
-        _spotLightParameters[i].attenuation = worldSpotLights[i].attenuation;
-        _spotLightParameters[i].direction = glm::vec3(camData.view * glm::vec4(worldSpotLights[i].direction, 0));
-        _spotLightParameters[i].cutoffs = worldSpotLights[i].cutoffs;
+
+    for(int i = 0; i < p_spotLights->size(); i++){
+        _spotLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).pos, 1));
+        _spotLightParameters[i].diffuse = p_spotLights->at(i).diffuse;
+        _spotLightParameters[i].ambient = p_spotLights->at(i).ambient;
+        _spotLightParameters[i].specular = p_spotLights->at(i).specular;
+        _spotLightParameters[i].attenuation = p_spotLights->at(i).attenuation;
+        _spotLightParameters[i].direction = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).direction, 0));
+        _spotLightParameters[i].cutoffs = p_spotLights->at(i).cutoffs;
     }
 }
 
@@ -371,12 +500,12 @@ void Vk::Renderer::drawObjects(int curFrame){
     vmaMapMemory(allocator, _frames[curFrame].objectBufferAlloc, &objectData);
     GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
     //loop through all objects in the scene, need a better container than a vector
-    for (int i = 0; i < _renderables.size(); i++){
-        objectSSBO[i].modelMatrix = _renderables[i].transformMatrix;
+    for (int i = 0; i < p_renderables->size(); i++){
+        objectSSBO[i].modelMatrix = p_renderables->at(i).transformMatrix;
         //calculate the normal matrix, its done by inverse transpose of the model matrix * view matrix because we are working 
         //in view space in the shader. taking only the top 3x3
         //this is to account for rotation and scaling when using normals. should be done on cpu as its costly
-        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * _renderables[i].transformMatrix)); 
+        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i).transformMatrix)); 
     }
     vmaUnmapMemory(allocator, _frames[curFrame].objectBufferAlloc);
   
@@ -388,8 +517,8 @@ void Vk::Renderer::drawObjects(int curFrame){
 	vmaUnmapMemory(allocator, _sceneParameterBufferAlloc); 
 
     Material* lastMaterial = nullptr;
-    for (int i = 1; i < _renderables.size(); i++){
-        RenderObject& object = _renderables.data()[i];
+    for (int i = 1; i < p_renderables->size(); i++){
+        RenderObject& object = p_renderables->at(i);
         //only bind the pipeline if it doesn't match with the already bound one
 		if (object.material != lastMaterial) {
             if(object.material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
@@ -423,8 +552,10 @@ void Vk::Renderer::drawObjects(int curFrame){
         //add material property id for this object to push constant
 		PushConstants constants;
 		constants.matIndex = object.material->propertiesId;
-        constants.numPointLights = p_worldState->pointLights.size();
-        constants.numSpotLights = p_worldState->spotLights.size();
+        //constants.numPointLights = p_worldPhysics->pointLights.size();
+        //constants.numSpotLights = p_worldPhysics->spotLights.size();
+        constants.numPointLights = p_pointLights->size();//r_mediator.scene_getNumPointLights();
+        constants.numSpotLights = p_spotLights->size();//r_mediator.scene_getNumSpotLights();
 
         //upload the mesh to the GPU via pushconstants
 		vkCmdPushConstants(_frames[curFrame]._mainCommandBuffer, object.material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
@@ -440,7 +571,7 @@ void Vk::Renderer::drawObjects(int curFrame){
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 2, 1, &skyboxSet, 0, NULL);
 	vkCmdBindPipeline(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
-	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[_renderables[0].meshId].indexCount, 1, _loadedMeshes[_renderables[0].meshId].indexBase, 0, 0);
+	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[p_renderables->at(0).meshId].indexCount, 1, _loadedMeshes[p_renderables->at(0).meshId].indexBase, 0, 0);
 }
 
 
@@ -460,7 +591,7 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
     
-    if(!_renderables.empty()){
+    if(!p_renderables->empty()){
         vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         drawObjects(i);
@@ -475,27 +606,28 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
     }
 
     //now for the UI render pass
-    vkResetCommandBuffer(p_uiHandler->guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    vkResetCommandBuffer(guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
     
     beginInfo = Vk::Structs::command_buffer_begin_info(0);
-    if(vkBeginCommandBuffer(p_uiHandler->guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
+    if(vkBeginCommandBuffer(guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording gui command buffer");
     }
 
-    p_uiHandler->drawUI(); //then we will draw UI
+    r_mediator.ui_drawUI();
+    //p_uiHandler->drawUI(); //then we will draw UI
 
     //note that the order of clear values should be identical to the order of attachments 
-    renderPassBeginInfo = Vk::Structs::render_pass_begin_info(p_uiHandler->guiRenderPass, p_uiHandler->guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
-    vkCmdBeginRenderPass(p_uiHandler->guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+    renderPassBeginInfo = Vk::Structs::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    vkCmdBeginRenderPass(guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     // Record Imgui Draw Data and draw funcs into command buffer
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), p_uiHandler->guiCommandBuffers[i]);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), guiCommandBuffers[i]);
 
     //we we can end the render pass
-    vkCmdEndRenderPass(p_uiHandler->guiCommandBuffers[i]);
+    vkCmdEndRenderPass(guiCommandBuffers[i]);
 
      //and we have finished recording, we check for errrors here
-    if (vkEndCommandBuffer(p_uiHandler->guiCommandBuffers[i]) != VK_SUCCESS) {
+    if (vkEndCommandBuffer(guiCommandBuffers[i]) != VK_SUCCESS) {
         throw std::runtime_error("failed to record gui command buffer!");
     }
 }
@@ -532,7 +664,7 @@ void Vk::Renderer::drawFrame(){
 
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
-    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, p_uiHandler->guiCommandBuffers[imageIndex]};
+    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
     VkSubmitInfo submitInfo = Vk::Structs::submit_info(buffers, 2, waitSemaphores, 1, 
         waitStages, signalSemaphores, 1);
     
@@ -904,11 +1036,8 @@ void Vk::Renderer::createDescriptorSetLayouts(){
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _skyboxSetLayout, nullptr);});
 }
-#include <filesystem>
+
 void Vk::Renderer::init_pipelines(){
-    
-    using std::filesystem::current_path;
-    std::cout << "Current working directory: " << current_path() << "\n";
     //load and create all shader stages
     auto default_lit_vert_c = Vk::Init::readFile("resources/shaders/default_lit_vert.spv"); 
     auto default_lit_frag_c = Vk::Init::readFile("resources/shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
@@ -1156,7 +1285,7 @@ void Vk::Renderer::createDepthResources(){
 }
 
 //creates texture images by loading them from file and 
-void Vk::Renderer::createTextureImages(){
+void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_INFOS, const std::vector<std::string>& SKYBOX_PATHS){
     _loadedTextures.clear();
     for(TextureInfo info : TEXTURE_INFOS){
         Texture texture;
@@ -1232,7 +1361,7 @@ void Vk::Renderer::createTextureImages(){
 }
 
 //this is where we will load the model data into vertices and indices member variables
-void Vk::Renderer::loadModels(){
+void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
     //Service::loadModels(_meshes, _loadedMeshes);
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
     std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
@@ -1248,6 +1377,9 @@ void Vk::Renderer::loadModels(){
     }
     std::cout << "Vertices count for all " << allVertices.size() << "\n";
     std::cout << "Indices count for all " << allIndices.size() << "\n";
+
+    createVertexBuffer(); //error here if load models later
+    createIndexBuffer(); //error here if load models later
 }
 
 void Vk::Renderer::populateVerticesIndices(std::string path, std::unordered_map<Vertex, uint32_t>& uniqueVertices, glm::vec3 baseColour){
@@ -1684,8 +1816,8 @@ void Vk::Renderer::recreateSwapChain(){
     init_pipelines(); //viewport and scissor rectangle size is specified during graphics pipeline creation, so the pipeline needs rebuilt    
     createCommandBuffers(); //cammand buffers depend directly on swap chain images
     
-    p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
-                (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
+    //p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
+    //            (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
 
     //probs then need to link descriptors etc back to the materials?
     
@@ -1724,6 +1856,10 @@ Mesh* Vk::Renderer::get_mesh(const std::string& name){
 	else {
 		return &(*it).second;
 	}
+}
+
+int Vk::Renderer::getMeshId(const std::string& name){
+    return get_mesh(name)->id;
 }
 
 //because we need to free swapChain resources before recreating it, we should have a seperate function to andle the cleanup that can be called from recreateSwapChain()

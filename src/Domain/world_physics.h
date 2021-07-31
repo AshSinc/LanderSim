@@ -17,7 +17,7 @@ class Mesh; //forward reference, because we reference this before defining it
 class WorldInput;
 
 //these should be moved out of here
-struct WorldObject{
+/*struct WorldObject{
     glm::vec3 pos;
     glm::vec3 scale{1,1,1};
     glm::mat4 rot = glm::mat4 {1.0f};
@@ -38,10 +38,10 @@ struct WorldPointLightObject : WorldLightObject{
 struct WorldSpotLightObject : WorldPointLightObject{
     glm::vec3 direction; // 
     glm::vec2 cutoffs; // x is inner y is outer
-};
+};*/
 //these should be moved out of here
 
-class WorldState{
+class WorldPhysics{
 public:
     struct WorldStats{
         float timeStepMultiplier = 1;
@@ -58,25 +58,25 @@ public:
     std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
     void updateDeltaTime();
     void worldTick();
-    WorldState* getWorld();
+    //WorldState* getWorld();
 
-    std::vector<WorldPointLightObject>& getWorldPointLightObjects();
-    std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
-    WorldObject& getWorldObject(int index);
+    //std::vector<WorldPointLightObject>& getWorldPointLightObjects();
+    //std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
+    //WorldObject& getWorldObject(int index);
     int getWorldObjectsCount();
 
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
     
-    WorldLightObject scenelight;
-    std::vector<WorldPointLightObject> pointLights;
-    std::vector<WorldSpotLightObject> spotLights;
+    //WorldLightObject scenelight;
+    //std::vector<WorldPointLightObject> pointLights;
+    //std::vector<WorldSpotLightObject> spotLights;
 
-    std::vector<WorldObject> objects{}; //init default
-    void addObject(std::vector<WorldObject>& container, WorldObject obj);
+    //std::vector<WorldObject> objects{}; //init default
+    //void addObject(std::vector<WorldObject>& container, WorldObject obj);
 
     void mainLoop();
-    WorldState();
-    ~WorldState();
+    WorldPhysics();
+    ~WorldPhysics();
 
     void changeSimSpeed(int direction, bool pause);
 

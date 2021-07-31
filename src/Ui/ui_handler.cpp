@@ -15,7 +15,7 @@ void UiHandler::cleanup(){
 UiHandler::~UiHandler(){}
 
 //this needs moved back to Vk Renderer?
-void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
+/*void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* instance, uint32_t graphicsQueueFamily, VkQueue* graphicsQueue,
                         VkDescriptorPool* descriptorPool, uint32_t imageCount, VkFormat* swapChainImageFormat, VkCommandPool* transferCommandPool, 
                         VkExtent2D* swapChainExtent, std::vector<VkImageView>* swapChainImageViews){
 
@@ -112,7 +112,105 @@ void UiHandler::initUI(VkDevice* device, VkPhysicalDevice* pdevice, VkInstance* 
         p_engine->_swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(*device, guiFramebuffers[i], nullptr);});
     }
     updateUIPanelDimensions(p_window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
-}
+}*/
+
+/*void UiHandler::initUI(){
+
+    ImGui::CreateContext(); //create ImGui context
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::StyleColorsDark();
+    // Setup Platform/Renderer bindings
+    ImGui_ImplGlfw_InitForVulkan(p_window, true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    //ImGui_ImplVulkan_InitInfo init_info = mediator.renderer_getImGuiInitInfo();
+    
+    init_info.Instance = *instance;
+    init_info.PhysicalDevice = *pdevice;
+    init_info.Device = *device;
+    init_info.QueueFamily = graphicsQueueFamily;
+    init_info.Queue = *graphicsQueue;
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPool = *descriptorPool;
+    init_info.Allocator = nullptr;
+    init_info.MinImageCount = imageCount-1;
+    init_info.ImageCount = imageCount;
+    init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
+
+    //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
+    VkAttachmentDescription attachmentDesc = Vk::Structs::attachment_description(*swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colourAttachmentRef;
+
+    //we are using a SubpassDependency that acts as synchronisation
+    //so we tell Vulkan not to render this subpass until the subpass at index 0 has completed
+    //or specifically at VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT stage, which is after colour output
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;  // or VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    //now we create the actual renderpass
+    std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
+    attachments.push_back(attachmentDesc);
+
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+
+    if (vkCreateRenderPass(*device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
+        throw std::runtime_error("Could not create ImGui render pass");
+    }
+
+    p_engine->_swapDeletionQueue.push_function([=](){vkDestroyRenderPass(*device, guiRenderPass, nullptr);});
+
+    //then pass to ImGui implement vulkan init function
+    ImGui_ImplVulkan_Init(&init_info, guiRenderPass);
+
+    //now we copy the font texture to the gpu, we can utilize our single time command functions and transfer command pool
+    VkCommandBuffer command_buffer = p_engine->beginSingleTimeCommands(*transferCommandPool);
+    ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+    p_engine->endSingleTimeCommands(command_buffer, *transferCommandPool, *graphicsQueue);
+
+
+    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(graphicsQueueFamily);
+    if(vkCreateCommandPool(*device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create gui command pool");
+    }   
+    p_engine->_swapDeletionQueue.push_function([=](){vkDestroyCommandPool(*device, guiCommandPool, nullptr);
+	});
+
+    guiCommandBuffers.resize(imageCount);
+
+	//allocate the gui command buffer
+	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
+    
+	if(vkAllocateCommandBuffers(*device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
+            throw std::runtime_error("Unable to allocate gui command buffers");
+    }
+    p_engine->_swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(*device, guiCommandPool, guiCommandBuffers.size(), guiCommandBuffers.data());});
+
+    //start by resizing the vector to hold all the framebuffers
+    guiFramebuffers.resize(imageCount);
+    //then iterative through create the framebuffers for each
+    for(size_t i = 0; i < imageCount; i++){
+        std::vector<VkImageView> attachment;
+        attachment.push_back(swapChainImageViews->at(i));
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(guiRenderPass, attachment, *swapChainExtent, 1);
+
+        if(vkCreateFramebuffer(*device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create gui framebuffer");
+        }
+        p_engine->_swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(*device, guiFramebuffers[i], nullptr);});
+    }
+    updateUIPanelDimensions(p_window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
+}*/
 
 
 //this should all be moved to a UI handler
@@ -179,7 +277,7 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("P pauses simulation\n");
         ImGui::Text("[ ] controls time\n\n");
 
-        WorldState::WorldStats& worldStats = r_mediator.physics_getWorldStats();
+        WorldPhysics::WorldStats& worldStats = r_mediator.physics_getWorldStats();
         Vk::Renderer::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
 
         ImGui::Text("\nEngine\n");

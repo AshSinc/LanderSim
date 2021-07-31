@@ -1,7 +1,8 @@
 #include "world_camera.h"
 #include <algorithm>
-#include "world_state.h"
+#include "world_physics.h"
 #include "mediator.h"
+#include "obj.h"
 
 WorldCamera::WorldCamera(Mediator& mediator) : r_mediator{mediator}{}
 

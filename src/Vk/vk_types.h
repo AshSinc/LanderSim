@@ -100,11 +100,6 @@ struct PushConstants {
     int numSpotLights;
 };
 
-struct TextureInfo{
-    std::string textureName;
-    std::string filePath;
-};
-
 struct Texture {
 	VkImage image;
     VmaAllocation alloc;
