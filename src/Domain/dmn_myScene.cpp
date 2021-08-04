@@ -1,4 +1,5 @@
 #include "dmn_myScene.h"
+#include "obj_collisionRender.h"
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
@@ -6,128 +7,100 @@ void MyScene::initScene(){
     r_mediator.renderer_loadModels(MODEL_INFOS);
     r_mediator.renderer_loadTextures(TEXTURE_INFOS, SKYBOX_PATHS);
     initObjects();
-    //initRenderables();
     initLights();
-
     configureRenderEngine();
-    
-
+    configurePhysicsEngine();
 }
 
 void MyScene::configureRenderEngine(){
     r_mediator.renderer_setRenderablesPointer(&renderableObjects);
-
     r_mediator.renderer_setLightPointers(&sceneLight, &pointLights, &spotLights);
+    r_mediator.renderer_setCameraDataPointer(r_mediator.camera_getCameraDataPointer());
 
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh1", "asteroid");
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh2", "satellite");
-
     r_mediator.renderer_allocateDescriptorSetForSkybox();
 
-    //r_mediator.renderer_configureMaterialParameters();
+    r_mediator.renderer_mapMaterialDataToGPU(); //important to do after textures/materials are loaded
 }
 
-//loads all scene data, this should be called only when the user hits run
-/*void Vk::Renderer::loadScene(){
-    //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
-    loadModels();
-    createVertexBuffer(); //error here if load models later
-    createIndexBuffer(); //error here if load models later
-    //now we can load the textures and create imageviews
-    createTextureImages(); //pretty slow, probs texture number and size
-    //creates RenderObjects and associates with WorldObjects, then allocates the textures 
-    //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
-    init_scene(); 
-    mapMaterialDataToGPU();
+void MyScene::configurePhysicsEngine(){
+    r_mediator.physics_loadCollisionMeshes(collisionObjects);
+}
 
-    setCameraData(r_mediator.camera_getCameraDataPointer());
-}*/
+//this is temporary fix, bad object design and logic caused this
+void MyScene::setRendererMeshVars(std::string name, RenderObject* renderObj){
+    Mesh* mesh = r_mediator.renderer_getLoadedMesh(name);
+    renderObj->meshId = mesh->id;
+    renderObj->indexBase = mesh->indexBase;
+    renderObj->indexCount = mesh->indexCount;
+}
 
-//this all needs moved to myScene objects... with iScene interface
-void MyScene::initObjects(){   //defining the materials in here, should have a seperate materials class?
-    //renderableObjects.clear();    
+void MyScene::initObjects(){ 
+    //need to use lists instead? because they wont break pointer references when adding or removing elements
+    objects.clear();
+    renderableObjects.clear();
+    collisionObjects.clear();
 
-    RenderObject skybox;
-    skybox.pos = glm::vec3(0,0,0);
-    skybox.scale = glm::vec3(10000,10000,10000);
-    skybox.meshId = r_mediator.renderer_getMeshId("box");
+    std::shared_ptr<RenderObject> skybox = std::shared_ptr<RenderObject>(new RenderObject());
+    skybox->pos = glm::vec3(0,0,0);
+    skybox->scale = glm::vec3(10000,10000,10000);
+    setRendererMeshVars("box", skybox.get());
 
-    //box.material = get_material("defaultmesh");
-    //box.material->diffuse = glm::vec3(0,0,1);
-    //box.material->specular = glm::vec3(1,0.5f,0.5f);
-    //box.material->extra.x = 32;
     objects.push_back(skybox);
     renderableObjects.push_back(skybox);
 
-    RenderObject starSphere;
-    starSphere.pos = glm::vec3(-5000,0,0);
-    starSphere.scale = glm::vec3(100,100,100);
-    starSphere.meshId =  r_mediator.renderer_getMeshId("sphere");
-    starSphere.material = r_mediator.renderer_getMaterial("unlitmesh");
-    starSphere.material->diffuse = glm::vec3(1,0.5f,0.31f);
-    starSphere.material->specular = glm::vec3(0.5f,0.5f,0.5f);
-    starSphere.material->extra.x = 32;
-
+    std::shared_ptr<RenderObject> starSphere = std::shared_ptr<RenderObject>(new RenderObject());
+    starSphere->pos = glm::vec3(-5000,0,0);
+    starSphere->scale = glm::vec3(100,100,100);
+    setRendererMeshVars("sphere", starSphere.get());
+    starSphere->material = r_mediator.renderer_getMaterial("unlitmesh");
+    starSphere->material->diffuse = glm::vec3(1,0.5f,0.31f);
+    starSphere->material->specular = glm::vec3(0.5f,0.5f,0.5f);
+    starSphere->material->extra.x = 32;
     objects.push_back(starSphere);
     renderableObjects.push_back(starSphere);
 
-    RenderObject lander;
-    lander.pos = glm::vec3(75,75,20);
-    lander.scale = glm::vec3(0.5f,0.5f,0.5f); //lander aka box
-    lander.meshId = r_mediator.renderer_getMeshId("box");
-    lander.material = r_mediator.renderer_getMaterial("defaultmesh");
-    lander.material->diffuse = glm::vec3(0,0,1);
-    lander.material->specular = glm::vec3(1,0.5f,0.5f);
-    lander.material->extra.x = 32;
+    std::shared_ptr<CollisionRenderObj> lander = std::shared_ptr<CollisionRenderObj>(new CollisionRenderObj());
+    lander->pos = glm::vec3(75,75,20);
+    lander->scale = glm::vec3(0.5f,0.5f,0.5f); //lander aka box
+    setRendererMeshVars("box", lander.get());
+    lander->material = r_mediator.renderer_getMaterial("defaultmesh");
+    lander->material->diffuse = glm::vec3(0,0,1);
+    lander->material->specular = glm::vec3(1,0.5f,0.5f);
+    lander->material->extra.x = 32;
+    lander->mass = 10;
 
+    lander->boxShape = true;
+    
     objects.push_back(lander);
     renderableObjects.push_back(lander);
+    collisionObjects.push_back(lander);
 
-    //make a copy
-    /*RenderObject box2{p_worldPhysics->spotLights[0]};
-    box2.meshId = get_mesh("box")->id;
-    box2.material = get_material("unlitmesh");
-    renderableObjects.push_back(box2);*/
+    std::shared_ptr<RenderObject> satellite = std::shared_ptr<RenderObject>(new RenderObject());
+    satellite->pos = glm::vec3(3900,100,0);
+    satellite->scale = glm::vec3(0.2f,0.2f,0.2f);
+    setRendererMeshVars("satellite", satellite.get());
 
-    RenderObject satellite;
-    satellite.pos = glm::vec3(3900,100,0);
-    satellite.scale = glm::vec3(0.2f,0.2f,0.2f);
-    satellite.meshId = r_mediator.renderer_getMeshId("satellite");
-    satellite.material = r_mediator.renderer_getMaterial("texturedmesh2");
-    satellite.material->extra.x = 2048;
+    satellite->material = r_mediator.renderer_getMaterial("texturedmesh2");
+    satellite->material->extra.x = 2048;
     objects.push_back(satellite);
     renderableObjects.push_back(satellite);
 
-    RenderObject asteroid;
-    asteroid.pos = glm::vec3(0,0,0);
-    asteroid.scale = glm::vec3(20,20,20);
-    asteroid.meshId = r_mediator.renderer_getMeshId("asteroid");
-    asteroid.material = r_mediator.renderer_getMaterial("texturedmesh1");
-    asteroid.material->extra.x = 2048;
+    std::shared_ptr<CollisionRenderObj> asteroid = std::shared_ptr<CollisionRenderObj>(new CollisionRenderObj());
+    asteroid->pos = glm::vec3(0,0,0);
+    asteroid->scale = glm::vec3(20,20,20);
+    setRendererMeshVars("asteroid", asteroid.get());
+    asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
+    asteroid->material->extra.x = 2048;
+    asteroid->mass = 10000;
     //asteroid.material->extra.x = 32;
+    asteroid->concaveTriangleShape = true;
+
     objects.push_back(asteroid);
-    renderableObjects.push_back(asteroid);
-
-    
-
-    //allocate a descriptor set for each material pointing to each texture needed
-    
+    renderableObjects.push_back(asteroid);   
+    collisionObjects.push_back(asteroid);
 }
-
-/*void MyScene::initObjects(){
-    //create renderable objects
-    renderableObjects.push_back(RenderObject{glm::vec3(0,0,0), glm::vec3(10000,10000,10000)}); //skybox, scale is scene size effectively
-    renderableObjects.push_back(RenderObject{glm::vec3(-5000,0,0), glm::vec3(100,100,100)}); //star
-    renderableObjects.push_back(CollisionRenderObjObject{glm::vec3(75,75,20), glm::vec3(0.5f,0.5f,0.5f)}); //lander aka box
-    objects.push_back(WorldObject{glm::vec3(3900,100,0), glm::vec3(0.2f,0.2f,0.2f)}); //satellite
-    objects.push_back(WorldObject{glm::vec3(0,0,0), glm::vec3(20,20,20)}); //asteroid, set to origin
-
-    //objects.push_back(WorldObject{glm::vec3(0,0,0), glm::vec3(10000,10000,10000)}); //skybox, scale is scene size effectively
-    //objects.push_back(WorldObject{glm::vec3(-5000,0,0), glm::vec3(100,100,100)}); //star
-    //objects.push_back(WorldObject{glm::vec3(75,75,20), glm::vec3(0.5f,0.5f,0.5f)}); //lander aka box
-    //objects.push_back(WorldObject{glm::vec3(3900,100,0), glm::vec3(0.2f,0.2f,0.2f)}); //satellite
-    //objects.push_back(WorldObject{glm::vec3(0,0,0), glm::vec3(20,20,20)}); //asteroid, set to origin
-}*/
 
 void MyScene::initLights(){
     //set directional scene light values

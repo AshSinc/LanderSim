@@ -12,7 +12,7 @@ void WorldCamera::setMouseLookActive(bool state){
 }   
 
 void WorldCamera::updateFixedLookPosition(){ //pass the focusedObject.pos vec3 and scale?
-    WorldObject& r_object = r_mediator.physics_getWorldObject(objectFocusIndex);
+    WorldObject& r_object = r_mediator.scene_getWorldObject(objectFocusIndex);
     float fixedObjectScaleFactor = std::max(r_object.scale.x, 1.0f);
     glm::vec3 newPos;
     float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
@@ -24,7 +24,7 @@ void WorldCamera::updateFixedLookPosition(){ //pass the focusedObject.pos vec3 a
 
 //switches focus object when not in freelook
 void WorldCamera::changeFocus(){
-    int num_objects = r_mediator.physics_getWorldObjectsCount();
+    int num_objects = r_mediator.scene_getWorldObjectsCount();
     if(!freelook){
         objectFocusIndex++;
         if(objectFocusIndex == num_objects)

@@ -1,9 +1,11 @@
 file(GLOB SOURCES CONFIGURE_DEPENDS 
   ../src/Domain/**.cpp
+  ../src/Domain/Objects/**.cpp
   ../src/Ui/**.cpp
   ../src/Vk/**.cpp
   ../src/Service/**.cpp
 
+  ../src/Domain/Objects/**.h
   ../src/Domain/**.h
   ../src/Ui/**.h
   ../src/Vk/**.h
@@ -12,7 +14,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   **.cpp
 )
 
-include_directories(../src/Ui ../src/Domain ../src/Vk ../src/Service)
+include_directories(../src/Ui ../src/Domain ../src/Domain/Objects ../src/Vk ../src/Service)
 
 add_executable(UnitTestsLS ${SOURCES})
 

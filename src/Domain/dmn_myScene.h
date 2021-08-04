@@ -1,6 +1,7 @@
 #pragma once
 #include "dmn_iScene.h"
 #include "mediator.h"
+#include <string>
 
 class MyScene: public IScene{
         public:
@@ -11,6 +12,8 @@ class MyScene: public IScene{
         void initObjects();
         void initRenderables();
         void configureRenderEngine();
+        void configurePhysicsEngine();
+        void setRendererMeshVars(std::string name, RenderObject* renderObj);
         Mediator& r_mediator;
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved

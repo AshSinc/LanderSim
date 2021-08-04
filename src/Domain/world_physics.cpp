@@ -6,30 +6,8 @@
 #include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
 #include "vk_renderer.h"
-
-/*void WorldPhysics::addObject(std::vector<WorldObject>& container, WorldObject obj){
-    container.push_back(obj);
-}
-
-/*WorldPhysics* WorldPhysics::getWorld(){
-    return this;
-}
-
-WorldObject& WorldPhysics::getWorldObject(int index){
-    return objects.at(index);
-}
-
-int WorldPhysics::getWorldObjectsCount(){
-    return objects.size();
-}
-
-std::vector<WorldPointLightObject>& WorldPhysics::getWorldPointLightObjects(){
-    return pointLights;
-}
-
-std::vector<WorldSpotLightObject>& WorldPhysics::getWorldSpotLightObjects(){
-    return spotLights;
-}*/
+#include "obj_collisionRender.h"
+#include "mediator.h"
 
 void WorldPhysics::updateDeltaTime(){
     auto now = std::chrono::high_resolution_clock::now();
@@ -75,12 +53,12 @@ void WorldPhysics::worldTick(){
             btQuaternion rotation = trans.getRotation();
             glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f),rotation.getAngle(),glm::vec3(rotation.getAxis().getX(), rotation.getAxis().getY(), rotation.getAxis().getZ()));
             if(j==0){
-                objects[4].rot = rotationMatrix;
-                objects[4].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
+               // objects[4].rot = rotationMatrix;
+              //  objects[4].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
             }
             if(j==1){
-                objects[2].rot = rotationMatrix;
-                objects[2].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
+               // objects[2].rot = rotationMatrix;
+               // objects[2].pos = glm::vec3(float(transform.getX()), float(transform.getY()), float(transform.getZ()));
                 
                 //each tick we will set the gravity for the lander to be in the direction of the asteroid, reduced by distance
                 btVector3 direction = -btVector3(transform.getX(),transform.getY(),transform.getZ());
@@ -140,34 +118,6 @@ void WorldPhysics::mainLoop(){
     worldTick();
 }
 
-/*void WorldPhysics::initLights(){
-    //set directional scene light values
-    scenelight.pos = glm::vec3(1,0,0);
-    scenelight.ambient = glm::vec3(0.025f,0.025f,0.1f);
-    scenelight.diffuse = glm::vec3(0.8f,0.8f,0.25f);
-
-    WorldPointLightObject pointLight;
-    pointLight.pos = glm::vec3(4005,0,-5);
-    pointLight.scale = glm::vec3(0.2f, 0.2f, 0.2f);
-    pointLight.ambient = glm::vec3(0.9f,0.025f,0.1f);
-    pointLight.diffuse = glm::vec3(0.9f,0.6f,0.5f);
-    pointLight.specular = glm::vec3(0.8f,0.5f,0.5f);
-    pointLight.attenuation = glm::vec3(1, 0.7f, 1.8f);
-    pointLights.push_back(pointLight);
-
-    //add a spot light object
-    WorldSpotLightObject spotlight;
-    spotlight.pos = {4000,0,-5};
-    spotlight.scale = {0.05f,0.05f,0.05f};
-    spotlight.diffuse = {0,1,1};
-    spotlight.specular = {1,1,1};
-    spotlight.attenuation = {1,0.07f,0.017f};
-    spotlight.direction = glm::vec3(4010,50,-5) - spotlight.pos; //temp direction
-    spotlight.cutoffs = {glm::cos(glm::radians(10.0f)), glm::cos(glm::radians(25.0f))};
-
-    spotLights.push_back(spotlight);
-}*/
-
 //initialize bullet physics engine
 void WorldPhysics::initBullet(){
     ///collision configuration contains default setup for memory, collision setup. Advanced users can create their own configuration.
@@ -182,16 +132,58 @@ void WorldPhysics::initBullet(){
     dynamicsWorld->setGravity(btVector3(0, 0, 0));
 }
 
-void WorldPhysics::loadCollisionMeshes(Vk::Renderer& engine){ 
-    //load asteroid mesh and configure rigidbody and GImpactShape
-    {
-        //misleading naming, this method should be renamed to get_mesh_indices
-        //get mesh indices for asteroid
-        Mesh* asteroid = engine.get_mesh("asteroid");
-        int base = asteroid->indexBase;
-        int count = asteroid->indexCount;
-        std::vector<Vertex>& allV = engine.get_allVertices(); //reference all loaded model vertices
-        std::vector<uint32_t>& allI = engine.get_allIndices(); //reference all loaded model indices
+void WorldPhysics::loadCollisionMesh(CollisionRenderObj* collisionObject){ 
+    if(collisionObject->boxShape){
+        //create a dynamic rigidbody
+        btCollisionShape* collisionShape = new btBoxShape(btVector3(1,1,1));
+        //colShape->setMargin(0.05);
+        collisionShape->setLocalScaling(btVector3(collisionObject->scale.x, collisionObject->scale.y, collisionObject->scale.z)); //may not be 1:1 scale between bullet and vulkan
+        collisionShapes.push_back(collisionShape);
+
+        /// create lander transform
+        btTransform transform;
+        transform.setIdentity();
+        if(RANDOMIZE_START){
+            transform.setOrigin(getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_START_DISTANCE));
+        }
+        else
+            transform.setOrigin(btVector3(collisionObject->pos.x, collisionObject->pos.y, collisionObject->pos.z));
+
+        btScalar mass(collisionObject->mass);
+
+        //rigidbody is dynamic if and only if mass is non zero, otherwise static
+        bool isDynamic = (mass != 0.f);
+        btVector3 localInertia(0, 0, 0);
+        if (isDynamic)
+            collisionShape->calculateLocalInertia(mass, localInertia);
+
+        //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
+        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, collisionShape, localInertia);
+        rbInfo.m_friction = 2.0f;
+        //rbInfo.m_spinningFriction  = 0.5f;
+        //rbInfo.m_rollingFriction = 0.5f;
+        btRigidBody* rigidbody = new btRigidBody(rbInfo);
+        rigidbody->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
+
+        //calculate initial direction of travel
+        btVector3 direction;
+        if(LANDER_COLLISION_COURSE || !RANDOMIZE_START)
+            //dest-current position is the direction, dest is origin so just negate
+            direction = -transform.getOrigin();
+        else
+            //instead of origin pick a random point LANDER_START_DISTANCE away from the asteroid
+            direction = getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_PASS_DISTANCE)-transform.getOrigin();
+
+        rigidbody->setLinearVelocity(direction.normalize()*INITIAL_LANDER_SPEED); //start box falling towards asteroid
+
+        dynamicsWorld->addRigidBody(rigidbody);
+    }
+    else if(collisionObject->concaveTriangleShape){
+        int base = collisionObject->indexBase;
+        int count = collisionObject->indexCount;
+        std::vector<Vertex>& allV = r_mediator.renderer_getAllVertices(); //reference all loaded model vertices
+        std::vector<uint32_t>& allI = r_mediator.renderer_getAllIndices(); //reference all loaded model indices
 
         btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
 
@@ -202,15 +194,15 @@ void WorldPhysics::loadCollisionMeshes(Vk::Renderer& engine){
             btVector3 v3(allV[allI[i+2]].pos.x, allV[allI[i+2]].pos.y, allV[allI[i+2]].pos.z);
             mTriMesh->addTriangle(v1, v2, v3, true);
         }
-        btGImpactMeshShape *asteroidCollisionShape = new btGImpactMeshShape(mTriMesh);
+        btGImpactMeshShape *collisionShape = new btGImpactMeshShape(mTriMesh);
         //asteroidCollisionShape->setMargin(0.05);
-        asteroidCollisionShape->setLocalScaling(btVector3(objects[4].scale.x, objects[4].scale.y, objects[4].scale.z)); //may not be 1:1 scale between bullet and vulkan
-        asteroidCollisionShape->updateBound();// Call this method once before doing collisions 
-        collisionShapes.push_back(asteroidCollisionShape);
+        collisionShape->setLocalScaling(btVector3(collisionObject->scale.x, collisionObject->scale.y, collisionObject->scale.z)); //may not be 1:1 scale between bullet and vulkan
+        collisionShape->updateBound();// Call this method once before doing collisions 
+        collisionShapes.push_back(collisionShape);
 
-        btTransform asteroidTransform;
-        asteroidTransform.setIdentity();
-        asteroidTransform.setOrigin(btVector3(objects[4].pos.x, objects[4].pos.y, objects[4].pos.z));
+        btTransform transform;
+        transform.setIdentity();
+        transform.setOrigin(btVector3(collisionObject->pos.x, collisionObject->pos.y, collisionObject->pos.z));
 
         //set initial rotation of asteroid
         btQuaternion quat;
@@ -218,76 +210,38 @@ void WorldPhysics::loadCollisionMeshes(Vk::Renderer& engine){
             quat.setEulerZYX(getRandFloat(0,359),getRandFloat(0,359),getRandFloat(0,359));
         else
             quat.setEulerZYX(0,0,0);
-        asteroidTransform.setRotation(quat);
+        transform.setRotation(quat);
 
-        btScalar mass(100000);
+        btScalar mass(collisionObject->mass);
         //rigidbody is dynamic if and only if mass is non zero, otherwise static
         bool isDynamic = (mass != 0.f);
         btVector3 localInertia(0, 0, 0);
         if (isDynamic)
-            asteroidCollisionShape->calculateLocalInertia(mass, localInertia);
+            collisionShape->calculateLocalInertia(mass, localInertia);
 
         //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
-        btDefaultMotionState* myMotionState = new btDefaultMotionState(asteroidTransform);
-        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, asteroidCollisionShape, localInertia);
+        btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
+        btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, collisionShape, localInertia);
         rbInfo.m_friction = 5.0f;
-        btRigidBody* asteroidRB = new btRigidBody(rbInfo);
-        asteroidRB->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
+        btRigidBody* rigidbody = new btRigidBody(rbInfo);
+        rigidbody->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
 
         //set initial rotational velocity of asteroid
         if(RANDOMIZE_START){
             float f = MAX_ASTEROID_ROTATION_VELOCITY;
-            asteroidRB->setAngularVelocity(btVector3(getRandFloat(-f,f),getRandFloat(-f,f),getRandFloat(-f,f))); //random rotation of asteroid
+            rigidbody->setAngularVelocity(btVector3(getRandFloat(-f,f),getRandFloat(-f,f),getRandFloat(-f,f))); //random rotation of asteroid
         }
         else
-            asteroidRB->setAngularVelocity(btVector3(0.005f, 0.015f, 0.01f)); //initial rotation of asteroid
-        dynamicsWorld->addRigidBody(asteroidRB);//add the body to the dynamics world
+            rigidbody->setAngularVelocity(btVector3(0.005f, 0.015f, 0.01f)); //initial rotation of asteroid
+        dynamicsWorld->addRigidBody(rigidbody);//add the body to the dynamics world
     }
+}
 
-    //load lander collision mesh and configure rigidbody and compound shape
-    {
-		//create a dynamic rigidbody
-		btCollisionShape* landerShape = new btBoxShape(btVector3(1,1,1));
-        //colShape->setMargin(0.05);
-        landerShape->setLocalScaling(btVector3(objects[2].scale.x, objects[2].scale.y, objects[2].scale.z)); //may not be 1:1 scale between bullet and vulkan
-		collisionShapes.push_back(landerShape);
-
-		/// create lander transform
-		btTransform landerTransform;
-		landerTransform.setIdentity();
-        if(RANDOMIZE_START){
-            landerTransform.setOrigin(getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_START_DISTANCE));
-        }
-        else
-            landerTransform.setOrigin(btVector3(objects[2].pos.x, objects[2].pos.y, objects[2].pos.z));
-		btScalar mass(10);
-		//rigidbody is dynamic if and only if mass is non zero, otherwise static
-		bool isDynamic = (mass != 0.f);
-        btVector3 localInertia(0, 0, 0);
-		if (isDynamic)
-			landerShape->calculateLocalInertia(mass, localInertia);
-		//using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
-		btDefaultMotionState* myMotionState = new btDefaultMotionState(landerTransform);
-		btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, myMotionState, landerShape, localInertia);
-        rbInfo.m_friction = 2.0f;
-        //rbInfo.m_spinningFriction  = 0.5f;
-        //rbInfo.m_rollingFriction = 0.5f;
-		btRigidBody* landerRB = new btRigidBody(rbInfo);
-        landerRB->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
-
-        //calculate initial direction of travel
-        btVector3 direction;
-        if(LANDER_COLLISION_COURSE || !RANDOMIZE_START)
-            //dest-current position is the direction, dest is origin so just negate
-            direction = -landerTransform.getOrigin();
-        else
-            //instead of origin pick a random point LANDER_START_DISTANCE away from the asteroid
-            direction = getPointOnSphere(getRandFloat(0,360), getRandFloat(0,360), LANDER_PASS_DISTANCE)-landerTransform.getOrigin();
-
-        landerRB->setLinearVelocity(direction.normalize()*INITIAL_LANDER_SPEED); //start box falling towards asteroid
-
-		dynamicsWorld->addRigidBody(landerRB);
-	}
+//void WorldPhysics::loadCollisionMeshes(Vk::Renderer& engine){ 
+void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>& collisionObjects){ 
+    for (std::shared_ptr<CollisionRenderObj> obj : collisionObjects){
+        loadCollisionMesh(obj.get());
+    }
 }
 
 //helper, gets random btvector between min and max
@@ -339,8 +293,7 @@ void WorldPhysics::changeSimSpeed(int direction, bool pause){
 
 //instanciate the world space
 //adds default objects to scene
-WorldPhysics::WorldPhysics(){
-    initLights();
+WorldPhysics::WorldPhysics(Mediator& mediator): r_mediator{mediator}{
     initBullet();
     updateDeltaTime();
 }

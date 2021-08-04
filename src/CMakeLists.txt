@@ -6,6 +6,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   Vk/**.cpp
   Service/**.cpp
 
+  Domain/**.h
   Domain/Objects/**.h
   Ui/**.h
   Vk/**.h

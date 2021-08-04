@@ -20,7 +20,6 @@ class WorldInput;
 class UiHandler{
     private:
     Mediator& r_mediator;
-    Vk::Renderer* p_engine;
     GLFWwindow* p_window;
     WorldInput* p_worldInput;
     
@@ -55,6 +54,6 @@ class UiHandler{
 
     void cleanup();
 
-    UiHandler(GLFWwindow* window, Vk::Renderer* renderer, Mediator& mediator);
+    UiHandler(GLFWwindow* window, Mediator& mediator);
     ~UiHandler();
 };

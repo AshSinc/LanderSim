@@ -9,37 +9,19 @@
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 
+#include "obj_collisionRender.h"
+
+#include <map>
+
+#include <memory>
+
 namespace Vk{
     class Renderer; //forward reference, because we reference this before defining it
 }
 
 class Mesh; //forward reference, because we reference this before defining it
 class WorldInput;
-
-//these should be moved out of here
-/*struct WorldObject{
-    glm::vec3 pos;
-    glm::vec3 scale{1,1,1};
-    glm::mat4 rot = glm::mat4 {1.0f};
-    glm::vec3 velocity{0,0,0};
-    glm::vec3 acceleration{0,0,0}; //will likely be a vector to a gravitational body
-};
-
-struct WorldLightObject : WorldObject{
-    glm::vec3 ambient;
-    glm::vec3 diffuse;
-    glm::vec3 specular{1,1,1};
-};
-
-struct WorldPointLightObject : WorldLightObject{
-    glm::vec3 attenuation; //x constant, y linear, z quadratic
-};
-
-struct WorldSpotLightObject : WorldPointLightObject{
-    glm::vec3 direction; // 
-    glm::vec2 cutoffs; // x is inner y is outer
-};*/
-//these should be moved out of here
+class Mediator;
 
 class WorldPhysics{
 public:
@@ -52,36 +34,27 @@ public:
     }worldStats;
     WorldStats& getWorldStats();
     void setSimSpeedMultiplier(float multiplier);
+    void loadCollisionMesh(CollisionRenderObj* collisionObject);
+    void loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>& collisionObjects); //load bullet collision meshes, 
     
-    void loadCollisionMeshes(Vk::Renderer& engine); //load bullet collision meshes, 
     static double deltaTime; // Time between current frame and last frame
     std::chrono::_V2::system_clock::time_point lastTime{}; // Time of last frame
     void updateDeltaTime();
     void worldTick();
-    //WorldState* getWorld();
 
-    //std::vector<WorldPointLightObject>& getWorldPointLightObjects();
-    //std::vector<WorldSpotLightObject>& getWorldSpotLightObjects();
-    //WorldObject& getWorldObject(int index);
     int getWorldObjectsCount();
 
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
     
-    //WorldLightObject scenelight;
-    //std::vector<WorldPointLightObject> pointLights;
-    //std::vector<WorldSpotLightObject> spotLights;
-
-    //std::vector<WorldObject> objects{}; //init default
-    //void addObject(std::vector<WorldObject>& container, WorldObject obj);
-
     void mainLoop();
-    WorldPhysics();
+    WorldPhysics(Mediator& mediator);
     ~WorldPhysics();
 
     void changeSimSpeed(int direction, bool pause);
 
 private:
     //Bullet vars
+    Mediator& r_mediator;
     btDiscreteDynamicsWorld* dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)

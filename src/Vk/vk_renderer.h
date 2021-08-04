@@ -11,11 +11,7 @@
 #include "vk_debug_msg.h"
 #include "vk_mesh.h"
 #include <unordered_map>
-//#include "world_camera.h" // cant forward declare coz the struct is in the scope
-
 #include "obj_render.h"
-
-
 #include "dmn_iScene.h"
 
 class UiHandler; //forward declare
@@ -23,50 +19,13 @@ class WorldPhysics;
 class CameraData;
 class Mediator;
 
-
-namespace Vk{
-
-  
+namespace Vk{  
 
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
 const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i think 2 is standard according to this study by intel https://software.intel.com/content/www/us/en/develop/articles/practical-approach-to-vulkan-part-1.html
 const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
 const int MAX_LIGHTS = 10;
-
-/*struct ModelInfo{
-    std::string modelName;
-    std::string filePath;
-};
-
-//model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
-const std::vector<ModelInfo> MODEL_INFOS = {
-    {"satellite", "resources/models/Satellite.obj"},
-    {"asteroid", "resources/models/asteroid.obj"},
-    //{"asteroid", "models/Bennu.obj"},
-    {"sphere", "resources/models/sphere.obj"},
-    {"box", "resources/models/box.obj"}
-};
-
-//texture identifier and path pairs, used in loading and assigning to map
-const std::vector<TextureInfo> TEXTURE_INFOS = {
-    {"satellite_diff", "resources/textures/Satellite.jpg"},
-    {"satellite_spec", "resources/textures/Satellite_Specular.jpg"},
-    //{"asteroid_diff", "textures/ASTEROID_COLOR.jpg"},
-    //{"asteroid_spec", "textures/ASTEROID_SPECULAR.jpg"}
-    {"asteroid_diff", "resources/textures/ASTEROID_COLORB.jpg"},
-    {"asteroid_spec", "resources/textures/ASTEROID_COLORB.jpg"}
-};
-
-//texture identifier and path pairs, used in loading and assigning to map
-const std::vector<std::string> SKYBOX_PATHS = {
-    {"resources/textures/skybox/GalaxyTex_PositiveX.jpg"},
-    {"resources/textures/skybox/GalaxyTex_NegativeX.jpg"},
-    {"resources/textures/skybox/GalaxyTex_PositiveZ.jpg"},
-    {"resources/textures/skybox/GalaxyTex_NegativeZ.jpg"},
-    {"resources/textures/skybox/GalaxyTex_NegativeY.jpg"},
-    {"resources/textures/skybox/GalaxyTex_PositiveY.jpg"}
-};*/
 
 //required extensions and debug validation layers
 const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}; //list of required extensions (macro expands to VK_KHR_swapchain)
@@ -138,10 +97,13 @@ public:
 
     CameraData* p_cameraData;
     void setCameraData(CameraData* camData);
-    void setRenderablesPointer(std::vector<RenderObject&>* renderableObjects);
+    void setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects);
     void allocateDescriptorSetForTexture(std::string materialName, std::string name);
     void allocateDescriptorSetForSkybox();
     void setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights);
+    Mesh* getLoadedMesh(std::string name);
+    void mapMaterialDataToGPU();
+
 
 private:
     WorldLightObject* p_sceneLight;
@@ -218,7 +180,6 @@ private:
     void createCommandPools();
     void init_pipelines(); //load and configure pipelines and correspending shader stages and assign to materials
     void createSyncObjects();
-    void init_scene(); //assign and configure RenderObjects to display in the scene
     
     //Render Loop
     void drawObjects(int currentFrame);
@@ -315,8 +276,7 @@ private:
     //Functions
     Material* create_material(VkPipeline pipeline, VkPipelineLayout layout,const std::string& name, int id);
     
-    void mapMaterialDataToGPU();
-
+    
     /****** Texture Variables && Functions
      * 
      * These should be moved to textures
@@ -354,7 +314,8 @@ private:
      * 
      * 
      * */
-    std::vector<RenderObject&>* p_renderables;
+    //std::vector<RenderObject*>* p_renderables;
+    std::vector<std::shared_ptr<RenderObject>>* p_renderables;
     
     /****** Render image variables && Functions
      * 

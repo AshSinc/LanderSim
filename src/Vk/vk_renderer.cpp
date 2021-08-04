@@ -33,8 +33,6 @@
 #include "vk_pipeline.h"
 #include "vk_mesh.h"
 #include "vk_images.h"
-
-//#include "world_state.h"
 #include "ui_handler.h"
 
 #include "world_camera.h"
@@ -42,9 +40,6 @@
 #include "mediator.h"
 
 #include "obj_render.h"
-
-
-//#include "to_loadModels.h"
 
 //static var declarations
 VmaAllocator Vk::Renderer::allocator;
@@ -58,8 +53,6 @@ Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): window{window
 
 //uiHandler needs moved here
 void Vk::Renderer::init(){
-    //void Vk::Renderer::init(UiHandler* uiHandler){
-    //p_worldPhysics = worldPhysics;
     createVkInstance();
     if (enableValidationLayers){
         Vk::Debug::Messenger::setupDebugMessenger(instance, &debugMessenger);
@@ -93,18 +86,12 @@ void Vk::Renderer::init(){
     createCommandBuffers();
     createSyncObjects();
 
-    //p_uiHandler = uiHandler;
-
-    //p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
-    //            (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
-    
     initUI();
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
-    loadScene();
 }
 
-void Vk::Renderer::setRenderablesPointer(std::vector<RenderObject&>* renderableObjects){
+void Vk::Renderer::setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects){
     p_renderables = renderableObjects;
 
     //this is temporarily here
@@ -116,11 +103,12 @@ void Vk::Renderer::setRenderablesPointer(std::vector<RenderObject&>* renderableO
 }
 
 void Vk::Renderer::setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
-    
+    p_sceneLight = sceneLight;
+    p_pointLights = pointLights;
+    p_spotLights = spotLights;
 }
 
 void Vk::Renderer::initUI(){
-    //this needs moved back to Vk Renderer?
     ImGui::CreateContext(); //create ImGui context
     ImGuiIO& io = ImGui::GetIO();
     ImGui::StyleColorsDark();
@@ -184,7 +172,6 @@ void Vk::Renderer::initUI(){
     ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
     endSingleTimeCommands(command_buffer,transferCommandPool, graphicsQueue);
 
-
     VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
     if(vkCreateCommandPool(device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
         throw std::runtime_error("Failed to create gui command pool");
@@ -221,19 +208,7 @@ void Vk::Renderer::initUI(){
 
 //loads all scene data, this should be called only when the user hits run
 void Vk::Renderer::loadScene(){
-    //next comes model loading and then creating vertex and index buffers on the gpu and copying the data
-    //loadModels();
-    //createVertexBuffer(); //error here if load models later
-    //createIndexBuffer(); //error here if load models later
-    //now we can load the textures and create imageviews
-
-    //createTextureImages(); //pretty slow, probs texture number and size
-
-    //creates RenderObjects and associates with WorldObjects, then allocates the textures 
-    //this method should be split into two parts createRenderObjects and createTextureDescriptorSets 
-    init_scene(); 
     mapMaterialDataToGPU();
-
     setCameraData(r_mediator.camera_getCameraDataPointer());
 }
 
@@ -306,98 +281,16 @@ void Vk::Renderer::createSamplers(){
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, skyboxSampler, nullptr);});
 }
 
-//this all needs moved to myScene objects... with iScene interface
-void Vk::Renderer::init_scene(){   
-    /*_renderables.clear();    
-
-    RenderObject skybox{p_worldPhysics->objects[0]};
-    skybox.meshId = get_mesh("box")->id;
-    //box.material = get_material("defaultmesh");
-    //box.material->diffuse = glm::vec3(0,0,1);
-    //box.material->specular = glm::vec3(1,0.5f,0.5f);
-    //box.material->extra.x = 32;
-    _renderables.push_back(skybox);
-
-    //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject starSphere{p_worldPhysics->objects[1]};
-    starSphere.meshId = get_mesh("sphere")->id;
-    starSphere.material = get_material("unlitmesh");
-    starSphere.material->diffuse = glm::vec3(1,0.5f,0.31f);
-    starSphere.material->specular = glm::vec3(0.5f,0.5f,0.5f);
-    starSphere.material->extra.x = 32;
-    _renderables.push_back(starSphere);
-
-    //to instanciate a RenderObject, it must be linked to a WorldState object
-    RenderObject sphereLight{p_worldPhysics->pointLights[0]};
-    sphereLight.meshId = get_mesh("sphere")->id;
-    sphereLight.material = get_material("unlitmesh");
-    sphereLight.material->diffuse = glm::vec3(1,0.5f,0.31f);
-    sphereLight.material->specular = glm::vec3(0.5f,0.5f,0.5f);
-    sphereLight.material->extra.x = 32;
-    _renderables.push_back(sphereLight);
-
-    //RenderObject sphere2{worldState.pointLights[1]};
-    //sphere2.meshId = get_mesh("sphere")->id;
-    //sphere2.material = get_material("unlitmesh");
-    //_renderables.push_back(sphere2);
-
-    RenderObject box{p_worldPhysics->objects[2]};
-    box.meshId = get_mesh("box")->id;
-    box.material = get_material("defaultmesh");
-    box.material->diffuse = glm::vec3(0,0,1);
-    box.material->specular = glm::vec3(1,0.5f,0.5f);
-    box.material->extra.x = 32;
-    _renderables.push_back(box);
-
-    //make a copy
-    RenderObject box2{p_worldPhysics->spotLights[0]};
-    box2.meshId = get_mesh("box")->id;
-    box2.material = get_material("unlitmesh");
-    _renderables.push_back(box2);
-
-    RenderObject satellite{p_worldPhysics->objects[3]};
-    satellite.meshId = get_mesh("satellite")->id;
-    satellite.material = get_material("texturedmesh2");
-    satellite.material->extra.x = 2048;
-    _renderables.push_back(satellite);
-
-    RenderObject asteroid{p_worldPhysics->objects[4]};
-    asteroid.meshId = get_mesh("asteroid")->id;
-    asteroid.material = get_material("texturedmesh1"); //comment out
-    //asteroid.material = get_material("defaultmesh");
-    //asteroid.material->diffuse = glm::vec3(0.5f,0.5f,0.5f);
-    //asteroid.material->specular = glm::vec3(1,1,1);
-    asteroid.material->extra.x = 2048;
-
-    //asteroid.material->extra.x = 32;
-    _renderables.push_back(asteroid);
-
-    for(auto iter : _materials){
-        _materialParameters[iter.second.propertiesId].diffuse = iter.second.diffuse;
-        _materialParameters[iter.second.propertiesId].specular = iter.second.specular;
-        _materialParameters[iter.second.propertiesId].extra = iter.second.extra;
-    }
-
-    //allocate a descriptor set for each material pointing to each texture needed
-    allocateDescriptorSetForTexture(get_material("texturedmesh2"), "satellite");
-    allocateDescriptorSetForTexture(get_material("texturedmesh1"), "asteroid");
-    allocateDescriptorSetForSkybox(); //skybox hs its own descriptor set because it behaves differently from normal texture
-    */
-}
-
 void Vk::Renderer::updateObjectTranslations(){
-    //temp code, scaling fixed and _renderables/WorldObjects may need changed
-
-    //_renderables[i]/rWorldObject should be changed, they should extend a renderable object? tostop position scale rotation being duplicated
-    //and keep the code contained, should make new class
     glm::mat4 scale;
     glm::mat4 translation;
     glm::mat4 rotation;
+
     for (int i = 0; i < p_renderables->size(); i++){
-        scale = glm::scale(glm::mat4{ 1.0 }, p_renderables->at(i).scale);
-        translation = glm::translate(glm::mat4{ 1.0 }, p_renderables->at(i).pos);
-        rotation = p_renderables->at(i).rot;
-        p_renderables->at(i).transformMatrix = translation * rotation * scale;
+        scale = glm::scale(glm::mat4{ 1.0 }, p_renderables->at(i)->scale);
+        translation = glm::translate(glm::mat4{ 1.0 }, p_renderables->at(i)->pos);
+        rotation = p_renderables->at(i)->rot;
+        p_renderables->at(i)->transformMatrix = translation * rotation * scale;
     }
 }
 
@@ -443,8 +336,6 @@ void Vk::Renderer::mapLightingDataToGPU(){
         vmaUnmapMemory(allocator, _frames[i].spotLightParameterBufferAlloc); 
     }
 }
-
-
 
 //
 void Vk::Renderer::updateSceneData(GPUCameraData& camData){
@@ -501,11 +392,11 @@ void Vk::Renderer::drawObjects(int curFrame){
     GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
     //loop through all objects in the scene, need a better container than a vector
     for (int i = 0; i < p_renderables->size(); i++){
-        objectSSBO[i].modelMatrix = p_renderables->at(i).transformMatrix;
+        objectSSBO[i].modelMatrix = p_renderables->at(i)->transformMatrix;
         //calculate the normal matrix, its done by inverse transpose of the model matrix * view matrix because we are working 
         //in view space in the shader. taking only the top 3x3
         //this is to account for rotation and scaling when using normals. should be done on cpu as its costly
-        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i).transformMatrix)); 
+        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i)->transformMatrix)); 
     }
     vmaUnmapMemory(allocator, _frames[curFrame].objectBufferAlloc);
   
@@ -518,52 +409,47 @@ void Vk::Renderer::drawObjects(int curFrame){
 
     Material* lastMaterial = nullptr;
     for (int i = 1; i < p_renderables->size(); i++){
-        RenderObject& object = p_renderables->at(i);
+        RenderObject* object = p_renderables->at(i).get();
         //only bind the pipeline if it doesn't match with the already bound one
-		if (object.material != lastMaterial) {
-            if(object.material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
-			vkCmdBindPipeline(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
-			lastMaterial = object.material;
+		if (object->material != lastMaterial) {
+            if(object->material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
+			vkCmdBindPipeline(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipeline);
+			lastMaterial = object->material;
 
             //offset for our scene buffer
             uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
             //bind the descriptor set when changing pipeline
             vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object.material->pipelineLayout, 0, 1, &_frames[curFrame].globalDescriptor, 1, &scene_uniform_offset);
+                object->material->pipelineLayout, 0, 1, &_frames[curFrame].globalDescriptor, 1, &scene_uniform_offset);
 
 	        //object data descriptor
         	vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object.material->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
+                object->material->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
 
              //material descriptor, we are using a dynamic uniform buffer and referencing materials by their offset with propertiesId, which just stores the int relative to the material in _materials
         	vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object.material->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
+                object->material->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
             //the "firstSet" param above is 2 because in init_pipelines its described in VkDescriptorSetLayout[] in index 2!
             
             vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object.material->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
+                object->material->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
 
-            if (object.material->_multiTextureSets.size() > 0) {
+            if (object->material->_multiTextureSets.size() > 0) {
                 vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                    object.material->pipelineLayout, 4, 1, &object.material->_multiTextureSets[0], 0, nullptr);
+                    object->material->pipelineLayout, 4, 1, &object->material->_multiTextureSets[0], 0, nullptr);
 		    }
 		}
 
         //add material property id for this object to push constant
 		PushConstants constants;
-		constants.matIndex = object.material->propertiesId;
-        //constants.numPointLights = p_worldPhysics->pointLights.size();
-        //constants.numSpotLights = p_worldPhysics->spotLights.size();
-        constants.numPointLights = p_pointLights->size();//r_mediator.scene_getNumPointLights();
-        constants.numSpotLights = p_spotLights->size();//r_mediator.scene_getNumSpotLights();
+		constants.matIndex = object->material->propertiesId;
+        constants.numPointLights = p_pointLights->size();
+        constants.numSpotLights = p_spotLights->size();
 
         //upload the mesh to the GPU via pushconstants
-		vkCmdPushConstants(_frames[curFrame]._mainCommandBuffer, object.material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
+		vkCmdPushConstants(_frames[curFrame]._mainCommandBuffer, object->material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
 
-        vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[object.meshId].indexCount, 1, _loadedMeshes[object.meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
-
-        //now we draw the skybox last
-        //vkCmdDraw()
+        vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
 
     uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
@@ -571,7 +457,7 @@ void Vk::Renderer::drawObjects(int curFrame){
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 2, 1, &skyboxSet, 0, NULL);
 	vkCmdBindPipeline(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, skyboxPipeline);
-	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[p_renderables->at(0).meshId].indexCount, 1, _loadedMeshes[p_renderables->at(0).meshId].indexBase, 0, 0);
+	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[p_renderables->at(0)->meshId].indexCount, 1, _loadedMeshes[p_renderables->at(0)->meshId].indexBase, 0, 0);
 }
 
 
@@ -613,8 +499,7 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
         throw std::runtime_error("Failed to begin recording gui command buffer");
     }
 
-    r_mediator.ui_drawUI();
-    //p_uiHandler->drawUI(); //then we will draw UI
+    r_mediator.ui_drawUI(); //then we will draw UI
 
     //note that the order of clear values should be identical to the order of attachments 
     renderPassBeginInfo = Vk::Structs::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
@@ -1112,7 +997,6 @@ void Vk::Renderer::init_pipelines(){
 
     create_material(unlitMeshPipeline, meshPipelineLayout, "unlitmesh", 1);
     
-    //
     //create pipeline layout for the textured mesh, which has 3 descriptor sets
 	//we start from  the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
@@ -1152,7 +1036,6 @@ void Vk::Renderer::init_pipelines(){
     }
     _swapDeletionQueue.push_function([=](){vkDestroyPipelineLayout(device, _skyboxPipelineLayout, nullptr);});
 
-
      //now for the skybox pipeline
     pipelineBuilder.shaderStages.clear();
 	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, skybox_vert_m, nullptr));
@@ -1164,7 +1047,6 @@ void Vk::Renderer::init_pipelines(){
 
 	skyboxPipeline = pipelineBuilder.build_pipeline(device, renderPass);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, skyboxPipeline, nullptr);});
-
     
     //because these wrappers just deliver the code they can be local variables and destroyed at the end of the function
     vkDestroyShaderModule(device, default_lit_vert_m, nullptr);
@@ -1325,14 +1207,12 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
     char* dataMemory;
     vmaMapMemory(Vk::Renderer::allocator, stagingBufferAllocation, (void**)&dataMemory);
     
-
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
         memcpy(dataMemory + (layerSize * i), textureData[i], static_cast<size_t>(layerSize));
     }
     vmaUnmapMemory(Vk::Renderer::allocator, stagingBufferAllocation);
 
-    
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
         Vk::Images::simpleFreeTexture(textureData[i]);
@@ -1362,7 +1242,6 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
 
 //this is where we will load the model data into vertices and indices member variables
 void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
-    //Service::loadModels(_meshes, _loadedMeshes);
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
     std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
 
@@ -1437,6 +1316,10 @@ void Vk::Renderer::populateVerticesIndices(std::string path, std::unordered_map<
         }
     }
     _loadedMeshes[numMeshes].indexCount = allIndices.size() - _loadedMeshes[numMeshes].indexBase; //how many indices in this model
+}
+
+Mesh* Vk::Renderer::getLoadedMesh(std::string name){
+    return get_mesh(name);
 }
 
 //used to pass vertices and indices to WorldState for building collision meshes from objects directly (only used for asteroid mesh)
@@ -1815,14 +1698,10 @@ void Vk::Renderer::recreateSwapChain(){
     createFramebuffers(); //framebuffers depend directly on swap chain images
     init_pipelines(); //viewport and scissor rectangle size is specified during graphics pipeline creation, so the pipeline needs rebuilt    
     createCommandBuffers(); //cammand buffers depend directly on swap chain images
-    
-    //p_uiHandler->initUI(&device, &physicalDevice, &instance, queueFamilyIndicesStruct.graphicsFamily.value(), &graphicsQueue, &descriptorPool,
-    //            (uint32_t)swapChainImages.size(), &swapChainImageFormat, &transferCommandPool, &swapChainExtent, &swapChainImageViews);
+
+    initUI(); //needed?
 
     //probs then need to link descriptors etc back to the materials?
-    
-    //init_scene();
-    //mapMaterialDataToGPU();
 
     //ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount); //do i need to resize imgui? probably
 }

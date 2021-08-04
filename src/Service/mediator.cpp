@@ -2,6 +2,13 @@
 #include "world_camera.h"
 #include "ui_handler.h"
 
+//Scene Functions
+int Mediator::scene_getWorldObjectsCount(){
+    return p_scene->getWorldObjectsCount();
+}
+WorldObject& Mediator::scene_getWorldObject(int i){
+    return p_scene->getWorldObject(i);
+}
 
 //Ui functions
 void Mediator::ui_toggleEscMenu(){
@@ -38,17 +45,22 @@ void Mediator::physics_changeSimSpeed(int direction, bool pause){
 WorldPhysics::WorldStats& Mediator::physics_getWorldStats(){
     return p_physicsEngine->getWorldStats();
 }
-//WorldObject& Mediator::physics_getWorldObject(int index){
-//    return p_physicsEngine->getWorldObject(index);
-//}
-int Mediator::physics_getWorldObjectsCount(){
-    return p_physicsEngine->getWorldObjectsCount();
+void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>& collisionObjects){
+    p_physicsEngine->loadCollisionMeshes(collisionObjects);
 }
 
 //Renderer functions
 Vk::Renderer::RenderStats& Mediator::renderer_getRenderStats(){
     return p_renderEngine->getRenderStats();
 }
+std::vector<Vertex>& Mediator::renderer_getAllVertices(){
+    return p_renderEngine->get_allVertices();
+} //reference all loaded model vertices
+
+std::vector<uint32_t>& Mediator::renderer_getAllIndices(){
+    return p_renderEngine->get_allIndices();
+} //reference all loaded model vertices
+
 int Mediator::renderer_getMeshId(const std::string& name){
     return p_renderEngine->getMeshId(name);
 }
@@ -61,7 +73,7 @@ void Mediator::renderer_loadTextures(const std::vector<TextureInfo>& TEXTURE_INF
 void Mediator::renderer_loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
     p_renderEngine->loadModels(MODEL_INFOS);
 }
-void Mediator::renderer_setRenderablesPointer(std::vector<RenderObject&>* renderableObjects){
+void Mediator::renderer_setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects){
     p_renderEngine->setRenderablesPointer(renderableObjects);
 }
 void Mediator::renderer_allocateDescriptorSetForTexture(const std::string& materialName, const std::string& name){
@@ -73,13 +85,15 @@ void Mediator::renderer_allocateDescriptorSetForSkybox(){
 void Mediator::renderer_setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
     p_renderEngine->setLightPointers(sceneLight, pointLights, spotLights);
 }
-//Scene functions
-/*int Mediator::scene_getNumPointLights(){
-    p_scene->getNumPointLights();
+void Mediator::renderer_setCameraDataPointer(CameraData* cameraData){
+    p_renderEngine->setCameraData(cameraData);
 }
-int Mediator::scene_getNumSpotLights(){
-    p_scene->getNumSpotLights();
-}*/
+Mesh* Mediator::renderer_getLoadedMesh(std::string name){
+    return p_renderEngine->getLoadedMesh(name);
+}
+void Mediator::renderer_mapMaterialDataToGPU(){
+    p_renderEngine->mapMaterialDataToGPU();
+}
 
 //set pointers
 void Mediator::setUiHandler(UiHandler* uiHandler){
@@ -93,4 +107,7 @@ void Mediator::setCamera(WorldCamera* camera){
 }
 void Mediator::setRenderEngine(Vk::Renderer* renderer){
     p_renderEngine = renderer;
+}
+void Mediator::setScene(IScene* scene){
+    p_scene = scene;
 }

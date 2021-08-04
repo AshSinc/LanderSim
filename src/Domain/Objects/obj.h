@@ -9,6 +9,7 @@ struct WorldObject{
     glm::vec3 pos;
     glm::vec3 scale{1,1,1};
     glm::mat4 rot = glm::mat4 {1.0f};
-    glm::vec3 velocity{0,0,0};
-    glm::vec3 acceleration{0,0,0}; //will likely be a vector to a gravitational body
+    virtual ~WorldObject(){};
+    //glm::vec3 velocity{0,0,0};
+    //glm::vec3 acceleration{0,0,0}; //will likely be a vector to a gravitational body
 };
