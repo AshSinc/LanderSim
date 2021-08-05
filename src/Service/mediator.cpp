@@ -42,10 +42,10 @@ CameraData* Mediator::camera_getCameraDataPointer(){
 void Mediator::physics_changeSimSpeed(int direction, bool pause){
     p_physicsEngine->changeSimSpeed(direction, pause);
 }
-WorldPhysics::WorldStats& Mediator::physics_getWorldStats(){
+WorldStats& Mediator::physics_getWorldStats(){
     return p_physicsEngine->getWorldStats();
 }
-void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>& collisionObjects){
+void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){
     p_physicsEngine->loadCollisionMeshes(collisionObjects);
 }
 

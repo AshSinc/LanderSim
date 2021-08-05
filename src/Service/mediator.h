@@ -9,6 +9,7 @@
 #include "obj_render.h"
 #include "obj_collisionRender.h"
 #include <map>
+#include "world_stats.h"
 
 class WorldCamera;
 class UiHandler;
@@ -38,8 +39,8 @@ class Mediator{
 
         //physics functions
         void physics_changeSimSpeed(int direction, bool pause);
-        WorldPhysics::WorldStats& physics_getWorldStats();
-        void physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>& collisionObjects);
+        WorldStats& physics_getWorldStats();
+        void physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects);
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);

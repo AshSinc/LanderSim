@@ -1,11 +1,13 @@
 file(GLOB SOURCES CONFIGURE_DEPENDS 
   main.cpp
+  App/**.cpp
   Domain/**.cpp
   Domain/Objects/**.cpp
   Ui/**.cpp
   Vk/**.cpp
   Service/**.cpp
 
+  App/**.h
   Domain/**.h
   Domain/Objects/**.h
   Ui/**.h
@@ -13,7 +15,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   Service/**.h
 )
 
-include_directories(Ui Domain Domain/Objects Vk Service)
+include_directories(App Ui Domain Domain/Objects Vk Service)
 
 add_executable(LSApp ${SOURCES})
 

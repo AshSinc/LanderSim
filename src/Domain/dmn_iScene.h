@@ -4,9 +4,7 @@
 #include "obj_light.h"
 #include "obj_pointLight.h"
 #include "obj_spotLight.h"
-//#include "obj.h"
-//#include "obj_render.h"
-//#include "obj_collisionRender.h"
+
 #include <map>
 #include <memory>
 #include <string>

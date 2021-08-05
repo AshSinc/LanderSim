@@ -30,7 +30,6 @@ class UiHandler{
     void gui_ShowLoading(); //holds configuration for main loading bar
     void calculateFrameRate();
     
-    
     ImVec2 statsPanelSize;
     ImVec2 mainMenuPanelSize;
     ImVec2 mainMenuPanelPos;
@@ -38,6 +37,7 @@ class UiHandler{
     ImVec2 escMenuPanelPos;
 
     bool showEscMenu = false;
+    bool showMainMenu = true;
     public:
     void toggleMenu();
     void initUI();

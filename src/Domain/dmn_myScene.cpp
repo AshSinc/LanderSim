@@ -1,5 +1,7 @@
 #include "dmn_myScene.h"
 #include "obj_collisionRender.h"
+#include "obj_lander.h"
+#include "obj_asteroid.h"
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
@@ -25,7 +27,7 @@ void MyScene::configureRenderEngine(){
 }
 
 void MyScene::configurePhysicsEngine(){
-    r_mediator.physics_loadCollisionMeshes(collisionObjects);
+    r_mediator.physics_loadCollisionMeshes(&collisionObjects);
 }
 
 //this is temporary fix, bad object design and logic caused this
@@ -41,16 +43,18 @@ void MyScene::initObjects(){
     objects.clear();
     renderableObjects.clear();
     collisionObjects.clear();
+    int id = 0;
 
     std::shared_ptr<RenderObject> skybox = std::shared_ptr<RenderObject>(new RenderObject());
+    skybox->id = id++;
     skybox->pos = glm::vec3(0,0,0);
     skybox->scale = glm::vec3(10000,10000,10000);
     setRendererMeshVars("box", skybox.get());
-
     objects.push_back(skybox);
     renderableObjects.push_back(skybox);
 
     std::shared_ptr<RenderObject> starSphere = std::shared_ptr<RenderObject>(new RenderObject());
+    starSphere->id = id++;
     starSphere->pos = glm::vec3(-5000,0,0);
     starSphere->scale = glm::vec3(100,100,100);
     setRendererMeshVars("sphere", starSphere.get());
@@ -61,7 +65,8 @@ void MyScene::initObjects(){
     objects.push_back(starSphere);
     renderableObjects.push_back(starSphere);
 
-    std::shared_ptr<CollisionRenderObj> lander = std::shared_ptr<CollisionRenderObj>(new CollisionRenderObj());
+    std::shared_ptr<LanderObj> lander = std::shared_ptr<LanderObj>(new LanderObj());
+    lander->id = id++;
     lander->pos = glm::vec3(75,75,20);
     lander->scale = glm::vec3(0.5f,0.5f,0.5f); //lander aka box
     setRendererMeshVars("box", lander.get());
@@ -71,8 +76,13 @@ void MyScene::initObjects(){
     lander->material->extra.x = 32;
     lander->mass = 10;
 
-    lander->boxShape = true;
-    
+    lander->collisionCourse = LANDER_COLLISION_COURSE;
+    lander->randomStartPositions = RANDOMIZE_START;
+    lander->asteroidGravForceMultiplier = GRAVITATIONAL_FORCE_MULTIPLIER;
+    lander->startDistance = LANDER_START_DISTANCE;
+    lander->passDistance = LANDER_PASS_DISTANCE;
+    lander->initialSpeed = INITIAL_LANDER_SPEED;
+
     objects.push_back(lander);
     renderableObjects.push_back(lander);
     collisionObjects.push_back(lander);
@@ -81,13 +91,12 @@ void MyScene::initObjects(){
     satellite->pos = glm::vec3(3900,100,0);
     satellite->scale = glm::vec3(0.2f,0.2f,0.2f);
     setRendererMeshVars("satellite", satellite.get());
-
     satellite->material = r_mediator.renderer_getMaterial("texturedmesh2");
     satellite->material->extra.x = 2048;
     objects.push_back(satellite);
     renderableObjects.push_back(satellite);
 
-    std::shared_ptr<CollisionRenderObj> asteroid = std::shared_ptr<CollisionRenderObj>(new CollisionRenderObj());
+    std::shared_ptr<AsteroidObj> asteroid = std::shared_ptr<AsteroidObj>(new AsteroidObj());
     asteroid->pos = glm::vec3(0,0,0);
     asteroid->scale = glm::vec3(20,20,20);
     setRendererMeshVars("asteroid", asteroid.get());
@@ -95,7 +104,8 @@ void MyScene::initObjects(){
     asteroid->material->extra.x = 2048;
     asteroid->mass = 10000;
     //asteroid.material->extra.x = 32;
-    asteroid->concaveTriangleShape = true;
+    asteroid->randomStartRotation = RANDOMIZE_START;
+    asteroid->maxRotationVelocity = ASTEROID_MAX_ROTATIONAL_VELOCITY;
 
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   

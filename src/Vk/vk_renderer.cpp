@@ -87,6 +87,8 @@ void Vk::Renderer::init(){
     createSyncObjects();
 
     initUI();
+
+    //p_renderables->clear();
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
 }
@@ -477,7 +479,8 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
     VkBuffer vertexBuffers[] = {vertexBuffer};
     VkDeviceSize offsets[] = {0};
     
-    if(!p_renderables->empty()){
+    //if we have nothing to draw then dont record commands for them, could probably make this cleaner, so we dont create this render pass at all, but this is much easier for now and still not too unclean
+    if(p_renderables != NULL && !p_renderables->empty()){
         vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         drawObjects(i);

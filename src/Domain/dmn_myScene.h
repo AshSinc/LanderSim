@@ -8,6 +8,17 @@ class MyScene: public IScene{
         MyScene(Mediator& mediator);
         void initScene();
         private:
+        
+        bool RANDOMIZE_START = true;
+        bool LANDER_COLLISION_COURSE = false;
+
+        const float GRAVITATIONAL_FORCE_MULTIPLIER = 0.5f;
+        const float LANDER_START_DISTANCE = 150.0f;
+        const float LANDER_PASS_DISTANCE = 70.0f;
+        const float INITIAL_LANDER_SPEED = 1.5f;
+
+        const float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.03f;
+
         void initLights();
         void initObjects();
         void initRenderables();

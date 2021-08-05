@@ -314,8 +314,7 @@ private:
      * 
      * 
      * */
-    //std::vector<RenderObject*>* p_renderables;
-    std::vector<std::shared_ptr<RenderObject>>* p_renderables;
+    std::vector<std::shared_ptr<RenderObject>>* p_renderables = NULL;
     
     /****** Render image variables && Functions
      * 

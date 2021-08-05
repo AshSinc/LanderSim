@@ -2,6 +2,7 @@
 #include "vk_structs.h"
 //#include "vk_renderer.h"
 #include "mediator.h"
+#include "world_stats.h"
 
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
@@ -20,11 +21,14 @@ void UiHandler::drawUI(){
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     //ImGui::ShowDemoWindow();
-    gui_ShowOverlay();
-    //gui_ShowMainMenu();
     
-    if(showEscMenu)
-        gui_ShowEscMenu();
+    if(showMainMenu)
+        gui_ShowMainMenu();
+    else{
+        gui_ShowOverlay();
+        if(showEscMenu)
+            gui_ShowEscMenu();
+    }
 
     ImGui::Render();
 }
@@ -78,7 +82,7 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("P pauses simulation\n");
         ImGui::Text("[ ] controls time\n\n");
 
-        WorldPhysics::WorldStats& worldStats = r_mediator.physics_getWorldStats();
+        WorldStats& worldStats = r_mediator.physics_getWorldStats();
         Vk::Renderer::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
 
         ImGui::Text("\nEngine\n");
@@ -119,24 +123,20 @@ void UiHandler::gui_ShowEscMenu(){
 }
 
 void UiHandler::gui_ShowMainMenu(){
-    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings;
-    //
-    ImGui::SetNextWindowPos(mainMenuPanelPos, ImGuiCond_Always, ImVec2(0,0));
-
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
+    ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("MainMenu", NULL, window_flags)){
-        ImGui::SetWindowSize(mainMenuPanelSize);
-        ImGui::Button("Start", ImVec2(100,50));
-        //ImGui::Checkbox("Use work area instead of main area", (*)true);
-        //ImGui::SameLine();
-        ImGui::Text("\nLander\n");     
-        
-       // ImGui::CheckboxFlags("ImGuiWindowFlags_NoBackground", &flags, ImGuiWindowFlags_NoBackground);
-        //ImGui::CheckboxFlags("ImGuiWindowFlags_NoDecoration", &flags, ImGuiWindowFlags_NoDecoration);
-        ///ImGui::Indent();
-        ///ImGui::CheckboxFlags("ImGuiWindowFlags_NoTitleBar", &flags, ImGuiWindowFlags_NoTitleBar);
-        ///ImGui::CheckboxFlags("ImGuiWindowFlags_NoCollapse", &flags, ImGuiWindowFlags_NoCollapse);
-       // ImGui::CheckboxFlags("ImGuiWindowFlags_NoScrollbar", &flags, ImGuiWindowFlags_NoScrollbar);
-        //ImGui::Unindent();
+        if (ImGui::Button("Return to Sim", ImVec2(150,50)))
+            toggleMenu();
+        if (ImGui::Button("Options", ImVec2(150,50)))
+            std::cout << "Show options\n";
+        if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
+            std::cout << "Exit to menu\n";
+        if (ImGui::Button("Exit Application", ImVec2(150,50)))
+            //appRunning = false;
+            std::cout << "Close App\n";
     }
     ImGui::End();
 }
