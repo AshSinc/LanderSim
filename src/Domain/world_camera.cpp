@@ -11,15 +11,23 @@ void WorldCamera::setMouseLookActive(bool state){
     firstMouseInput = true;
 }   
 
-void WorldCamera::updateFixedLookPosition(){ //pass the focusedObject.pos vec3 and scale?
+void WorldCamera::updateFixedLookPosition(){
     WorldObject& r_object = r_mediator.scene_getWorldObject(objectFocusIndex);
     float fixedObjectScaleFactor = std::max(r_object.scale.x, 1.0f);
     glm::vec3 newPos;
-    float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
-    newPos.x = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.x;
-    newPos.y = fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.y;
-    newPos.z = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(offsetPitch)) + r_object.pos.z;
-    updateCamera(newPos, normalize(r_object.pos - newPos));
+    if(usingAutoCamera){ //not used yet, need to set true somewhere
+        WorldObject& r_object2 = r_mediator.scene_getFocusableObject("Asteroid");
+        //calculate cameraPos and cameraFront from the two objects
+        /////////////////////////////////////
+        ////////////////////////////////////
+    }
+    else{
+        float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
+        newPos.x = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.x;
+        newPos.y = fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.y;
+        newPos.z = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(offsetPitch)) + r_object.pos.z;
+        updateCamera(newPos, normalize(r_object.pos - newPos));
+    }
 }
 
 //switches focus object when not in freelook
@@ -73,7 +81,7 @@ void WorldCamera::calculatePitchYaw(double xpos, double ypos){
             pitch = 89.0f;
         if(pitch < -89.0f)
             pitch = -89.0f;
-        //constrain the yaw so it doesnt flip at 90 degrees
+        //constrain the yaw so it doesnt escape 0-360
         if(yaw > 360.0f)
             yaw = yaw - 360.0f;
         if(yaw < 0.0f)

@@ -47,8 +47,13 @@ public:
     ~WorldPhysics();
 
     void changeSimSpeed(int direction, bool pause);
+    void reset();
 
 private:
+    int selectedSimSpeedIndex = 2;
+    float SIM_SPEEDS[10] {0.25f,0.5f,1,2,4,8,16,32,64,128};
+    int SPEED_ARRAY_SIZE = *(&SIM_SPEEDS + 1) - SIM_SPEEDS - 1; //get length of array (-1 because we want the last element) (https://www.educative.io/edpresso/how-to-find-the-length-of-an-array-in-cpp)
+
     //Bullet vars
     Mediator& r_mediator;
     btDiscreteDynamicsWorld* dynamicsWorld;
@@ -66,20 +71,8 @@ private:
     void initLights();
     void initBullet();
     void cleanupBullet();   
-    //bool RANDOMIZE_START = false;
-    //bool LANDER_COLLISION_COURSE = false;
-    float MAX_ASTEROID_ROTATION_VELOCITY = 0.03f;
-    //float LANDER_START_DISTANCE = 150.0f;
-    //float LANDER_PASS_DISTANCE = 30.0f;
-    //float INITIAL_LANDER_SPEED = 1.5f;
-    //float ASTEROID_GRAVITATIONAL_FORCE = 0.5f;
-    //physics sim vars
-    int SUBSTEP_SAFETY_MARGIN = 1; //need to redo timestep code completely
 
-    //float getRandFloat(float min, float max);
-    //btVector3 getPointOnSphere(float pitch, float yaw, float radius);
-    int selectedSimSpeedIndex = 2;
-    float SIM_SPEEDS[7] {0.25f,0.5f,1,2,4,8,16};
+    int SUBSTEP_SAFETY_MARGIN = 1; //need to redo timestep code completely
 
     void updateCollisionObjects();
     void checkCollisions();

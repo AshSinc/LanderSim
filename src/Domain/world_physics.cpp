@@ -141,8 +141,8 @@ void WorldPhysics::changeSimSpeed(int direction, bool pause){
             selectedSimSpeedIndex+=direction;
             if(selectedSimSpeedIndex < 0)
                 selectedSimSpeedIndex = 0;
-            else if(selectedSimSpeedIndex > 6) //need to add a var for array init so we dont have a hardcoded size here
-                selectedSimSpeedIndex = 6;
+            else if(selectedSimSpeedIndex > SPEED_ARRAY_SIZE)
+                selectedSimSpeedIndex = SPEED_ARRAY_SIZE;
             setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
         }
     }
@@ -159,7 +159,9 @@ WorldPhysics::~WorldPhysics(){
     cleanupBullet();
 }
 
-void WorldPhysics::cleanupBullet(){
+void WorldPhysics::reset(){
+    //set any variables back to default (user might load a new scene)
+    r_mediator.physics_changeSimSpeed(1.0f, false);
     //cleanup in the reverse order of creation/initialization
 	///-----cleanup_start-----
 	//remove the rigidbodies from the dynamics world and delete them
@@ -179,6 +181,10 @@ void WorldPhysics::cleanupBullet(){
 		collisionShapes[j] = 0;
 		delete shape;
 	}
+}
+
+void WorldPhysics::cleanupBullet(){
+    reset();
 	delete dynamicsWorld;
 	delete solver;
 	//delete broadphase

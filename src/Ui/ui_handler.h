@@ -23,7 +23,9 @@ class UiHandler{
     GLFWwindow* p_window;
     WorldInput* p_worldInput;
     
-    void loadScene(); //loads scene 
+    void startScene();
+    void endScene();
+    //void loadScene(); //loads scene 
     void gui_ShowOverlay(); //holds configuration for statistics window
     void gui_ShowMainMenu(); //holds configuration for main fullscreen menu
     void gui_ShowEscMenu(); //holds esc menu
@@ -38,6 +40,11 @@ class UiHandler{
 
     bool showEscMenu = false;
     bool showMainMenu = true;
+    bool showLoading = false;
+
+    void hideCursor();
+    void showCursor();
+
     public:
     void toggleMenu();
     void initUI();

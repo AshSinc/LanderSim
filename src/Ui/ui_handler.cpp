@@ -25,9 +25,14 @@ void UiHandler::drawUI(){
     if(showMainMenu)
         gui_ShowMainMenu();
     else{
-        gui_ShowOverlay();
-        if(showEscMenu)
-            gui_ShowEscMenu();
+        if (showLoading){
+            gui_ShowLoading();
+        }
+        else{
+            gui_ShowOverlay();
+            if(showEscMenu)
+                gui_ShowEscMenu();
+        }
     }
 
     ImGui::Render();
@@ -47,14 +52,12 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
 //toggles menu on and off, should be moved to a UI handler
 void UiHandler::toggleMenu(){
     if(showEscMenu){
-        glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+        hideCursor();
         showEscMenu = false;
-        r_mediator.camera_setMouseLookActive(true);
     }
     else{
-        glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //capture the cursor, for mouse movement
+        showCursor();
         showEscMenu = true;
-        r_mediator.camera_setMouseLookActive(false);
     }
     r_mediator.physics_changeSimSpeed(0, true);
 }
@@ -114,7 +117,8 @@ void UiHandler::gui_ShowEscMenu(){
         if (ImGui::Button("Options", ImVec2(150,50)))
             std::cout << "Show options\n";
         if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
-            std::cout << "Exit to menu\n";
+            endScene();
+            //std::cout << "Exit to menu\n";
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
             //appRunning = false;
             std::cout << "Close App\n";
@@ -128,15 +132,53 @@ void UiHandler::gui_ShowMainMenu(){
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("MainMenu", NULL, window_flags)){
-        if (ImGui::Button("Return to Sim", ImVec2(150,50)))
-            toggleMenu();
+        if (ImGui::Button("Start", ImVec2(150,50)))
+            startScene();
         if (ImGui::Button("Options", ImVec2(150,50)))
             std::cout << "Show options\n";
-        if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
-            std::cout << "Exit to menu\n";
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
             //appRunning = false;
             std::cout << "Close App\n";
     }
     ImGui::End();
+}
+
+void UiHandler::gui_ShowLoading(){
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
+    ImGui::GetStyle().WindowPadding = ImVec2(24,24);
+    if (ImGui::Begin("Loading", NULL, window_flags)){
+        ImGui::Text("Loading\n");
+        ImGui::Separator();
+        ImGui::Text("Please wait\n");
+        //ImGui::Text("SPACE cycles view focus\n");
+    }
+    ImGui::End();
+}
+
+void UiHandler::startScene(){
+    showMainMenu = false;
+    showEscMenu = false;
+    showLoading = true;
+    r_mediator.application_loadScene();
+    showLoading = false;
+    hideCursor();
+}
+
+void UiHandler::endScene(){
+    showEscMenu = false;
+    showMainMenu = true;
+    r_mediator.application_endScene();
+    showCursor();
+}
+
+void UiHandler::hideCursor(){
+    glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); //capture the cursor, for mouse movement
+    r_mediator.camera_setMouseLookActive(true);
+}
+
+void UiHandler::showCursor(){
+    glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //release cursor
+    r_mediator.camera_setMouseLookActive(false);
 }

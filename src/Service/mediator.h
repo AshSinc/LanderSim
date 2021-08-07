@@ -10,9 +10,11 @@
 #include "obj_collisionRender.h"
 #include <map>
 #include "world_stats.h"
+//#include "application.h"
 
 class WorldCamera;
 class UiHandler;
+class Application;
 //class WorldPhysics;
 
 namespace Vk{
@@ -28,6 +30,7 @@ class Mediator{
         WorldPhysics* p_physicsEngine;
         Vk::Renderer* p_renderEngine;
         IScene* p_scene;
+        Application* p_application;
         
     public:
         //set pointers
@@ -36,11 +39,13 @@ class Mediator{
         void setPhysicsEngine(WorldPhysics* physicsEngine);
         void setRenderEngine(Vk::Renderer* renderer);
         void setScene(IScene* scene);
+        void setApplication(Application* application);
 
         //physics functions
         void physics_changeSimSpeed(int direction, bool pause);
         WorldStats& physics_getWorldStats();
         void physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects);
+        void physics_reset();
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);
@@ -64,13 +69,21 @@ class Mediator{
         void renderer_setCameraDataPointer(CameraData* cameraData);
         Mesh* renderer_getLoadedMesh(std::string name);
         void renderer_mapMaterialDataToGPU();
+        void renderer_reset();
+        void renderer_flushTextures();
 
         //Scene functions
         int scene_getWorldObjectsCount();
         WorldObject& scene_getWorldObject(int i);
+        WorldObject& scene_getFocusableObject(std::string name);
 
         //ui functions
         void ui_toggleEscMenu();
         void ui_updateUIPanelDimensions(GLFWwindow* window);
         void ui_drawUI();
+
+        //application functions
+        void application_loadScene();
+        void application_endScene();
+        void application_resetScene();
 };

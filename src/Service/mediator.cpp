@@ -1,6 +1,5 @@
 #include "mediator.h"
-#include "world_camera.h"
-#include "ui_handler.h"
+#include "application.h"
 
 //Scene Functions
 int Mediator::scene_getWorldObjectsCount(){
@@ -8,6 +7,9 @@ int Mediator::scene_getWorldObjectsCount(){
 }
 WorldObject& Mediator::scene_getWorldObject(int i){
     return p_scene->getWorldObject(i);
+}
+WorldObject& Mediator::scene_getFocusableObject(std::string name){
+    return p_scene->getFocusableObject(name);
 }
 
 //Ui functions
@@ -47,6 +49,9 @@ WorldStats& Mediator::physics_getWorldStats(){
 }
 void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){
     p_physicsEngine->loadCollisionMeshes(collisionObjects);
+}
+void Mediator::physics_reset(){
+    p_physicsEngine->reset();
 }
 
 //Renderer functions
@@ -94,6 +99,23 @@ Mesh* Mediator::renderer_getLoadedMesh(std::string name){
 void Mediator::renderer_mapMaterialDataToGPU(){
     p_renderEngine->mapMaterialDataToGPU();
 }
+void Mediator::renderer_reset(){
+    p_renderEngine->reset();
+}
+void Mediator::renderer_flushTextures(){
+    p_renderEngine->flushTextures();
+}
+
+//application functions
+void Mediator::application_loadScene(){
+    p_application->loadScene();
+}
+void Mediator::application_endScene(){
+    p_application->endScene();
+}
+void Mediator::application_resetScene(){
+    p_application->resetScene();
+}
 
 //set pointers
 void Mediator::setUiHandler(UiHandler* uiHandler){
@@ -110,4 +132,7 @@ void Mediator::setRenderEngine(Vk::Renderer* renderer){
 }
 void Mediator::setScene(IScene* scene){
     p_scene = scene;
+}
+void Mediator::setApplication(Application* application){
+    p_application = application;
 }

@@ -24,13 +24,16 @@ private:
     float fixedObjectScaleFactor = 1;        
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
 
-    int objectFocusIndex = 2; //start at the first worldState.object[i] that we want to be able to track, have to set in update function too
+    int objectFocusIndex = 2; //this needs changed to point to an actual object now, objects in scene need to be gettable, maybe put back in an unnordered map
     CameraData cameraData;
 
     float lastMouseX, lastMouseY, yaw, pitch;
     bool firstMouseInput = true;     
     const float MOUSELOOK_SENSITIVITY = 0.1f;
     const float MOUSESCROLL_SENSITIVITY = 0.5f;
+
+    bool usingAutoCamera = false;
+    int autoCameraObjectFocusIndex = 1; 
 
 public:   
     void calculatePitchYaw(double xpos, double ypos);

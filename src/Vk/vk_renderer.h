@@ -60,7 +60,12 @@ public:
         }
     };
     DeletionQueue _mainDeletionQueue;
+    DeletionQueue _textureDeletionQueue;
     DeletionQueue _swapDeletionQueue;
+    DeletionQueue _modelBufferDeletionQueue;
+
+    void flushTextures();
+    void flushSceneBuffers();
 
     //constructor, should have code to enforce one instance
     Renderer(GLFWwindow* windowptr, Mediator& mediator);
@@ -103,9 +108,12 @@ public:
     void setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights);
     Mesh* getLoadedMesh(std::string name);
     void mapMaterialDataToGPU();
-
+    void reset();
+    void callReset();
 
 private:
+    bool resetTextureImages = false;
+
     WorldLightObject* p_sceneLight;
     std::vector<WorldPointLightObject>* p_pointLights;
     std::vector<WorldSpotLightObject>* p_spotLights;

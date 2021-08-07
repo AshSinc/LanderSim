@@ -43,6 +43,7 @@ void MyScene::initObjects(){
     objects.clear();
     renderableObjects.clear();
     collisionObjects.clear();
+    focusableObjects.clear();
     int id = 0;
 
     std::shared_ptr<RenderObject> skybox = std::shared_ptr<RenderObject>(new RenderObject());
@@ -86,6 +87,7 @@ void MyScene::initObjects(){
     objects.push_back(lander);
     renderableObjects.push_back(lander);
     collisionObjects.push_back(lander);
+    focusableObjects["Lander"] = lander;
 
     std::shared_ptr<RenderObject> satellite = std::shared_ptr<RenderObject>(new RenderObject());
     satellite->pos = glm::vec3(3900,100,0);
@@ -110,6 +112,7 @@ void MyScene::initObjects(){
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   
     collisionObjects.push_back(asteroid);
+    focusableObjects["Asteroid"] = asteroid;
 }
 
 void MyScene::initLights(){

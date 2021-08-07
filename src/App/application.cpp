@@ -2,23 +2,10 @@
 #include "vk_renderer.h"
 #include <stdexcept>
 #include <iostream>
-#include "world_physics.h"
-#include "ui_input.h"
-#include "world_camera.h"
-#include "ui_handler.h"
-#include "mediator.h"
+
 #include "dmn_myScene.h"
 
 int Application::run(){
-    Vk::WindowHandler windowHandler;
-    GLFWwindow* window; //pointer to the window, freed on cleanup() in VulkanRenderer just now
-
-    //construct components
-    Mediator mediator = Mediator();
-    WorldPhysics worldPhysics = WorldPhysics(mediator);
-    WorldCamera worldCamera = WorldCamera(mediator); //should make LockableCamera(objects&) class extend a CameraBase class,
-    UiInput uiInput = UiInput(mediator);
-
     try{
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
@@ -30,21 +17,13 @@ int Application::run(){
         mediator.setUiHandler(&uiHandler);
         mediator.setPhysicsEngine(&worldPhysics);
         mediator.setRenderEngine(&engine);
+        mediator.setApplication(this);
         
-        engine.init(); //initialise engine (note that model and texture loading might need moved out of init, when we have multiple options and a menu) (&worldPhysics)
+        engine.init(); //initialise render engine
 
-        //this should be loaded in the main loop, once user has selected scenario
-        //MyScene scene = MyScene(mediator);
-        //scene.initScene(); //could be called in constructor?
-        //mediator.setScene(&scene);
-        //sceneLoaded = true;
-
-        //set glfw callbacks for input and then capture the mouse 
+        //set glfw callbacks for input
         glfwSetWindowUserPointer(window, &uiInput);
-        glfwSetKeyCallback(window, key_callback); //key_callback is defined in world_input, they must be regular functions though, not member functions because glfw is written in C and doesnt understand objects
-        glfwSetCursorPosCallback(window, mouse_callback);
-        glfwSetScrollCallback(window, scroll_callback);
-
+        
         while (!glfwWindowShouldClose(window)){ //&& appRunning)
             glfwPollEvents(); //keep polling window events
             if(sceneLoaded){
@@ -61,4 +40,36 @@ int Application::run(){
         return EXIT_FAILURE;
     }
     return EXIT_SUCCESS;
+}
+
+void Application::loadScene(){
+    scene = std::make_unique<MyScene>(mediator);
+    scene->initScene(); //could be called in constructor?
+    mediator.setScene(scene.get());
+    sceneLoaded = true;
+    bindWindowCallbacks();
+}
+
+void Application::endScene(){
+    sceneLoaded = false;
+    unbindWindowCallbacks();
+    mediator.renderer_reset();
+    mediator.physics_reset();
+}
+
+void Application::resetScene(){
+    scene.reset();
+    mediator.setScene(nullptr);
+}
+
+void Application::bindWindowCallbacks(){
+    glfwSetKeyCallback(window, key_callback); //key_callback is defined in uiInput, they must be regular functions though, not member functions because glfw is written in C and doesnt understand objects
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+}
+
+void Application::unbindWindowCallbacks(){
+    glfwSetKeyCallback(window, nullptr);
+    glfwSetCursorPosCallback(window, nullptr);
+    glfwSetScrollCallback(window, nullptr);
 }

@@ -88,12 +88,17 @@ void Vk::Renderer::init(){
 
     initUI();
 
-    //p_renderables->clear();
     //here we have now loaded the basics
     //this means we should be able to end the init() here and move the rest to a loadScene() method?
 }
 
+void Vk::Renderer::reset(){
+    resetTextureImages = true;
+    //resettingScene = true;
+}
+
 void Vk::Renderer::setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects){
+    vkDeviceWaitIdle(device); //first we wait until the resources are not in use
     p_renderables = renderableObjects;
 
     //this is temporarily here
@@ -204,14 +209,7 @@ void Vk::Renderer::initUI(){
         }
         _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, guiFramebuffers[i], nullptr);});
     }
-    //uiHandler.updateUIPanelDimensions(window);//this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
     r_mediator.ui_updateUIPanelDimensions(window);
-}
-
-//loads all scene data, this should be called only when the user hits run
-void Vk::Renderer::loadScene(){
-    mapMaterialDataToGPU();
-    setCameraData(r_mediator.camera_getCameraDataPointer());
 }
 
 void Vk::Renderer::allocateDescriptorSetForSkybox(){
@@ -462,25 +460,25 @@ void Vk::Renderer::drawObjects(int curFrame){
 	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[p_renderables->at(0)->meshId].indexCount, 1, _loadedMeshes[p_renderables->at(0)->meshId].indexBase, 0, 0);
 }
 
-
 void Vk::Renderer::rerecordCommandBuffer(int i){
+    //have to reset this even if not recording it!
     vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
-    
+
+    //must record even if scene isnt loaded to allow it to clear the background from the UI
     VkCommandBufferBeginInfo beginInfo = Vk::Structs::command_buffer_begin_info(0);
     if(vkBeginCommandBuffer(_frames[i]._mainCommandBuffer, &beginInfo) != VK_SUCCESS){
         throw std::runtime_error("Failed to begin recording command buffer");
     }
-   
+
     //note that the order of clear values should be identical to the order of attachments
     VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structs::render_pass_begin_info(renderPass, swapChainFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
 
     vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-   
-    VkBuffer vertexBuffers[] = {vertexBuffer};
-    VkDeviceSize offsets[] = {0};
-    
-    //if we have nothing to draw then dont record commands for them, could probably make this cleaner, so we dont create this render pass at all, but this is much easier for now and still not too unclean
-    if(p_renderables != NULL && !p_renderables->empty()){
+
+    //if(!resettingScene) //dont need this bool probably but helps readability here
+    if(p_renderables != NULL && !p_renderables->empty()){   
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
         vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
         drawObjects(i);
@@ -489,7 +487,7 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
     //we we can end the render pass
     vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
 
-     //and we have finished recording, we check for errrors here
+    //and we have finished recording, we check for errrors here
     if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -519,7 +517,7 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
         throw std::runtime_error("failed to record gui command buffer!");
     }
 }
- 
+
 void Vk::Renderer::drawFrame(){
     
     vkWaitForFences(device, 1, &_frames[currentFrame]._renderFence, VK_TRUE, UINT64_MAX); 
@@ -560,7 +558,7 @@ void Vk::Renderer::drawFrame(){
     vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
 
     //submit the queue
-    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, _frames[currentFrame]._renderFence) != VK_SUCCESS) {
+    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, _frames[currentFrame]._renderFence) != VK_SUCCESS) { //then fails here after texture flush
         throw std::runtime_error("Failed to submit draw command buffer");
     }
 
@@ -570,7 +568,9 @@ void Vk::Renderer::drawFrame(){
     VkPresentInfoKHR presentInfo = Vk::Structs::present_info(&_frames[currentFrame]._renderSemaphore, 1, swapChains, &imageIndex);
 
     //now we submit the request to present an image to the swapchain. We'll add error handling later, as failure here doesnt necessarily mean we should stop
-    result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+    result = vkQueuePresentKHR(presentQueue, &presentInfo); //takes ages after texture flush for some reason
+
     //in addition to these checks we also check member variable frameBufferResized for manual confirmation
     //must do this after vkQueuePresentKHR() call to ensure semaphores are in a consinstent state, otherwise a signalled semaphore may never be properly waited on
     //to actually manually detect resizes we use glfwSetFramebufferSizeCallback() to set a callback in initWindow()
@@ -585,6 +585,18 @@ void Vk::Renderer::drawFrame(){
     frameCounter++;
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
+    //this could be cleaner
+    //if user has quit the scene we set resetTextureImages to true
+    //then flush textures and related buffers, unset the renderables pointer
+    //
+    if(resetTextureImages){
+        resetTextureImages = false;
+        flushSceneBuffers();
+        flushTextures();
+        r_mediator.application_resetScene();
+        p_renderables = NULL;
+    }
+
     calculateFrameRate();
 }
 
@@ -598,8 +610,21 @@ void Vk::Renderer::calculateFrameRate(){
      }
 }
 
+void Vk::Renderer::flushSceneBuffers(){
+    vkDeviceWaitIdle(device); //make sure device is idle and not mid draw
+    _modelBufferDeletionQueue.flush(); //clear vertices/indices data 
+}
+
+void Vk::Renderer::flushTextures(){
+    vkDeviceWaitIdle(device); //make sure device is idle and not mid draw
+    _textureDeletionQueue.flush();
+}
+
 void Vk::Renderer::cleanup(){
     vkDeviceWaitIdle(device); //maske sure device is idle and not mid draw
+
+    flushSceneBuffers();
+    flushTextures();
 
     cleanupSwapChain();
 
@@ -1179,8 +1204,8 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
             VK_IMAGE_ASPECT_COLOR_BIT, 0, texture.mipLevels, 0, 1);
         vkCreateImageView(device, &imageinfo, nullptr, &texture.imageView);  
         _loadedTextures[info.textureName] = texture;
-        _mainDeletionQueue.push_function([=](){vmaDestroyImage(allocator, _loadedTextures[info.textureName].image, _loadedTextures[info.textureName].alloc);});
-        _mainDeletionQueue.push_function([=](){vkDestroyImageView(device, _loadedTextures[info.textureName].imageView, nullptr);});
+        _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, _loadedTextures[info.textureName].image, _loadedTextures[info.textureName].alloc);});
+        _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, _loadedTextures[info.textureName].imageView, nullptr);});
     }
 
     //load skybox textures
@@ -1238,15 +1263,16 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
 
     skyboxImageView = Vk::Images::createImageView(skyboxImage, VK_IMAGE_VIEW_TYPE_CUBE, VK_FORMAT_R8G8B8A8_SRGB,  VK_IMAGE_ASPECT_COLOR_BIT, 1, 6);
 
-
-    _mainDeletionQueue.push_function([=](){vmaDestroyImage(allocator, skyboxImage, skyboxAllocation);});
-    _mainDeletionQueue.push_function([=](){vkDestroyImageView(device, skyboxImageView, nullptr);});
+    _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, skyboxImage, skyboxAllocation);});
+    _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, skyboxImageView, nullptr);});
 }
 
 //this is where we will load the model data into vertices and indices member variables
 void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
     std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
+    allIndices.clear();
+    allVertices.clear();
 
     for(ModelInfo info : MODEL_INFOS){
         glm::vec3 colour = glm::vec3(0,0,1);//temp colour code
@@ -1375,7 +1401,7 @@ void Vk::Renderer::createVertexBuffer(){       //uploading vertex data to the gp
     //create the vertex buffer in GPU only memory
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
     VMA_MEMORY_USAGE_GPU_ONLY, vertexBuffer, vertexBufferAllocation);
-    _mainDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);});
+    _modelBufferDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);});
 
     //now copy the contents of staging buffer into vertexBuffer
     copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
@@ -1391,8 +1417,6 @@ void Vk::Renderer::createVertexBuffer(){       //uploading vertex data to the gp
 //only differences are specifying indices and the size and data. and VK_BUFFER_USAGE_INDEX_BUFFER_BIT as the usage type
 void Vk::Renderer::createIndexBuffer(){
     VkDeviceSize bufferSize = sizeof(allIndices[0]) * allIndices.size();
-    //VkDeviceSize bufferSize = sizeof(buildingMesh.indices[0]) * buildingMesh.indices.size();
-    //VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     VkBuffer stagingBuffer;  //create our staging buffer      
     VmaAllocation stagingBufferAllocation;
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
@@ -1403,7 +1427,7 @@ void Vk::Renderer::createIndexBuffer(){
     vmaUnmapMemory(allocator, stagingBufferAllocation);
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT |  VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
     VMA_MEMORY_USAGE_GPU_ONLY, indexBuffer, indexBufferAllocation);
-    _mainDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);});
+    _modelBufferDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, indexBuffer, indexBufferAllocation);});
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
     //now the data is copied from staging to gpu memory we should cleanup
     vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
@@ -1613,7 +1637,7 @@ void Vk::Renderer::createDescriptorSets(){//do we really need one per swapchain 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
     }
 
-     //allocate a skybox descriptor set for each frame
+    //allocate a skybox descriptor set for each frame
     VkDescriptorSetAllocateInfo skyboxSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
     if(vkAllocateDescriptorSets(device, &skyboxSetAllocInfo, &skyboxSet) != VK_SUCCESS){
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");

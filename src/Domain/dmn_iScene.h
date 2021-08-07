@@ -5,7 +5,7 @@
 #include "obj_pointLight.h"
 #include "obj_spotLight.h"
 
-#include <map>
+#include <unordered_map>
 #include <memory>
 #include <string>
 
@@ -32,11 +32,13 @@ class IScene{
         std::vector<std::shared_ptr<WorldObject>> objects;
         std::vector<std::shared_ptr<CollisionRenderObj>> collisionObjects;
         std::vector<std::shared_ptr<RenderObject>> renderableObjects;
+        std::unordered_map<std::string, std::shared_ptr<WorldObject>> focusableObjects;
 
     public:
         int getNumPointLights(){return pointLights.size();}
         int getNumSpotLights(){return spotLights.size();}
         int getWorldObjectsCount(){return objects.size();}
         WorldObject& getWorldObject(int i){return *objects.at(i);}
+        WorldObject& getFocusableObject(std::string name){return *focusableObjects.at(name);};
         virtual void initScene() = 0;
 };

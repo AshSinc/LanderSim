@@ -12,10 +12,10 @@ class MyScene: public IScene{
         bool RANDOMIZE_START = true;
         bool LANDER_COLLISION_COURSE = false;
 
-        const float GRAVITATIONAL_FORCE_MULTIPLIER = 0.5f;
-        const float LANDER_START_DISTANCE = 150.0f;
-        const float LANDER_PASS_DISTANCE = 70.0f;
-        const float INITIAL_LANDER_SPEED = 1.5f;
+        const float GRAVITATIONAL_FORCE_MULTIPLIER = 0.1f;
+        const float LANDER_START_DISTANCE = 500.0f;
+        const float LANDER_PASS_DISTANCE = 50.0f; //500.0f;
+        const float INITIAL_LANDER_SPEED = 2.0f;
 
         const float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.03f;
 
