@@ -127,11 +127,35 @@ void UiHandler::gui_ShowEscMenu(){
 }
 
 void UiHandler::gui_ShowMainMenu(){
-    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize;
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("MainMenu", NULL, window_flags)){
+
+        ImGui::Text("\nScene Settings\n");
+        ImGui::BeginGroup();
+        ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
+        ImGui::SameLine();
+        ImGui::Checkbox("Collision Course", &sceneData.LANDER_COLLISION_COURSE);
+        ImGui::SliderFloat("Gravity Multiplier", &sceneData.GRAVITATIONAL_FORCE_MULTIPLIER, 0.0f, 1.0f);
+        ImGui::SliderFloat("Lander Distance", &sceneData.LANDER_START_DISTANCE, 50.0f, 1000.0f);
+        ImGui::SliderFloat("Lander Pass Distance", &sceneData.LANDER_PASS_DISTANCE, 0.0f, 1000.0f);
+        ImGui::SliderFloat("Lander Initial Speed", &sceneData.INITIAL_LANDER_SPEED, 0.0f, 50.0f);
+        ImGui::SliderFloat("Asteroid Rotation", &sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY, 0.0f, 0.1f);
+        ImGui::SliderFloat("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 100.0f);
+        ImGui::EndGroup();
+
+        ImGui::SameLine();
+
+  
+
+        //ImVec2 p0 = ImGui::GetCursorScreenPos();
+        //ImVec2 padding{10,10};
+        //ImGui::SetCursorScreenPos(p0 + 10);
+        //ImGui::SetCursorScreenPos(p0 + padding.y);
+
+        ImGui::BeginGroup();
         if (ImGui::Button("Start", ImVec2(150,50)))
             startBtnClicked();
         if (ImGui::Button("Options", ImVec2(150,50)))
@@ -139,6 +163,11 @@ void UiHandler::gui_ShowMainMenu(){
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
             //appRunning = false;
             std::cout << "Close App\n";
+        ImGui::EndGroup();
+
+        if (ImGui::Button("Reset Defaults", ImVec2(150,50))){
+            resetBtnClicked();
+        }
     }
     ImGui::End();
 }
@@ -165,12 +194,16 @@ void UiHandler::startBtnClicked(){
     thread.detach(); //detach from main thread, runs until it ends
 }
 
+void UiHandler::resetBtnClicked(){
+    sceneData.reset();
+}
+
 //runs as a seperate thread
 void UiHandler::startScene(){
     showMainMenu = false;
     showEscMenu = false;
     showLoading = true;
-    r_mediator.application_loadScene();
+    r_mediator.application_loadScene(sceneData);
     showLoading = false;
     hideCursor();
 }

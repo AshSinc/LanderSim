@@ -5,7 +5,13 @@
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
-void MyScene::initScene(){
+void MyScene::setSceneData(SceneData isceneData){
+    sceneData = isceneData;
+    //sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY = isceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
+}
+
+void MyScene::initScene(SceneData latestSceneData){
+    sceneData = latestSceneData;
     r_mediator.ui_updateLoadingProgress(0.1f, "loading models...");
     //this this is crashing sometimes when running on seperate thread, need to thread safe renderer at least
     r_mediator.renderer_loadModels(MODEL_INFOS);
@@ -83,14 +89,14 @@ void MyScene::initObjects(){
     lander->material->diffuse = glm::vec3(0,0,1);
     lander->material->specular = glm::vec3(1,0.5f,0.5f);
     lander->material->extra.x = 32;
-    lander->mass = 10;
+    lander->mass = 1;
 
-    lander->collisionCourse = LANDER_COLLISION_COURSE;
-    lander->randomStartPositions = RANDOMIZE_START;
-    lander->asteroidGravForceMultiplier = GRAVITATIONAL_FORCE_MULTIPLIER;
-    lander->startDistance = LANDER_START_DISTANCE;
-    lander->passDistance = LANDER_PASS_DISTANCE;
-    lander->initialSpeed = INITIAL_LANDER_SPEED;
+    lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
+    lander->randomStartPositions = sceneData.RANDOMIZE_START;
+    lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER;
+    lander->startDistance = sceneData.LANDER_START_DISTANCE;
+    lander->passDistance = sceneData.LANDER_PASS_DISTANCE;
+    lander->initialSpeed = sceneData.INITIAL_LANDER_SPEED;
 
     objects.push_back(lander);
     renderableObjects.push_back(lander);
@@ -108,14 +114,14 @@ void MyScene::initObjects(){
 
     std::shared_ptr<AsteroidObj> asteroid = std::shared_ptr<AsteroidObj>(new AsteroidObj());
     asteroid->pos = glm::vec3(0,0,0);
-    asteroid->scale = glm::vec3(20,20,20);
+    asteroid->scale = glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE);
     setRendererMeshVars("asteroid", asteroid.get());
     asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
     asteroid->material->extra.x = 2048;
-    asteroid->mass = 10000;
+    asteroid->mass = 100000;
     //asteroid.material->extra.x = 32;
-    asteroid->randomStartRotation = RANDOMIZE_START;
-    asteroid->maxRotationVelocity = ASTEROID_MAX_ROTATIONAL_VELOCITY;
+    asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
+    asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
 
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   

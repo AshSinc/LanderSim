@@ -10,7 +10,7 @@
 #include <atomic>
 #include <string>
 #include <mutex>          // std::mutex
-
+#include "data_scene.h"
 
 class Mediator;
 
@@ -26,8 +26,11 @@ class UiHandler{
     Mediator& r_mediator;
     GLFWwindow* p_window;
     WorldInput* p_worldInput;
-    
+
+    SceneData sceneData;
+
     void startBtnClicked();
+    void resetBtnClicked();
     void startScene();
     void endScene();
     //void loadScene(); //loads scene 

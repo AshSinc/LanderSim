@@ -11,6 +11,7 @@
 #include <map>
 #include "world_stats.h"
 //#include "application.h"
+#include "data_scene.h"
 
 class WorldCamera;
 class UiHandler;
@@ -84,7 +85,7 @@ class Mediator{
         void ui_updateLoadingProgress(float progress, std::string text);
 
         //application functions
-        void application_loadScene();
+        void application_loadScene(SceneData sceneData);
         void application_endScene();
         void application_resetScene();
         bool application_getSceneLoaded();

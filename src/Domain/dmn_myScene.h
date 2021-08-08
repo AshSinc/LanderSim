@@ -2,23 +2,18 @@
 #include "dmn_iScene.h"
 #include "mediator.h"
 #include <string>
+#include "data_scene.h"
 
 class MyScene: public IScene{
         public:
         MyScene(Mediator& mediator);
-        void initScene();
-        private:
+        void initScene(SceneData sceneData);
         
-        bool RANDOMIZE_START = true;
-        bool LANDER_COLLISION_COURSE = false;
+        SceneData sceneData;
 
-        const float GRAVITATIONAL_FORCE_MULTIPLIER = 0.1f;
-        const float LANDER_START_DISTANCE = 500.0f;
-        const float LANDER_PASS_DISTANCE = 50.0f; //500.0f;
-        const float INITIAL_LANDER_SPEED = 2.0f;
+        void setSceneData(SceneData sceneData);
 
-        const float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.03f;
-
+        private:
         void initLights();
         void initObjects();
         void initRenderables();

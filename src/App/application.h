@@ -7,8 +7,7 @@
 #include "mediator.h"
 #include <memory>
 #include <atomic>
-
-
+#include "data_scene.h"
 namespace Vk{
     class WindowHandler;
 }
@@ -18,7 +17,7 @@ class GLFWwindow;
 class Application{
     public:
         int run();
-        void loadScene();
+        void loadScene(SceneData sceneData);
         void endScene();
         void resetScene();
         bool getSceneLoaded(){return sceneLoaded;};

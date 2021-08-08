@@ -22,6 +22,8 @@ struct TextureInfo{
     std::string textureName;
     std::string filePath;
 };
+
+struct SceneData; //defined in data_scene.h
    
 class IScene{
     protected:
@@ -40,5 +42,5 @@ class IScene{
         int getWorldObjectsCount(){return objects.size();}
         WorldObject& getWorldObject(int i){return *objects.at(i);}
         WorldObject& getFocusableObject(std::string name){return *focusableObjects.at(name);};
-        virtual void initScene() = 0;
+        virtual void initScene(SceneData data) = 0;
 };

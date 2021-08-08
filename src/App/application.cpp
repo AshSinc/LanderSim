@@ -5,6 +5,8 @@
 
 #include "dmn_myScene.h"
 
+struct SceneData;
+
 int Application::run(){
     try{
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
@@ -42,9 +44,9 @@ int Application::run(){
     return EXIT_SUCCESS;
 }
 
-void Application::loadScene(){
+void Application::loadScene(SceneData sceneData){
     scene = std::make_unique<MyScene>(mediator);
-    scene->initScene(); //could be called in constructor?
+    scene->initScene(sceneData); //could be called in constructor?
     mediator.setScene(scene.get());
     bindWindowCallbacks();
     sceneLoaded = true;

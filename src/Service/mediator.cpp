@@ -110,8 +110,8 @@ void Mediator::renderer_flushTextures(){
 }
 
 //application functions
-void Mediator::application_loadScene(){
-    p_application->loadScene();
+void Mediator::application_loadScene(SceneData sceneData){
+    p_application->loadScene(sceneData);
 }
 void Mediator::application_endScene(){
     p_application->endScene();

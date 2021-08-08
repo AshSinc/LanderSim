@@ -27,10 +27,13 @@ void WorldCamera::updateFixedLookPosition(){
         //calculatePitchYaw();
     }
     //else{
+        
         float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
         newPos.x = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.x;
         newPos.y = fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.y;
         newPos.z = fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(offsetPitch)) + r_object.pos.z;
+
+        //cameraData.cameraUp = normalize(glm::vec3(-newPos));
         updateCamera(newPos, normalize(r_object.pos - newPos));
     //}
 }
