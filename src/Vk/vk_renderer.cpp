@@ -476,6 +476,7 @@ void Vk::Renderer::rerecordCommandBuffer(int i){
     vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
     //if(!resettingScene) //dont need this bool probably but helps readability here
+    if(r_mediator.application_getSceneLoaded())
     if(p_renderables != NULL && !p_renderables->empty()){   
         VkBuffer vertexBuffers[] = {vertexBuffer};
         VkDeviceSize offsets[] = {0};

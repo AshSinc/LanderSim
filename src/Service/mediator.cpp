@@ -22,6 +22,9 @@ void Mediator::ui_updateUIPanelDimensions(GLFWwindow* window){
 void Mediator::ui_drawUI(){
     p_uiHandler->drawUI();
 }
+void Mediator::ui_updateLoadingProgress(float progress, std::string text){
+    p_uiHandler->updateLoadingProgress(progress, text);
+}
 
 //Camera functions
 void Mediator::camera_calculatePitchYaw(double xpos, double ypos){
@@ -115,6 +118,9 @@ void Mediator::application_endScene(){
 }
 void Mediator::application_resetScene(){
     p_application->resetScene();
+}
+bool Mediator::application_getSceneLoaded(){
+    return p_application->getSceneLoaded();
 }
 
 //set pointers

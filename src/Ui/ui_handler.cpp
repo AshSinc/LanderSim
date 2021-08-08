@@ -1,8 +1,8 @@
 #include "ui_handler.h"
 #include "vk_structs.h"
-//#include "vk_renderer.h"
 #include "mediator.h"
 #include "world_stats.h"
+#include <thread>
 
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
@@ -133,7 +133,7 @@ void UiHandler::gui_ShowMainMenu(){
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
     if (ImGui::Begin("MainMenu", NULL, window_flags)){
         if (ImGui::Button("Start", ImVec2(150,50)))
-            startScene();
+            startBtnClicked();
         if (ImGui::Button("Options", ImVec2(150,50)))
             std::cout << "Show options\n";
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
@@ -144,7 +144,7 @@ void UiHandler::gui_ShowMainMenu(){
 }
 
 void UiHandler::gui_ShowLoading(){
-    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings;
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize;
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
@@ -152,11 +152,20 @@ void UiHandler::gui_ShowLoading(){
         ImGui::Text("Loading\n");
         ImGui::Separator();
         ImGui::Text("Please wait\n");
-        //ImGui::Text("SPACE cycles view focus\n");
+        loadingVariablesMutex.lock();
+        ImGui::ProgressBar(loadingFraction, ImVec2(0.0f, 0.0f));
+        ImGui::Text(loadingString.c_str());
+        loadingVariablesMutex.unlock();
     }
     ImGui::End();
 }
 
+void UiHandler::startBtnClicked(){
+    std::thread thread(&UiHandler::startScene, this); //starts running (have to pass a reference to object to allow thread to call non static member function)
+    thread.detach(); //detach from main thread, runs until it ends
+}
+
+//runs as a seperate thread
 void UiHandler::startScene(){
     showMainMenu = false;
     showEscMenu = false;
@@ -181,4 +190,11 @@ void UiHandler::hideCursor(){
 void UiHandler::showCursor(){
     glfwSetInputMode(p_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //release cursor
     r_mediator.camera_setMouseLookActive(false);
+}
+
+void UiHandler::updateLoadingProgress(float progress, std::string text){
+    loadingVariablesMutex.lock();
+    loadingFraction = progress; 
+    loadingString = text;
+    loadingVariablesMutex.unlock();
 }

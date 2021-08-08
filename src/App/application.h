@@ -6,6 +6,8 @@
 #include "ui_handler.h"
 #include "mediator.h"
 #include <memory>
+#include <atomic>
+
 
 namespace Vk{
     class WindowHandler;
@@ -19,6 +21,7 @@ class Application{
         void loadScene();
         void endScene();
         void resetScene();
+        bool getSceneLoaded(){return sceneLoaded;};
     private:
         Vk::WindowHandler windowHandler;
         GLFWwindow* window; //pointer to the window, freed on cleanup() in VulkanRenderer just now
@@ -30,7 +33,7 @@ class Application{
         UiInput uiInput = UiInput(mediator);
         uint32_t WIDTH = 1920; //defaults, doesnt track resizing, should have a callback function here to update these from engine
         uint32_t HEIGHT = 1080;
-        bool sceneLoaded = false;
+        std::atomic<bool> sceneLoaded = false;
 
         std::unique_ptr<IScene> scene;
 

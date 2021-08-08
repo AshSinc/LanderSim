@@ -7,6 +7,10 @@
 #include <imstb_textedit.h>
 #include <imstb_truetype.h>
 #include <vector>
+#include <atomic>
+#include <string>
+#include <mutex>          // std::mutex
+
 
 class Mediator;
 
@@ -23,6 +27,7 @@ class UiHandler{
     GLFWwindow* p_window;
     WorldInput* p_worldInput;
     
+    void startBtnClicked();
     void startScene();
     void endScene();
     //void loadScene(); //loads scene 
@@ -38,14 +43,21 @@ class UiHandler{
     ImVec2 escMenuPanelSize;
     ImVec2 escMenuPanelPos;
 
-    bool showEscMenu = false;
-    bool showMainMenu = true;
-    bool showLoading = false;
+    std::atomic<bool> showEscMenu = false;
+    std::atomic<bool> showMainMenu = true;
+    std::atomic<bool> showLoading = false;
+
+    std::atomic<float> loadingFraction = 0;
+
+    std::string loadingString;
 
     void hideCursor();
     void showCursor();
 
+    std::mutex loadingVariablesMutex;
+
     public:
+    void updateLoadingProgress(float progress, std::string text);
     void toggleMenu();
     void initUI();
     void updateUIPanelDimensions(GLFWwindow* window);

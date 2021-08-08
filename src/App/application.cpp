@@ -46,8 +46,8 @@ void Application::loadScene(){
     scene = std::make_unique<MyScene>(mediator);
     scene->initScene(); //could be called in constructor?
     mediator.setScene(scene.get());
-    sceneLoaded = true;
     bindWindowCallbacks();
+    sceneLoaded = true;
 }
 
 void Application::endScene(){

@@ -6,12 +6,20 @@
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
 void MyScene::initScene(){
+    r_mediator.ui_updateLoadingProgress(0.1f, "loading models...");
+    //this this is crashing sometimes when running on seperate thread, need to thread safe renderer at least
     r_mediator.renderer_loadModels(MODEL_INFOS);
+    r_mediator.ui_updateLoadingProgress(0.25f, "loading textures...");
     r_mediator.renderer_loadTextures(TEXTURE_INFOS, SKYBOX_PATHS);
+    r_mediator.ui_updateLoadingProgress(0.5f, "initialise world objects...");
     initObjects();
+    r_mediator.ui_updateLoadingProgress(0.7f, "initialise light objects...");
     initLights();
+    r_mediator.ui_updateLoadingProgress(0.8f, "configure render engine...");
     configureRenderEngine();
+    r_mediator.ui_updateLoadingProgress(0.9f, "configure physics engine...");
     configurePhysicsEngine();
+    r_mediator.ui_updateLoadingProgress(1.0f, "finalise...");
 }
 
 void MyScene::configureRenderEngine(){

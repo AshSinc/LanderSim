@@ -81,9 +81,11 @@ class Mediator{
         void ui_toggleEscMenu();
         void ui_updateUIPanelDimensions(GLFWwindow* window);
         void ui_drawUI();
+        void ui_updateLoadingProgress(float progress, std::string text);
 
         //application functions
         void application_loadScene();
         void application_endScene();
         void application_resetScene();
+        bool application_getSceneLoaded();
 };
