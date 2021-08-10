@@ -6,6 +6,8 @@
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 
+//#include "../Service/BulletExtras/BulletWorldImporter/btBulletWorldImporter.h"
+
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.03f;
     bool randomStartRotation = false;
@@ -13,8 +15,50 @@ struct AsteroidObj : virtual CollisionRenderObj{
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         std::vector<Vertex>& allV = r_mediator.renderer_getAllVertices(); //reference all loaded model vertices
         std::vector<uint32_t>& allI = r_mediator.renderer_getAllIndices(); //reference all loaded model indices
+    
+        btGImpactMeshShape* collisionShape;
 
-        btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
+        //ISSUE
+        //Attempting to read collisionshape from .bullet file
+        //fails as numShape always == 0
+        //SOLUTION
+        //Either accept longer loading times, find a fix, or find another way
+        try{
+            collisionShape = readBtShape();
+        }
+        catch(std::invalid_argument e){
+            std::cout << e.what() << "\n";
+            collisionShape = NULL;
+        }
+        if(!collisionShape){
+            btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
+
+            //create a trimesh by stepping through allVertices using allIndices to select the correct vertices
+            for (int i = indexBase; i < indexBase+indexCount; i+=3) {
+                btVector3 v1(allV[allI[i]].pos.x, allV[allI[i]].pos.y, allV[allI[i]].pos.z);
+                btVector3 v2(allV[allI[i+1]].pos.x, allV[allI[i+1]].pos.y, allV[allI[i+1]].pos.z);
+                btVector3 v3(allV[allI[i+2]].pos.x, allV[allI[i+2]].pos.y, allV[allI[i+2]].pos.z);
+                mTriMesh->addTriangle(v1, v2, v3, true);
+                //mTriMesh->
+                //btTriangleIndexVertexArray 
+            }
+            
+            //btTriangleIndexVertexArray m_indexVertexArrays = btTriangleIndexVertexArray(numTris,&triIndex[0][0],3*sizeof(int), numVerts, allV, sizeof(allV));
+            collisionShape = new btGImpactMeshShape(mTriMesh);
+            //collisionShape->getMeshInterface();
+
+            //serialiseBtShape(collisionShape); // <-- doesnt work anyway
+        }
+
+        /*btTriangleIndexVertexArray* m_indexVertexArrays = new btTriangleIndexVertexArray
+		(numTris,
+		&triIndex[0][0],
+		3*sizeof(int),
+		numVerts,
+		(btScalar*) vertValues,
+		sizeof(btScalar)*3);*/
+
+        /*btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
 
         //create a trimesh by stepping through allVertices using allIndices to select the correct vertices
         for (int i = indexBase; i < indexBase+indexCount; i+=3) {
@@ -23,7 +67,7 @@ struct AsteroidObj : virtual CollisionRenderObj{
             btVector3 v3(allV[allI[i+2]].pos.x, allV[allI[i+2]].pos.y, allV[allI[i+2]].pos.z);
             mTriMesh->addTriangle(v1, v2, v3, true);
         }
-        btGImpactMeshShape *collisionShape = new btGImpactMeshShape(mTriMesh);
+        btGImpactMeshShape *collisionShape = new btGImpactMeshShape(mTriMesh);*/
         //asteroidCollisionShape->setMargin(0.05);
         collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
         collisionShape->updateBound();// Call this method once before doing collisions 
@@ -52,6 +96,44 @@ struct AsteroidObj : virtual CollisionRenderObj{
 
         dynamicsWorld->addRigidBody(rigidbody);//add the body to the dynamics world
     }
+
+    /*void serialiseBtShape(btGImpactMeshShape* meshShape){
+        int maxSerializeBufferSize = 1024*1024*5;
+        btDefaultSerializer* serializer = new btDefaultSerializer(maxSerializeBufferSize);
+        serializer->setSerializationFlags(BT_SERIALIZE_NO_BVH);
+        serializer->startSerialization();
+        meshShape->serializeSingleShape(serializer);
+        serializer->finishSerialization();
+        FILE* f2 = fopen("asteroidshape.bullet","wb");
+        fwrite(serializer->getBufferPointer(),serializer->getCurrentBufferSize(),1,f2);
+        fclose(f2);
+    }*/
+
+    btGImpactMeshShape* readBtShape(){
+        /*btBulletWorldImporter import(0);//don't store info into the world
+        if (import.loadFile("asteroidshape.bullet")){
+            int numShape = import.getNumCollisionShapes();
+            if (numShape)
+                return (btGImpactMeshShape*)import.getCollisionShapeByIndex(0);
+            else
+                throw std::invalid_argument("Invalid Bullet Collision Shape");
+        }
+        else*/
+            throw std::invalid_argument( "Can't Find bullet asteroid shape file" );
+    }
+
+    /*btGImpactMeshShape* readBtShape(){
+        btBulletWorldImporter import(0);//don't store info into the world
+        if (import.loadFile("asteroidshape.bullet")){
+            int numShape = import.getNumCollisionShapes();
+            if (numShape)
+                return (btGImpactMeshShape*)import.getCollisionShapeByIndex(0);
+            else
+                throw std::invalid_argument("Invalid Bullet Collision Shape");
+        }
+        else
+            throw std::invalid_argument( "Can't Find bullet asteroid shape file" );
+    }*/
 
     void initTransform(btTransform* transform){
         transform->setOrigin(btVector3(pos.x, pos.y, pos.z)); //astoid always at zero

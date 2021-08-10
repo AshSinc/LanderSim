@@ -31,8 +31,8 @@ void WorldPhysics::worldTick(){
         float fixedTimeStep = 0.01666666754F;
         float timeStep = deltaTime*worldStats.timeStepMultiplier;
         int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN;
-        std::cout << "Timestep: "<< timeStep << "\n";
-        std::cout << "Max substeps: "<< maxSubSteps << "\n";
+        //std::cout << "Timestep: "<< timeStep << "\n";
+        //std::cout << "Max substeps: "<< maxSubSteps << "\n";
         dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
 
         updateCollisionObjects();
@@ -78,7 +78,7 @@ void WorldPhysics::checkCollisions(){
             //SOLUTION
             //Fix timesteps first, finda  way to test
 
-            totalImpact*=deltaTime;
+            //totalImpact*=deltaTime;
             std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
 
             if(totalImpact > 0){

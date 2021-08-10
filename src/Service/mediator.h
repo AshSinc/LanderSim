@@ -54,6 +54,7 @@ class Mediator{
         void camera_changeFocus();
         void camera_setMouseLookActive(bool state);
         CameraData* camera_getCameraDataPointer();
+        void camera_toggleAutoCamera();
 
         //renderer functions
         Vk::Renderer::RenderStats& renderer_getRenderStats();

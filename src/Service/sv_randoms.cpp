@@ -7,14 +7,17 @@
 #define GLM_FORCE_RADIANS //makes sure GLM uses radians to avoid confusion
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES //forces GLM to use a version of vec2 and mat4 that have the correct alignment requirements for Vulkan
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
-#include <glm/glm.hpp>
+
+#include <iostream>
 
 //helper, gets point on sphere of given radius, origin 0
 btVector3 Service::getPointOnSphere(float pitch, float yaw, float radius){
     btVector3 result;
+    std::cout << pitch << "\n";
     result.setX(radius * cos(glm::radians(yaw)) * sin(glm::radians(pitch)));
     result.setY(radius * sin(glm::radians(yaw)) * sin(glm::radians(pitch)));
     result.setZ(radius * cos(glm::radians(pitch)));
+    
     return result;
 }
 
@@ -29,8 +32,16 @@ float Service::getRandFloat(float min, float max){
     std::random_device rd;
     std::default_random_engine eng(rd());
     std::uniform_real_distribution<> distr(min, max);
-    std::setprecision(10);
+    //std::setprecision(10);
     float result = distr(eng)-offset;
     //std::cout << result << "\n";
     return result;
+}
+
+btVector3 Service::glm2bt(const glm::vec3& vec){
+    return { vec.x, vec.y, vec.z };
+}
+
+glm::vec3 Service::bt2glm(const btVector3& vec){
+    return { vec.getX(), vec.getY(), vec.getZ() };
 }

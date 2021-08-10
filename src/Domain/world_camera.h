@@ -4,6 +4,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
 #include <glm/glm.hpp>
 #include <vector>
+//#include <atomic>
 
 class WorldObject;
 class Mediator;
@@ -20,7 +21,8 @@ private:
     Mediator& r_mediator;
     bool freelook = false;
     const float CAMERA_SPEED = 5;
-    float fixedLookRadius = 2;  
+    float fixedLookRadius = 10;
+    const float MAX_FIXED_LOOK_RADIUS = 20;
     float fixedObjectScaleFactor = 1;        
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
 
@@ -32,9 +34,10 @@ private:
     const float MOUSELOOK_SENSITIVITY = 0.1f;
     const float MOUSESCROLL_SENSITIVITY = 0.5f;
 
-    bool usingAutoCamera = false;
-    int autoCameraObjectFocusIndex = 1; 
+    bool usingAutoCamera = true;
 
+    void updateAutoCamera(float cameraDistanceScale);
+    float xOffset, yOffset;
 public:   
     void calculatePitchYaw(double xpos, double ypos);
     WorldCamera(Mediator& mediator);
@@ -43,4 +46,6 @@ public:
     void changeFocus();
     void calculateZoom(float yoffset);
     void setMouseLookActive(bool state);
+    void init();
+    void toggleAutoCamera();
 };

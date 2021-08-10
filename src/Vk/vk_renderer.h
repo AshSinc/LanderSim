@@ -13,14 +13,24 @@
 #include <unordered_map>
 #include "obj_render.h"
 #include "dmn_iScene.h"
+#include <mutex>
+
+#include <memory>
+
+//#include "vk_images.h"
 
 class UiHandler; //forward declare
 class WorldPhysics;
 class CameraData;
 class Mediator;
 
-namespace Vk{  
+//namespace Vk{  
+//class ImageHelper;
+//}
 
+//Vk::ImageHelper
+namespace Vk{  
+class ImageHelper;
 //Engine Constants
 const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
 const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i think 2 is standard according to this study by intel https://software.intel.com/content/www/us/en/develop/articles/practical-approach-to-vulkan-part-1.html
@@ -30,11 +40,11 @@ const int MAX_LIGHTS = 10;
 //required extensions and debug validation layers
 const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME}; //list of required extensions (macro expands to VK_KHR_swapchain)
 const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"}; //list of required validation layers, for debugging
-#ifdef NDEBUG //NDEBUG is a standard C++ macro for checking if we are compiling in debug mode or not
-const bool enableValidationLayers = false;
-#else
+//#ifdef NDEBUG //NDEBUG is a standard C++ macro for checking if we are compiling in debug mode or not
+//const bool enableValidationLayers = false;
+//#else
 const bool enableValidationLayers = true; //if we are we want to use Validation layers to be able to define error checking
-#endif
+//#endif
 
 class Renderer {
 public:
@@ -75,19 +85,19 @@ public:
     void cleanup(); //cleanup objects
 
     //Expose the allocator and CreateBuffer and createImage functions
-    static VmaAllocator allocator; //VMA allocator for handling resource allocation (only used for vertex and indicex buffers just now, can be used for images too)
-    static void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation);
+    VmaAllocator allocator; //VMA allocator for handling resource allocation (only used for vertex and indicex buffers just now, can be used for images too)
+    void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation);
 
     //these need moved to seperate file?
-    static VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
-    static void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
+    VkCommandBuffer beginSingleTimeCommands(VkCommandPool pool);
+    void endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCommandPool pool, VkQueue queue);
 
     //exposes initialization variables for use in utility namespaces (vk_images)
-    static VkDevice device; //handle to the logical device
-    static VkPhysicalDevice physicalDevice;// = VK_NULL_HANDLE; //stores the physical device handle
-    static VkCommandPool transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
-    static VkQueue graphicsQueue; //handle to the graphics queue, queues are automatically created with the logical device
-    static QueueFamilyIndices queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
+    VkDevice device; //handle to the logical device
+    VkPhysicalDevice physicalDevice;// = VK_NULL_HANDLE; //stores the physical device handle
+    VkCommandPool transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
+    VkQueue graphicsQueue; //handle to the graphics queue, queues are automatically created with the logical device
+    QueueFamilyIndices queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
 
     //returns reference to allVertices, used by physics engine to copy model rather than reread obj file
     std::vector<Vertex>& get_allVertices();
@@ -112,6 +122,9 @@ public:
     void callReset();
 
 private:
+    //std::unique_ptr<Vk::ImageHelper> imageHelper;
+    Vk::ImageHelper* imageHelper;// = //would be better with unique_ptr, or just regular object! why doesnt that work, think its circular includes
+    std::mutex queueSubmitMutex;
     bool resetTextureImages = false;
 
     WorldLightObject* p_sceneLight;

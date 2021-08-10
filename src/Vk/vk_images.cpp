@@ -6,35 +6,38 @@
 #include "vk_structs.h"
 
 
-void Vk::Images::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
+
+//Vk::ImageHelper::ImageHelper(Mediator& mediator){}
+
+void Vk::ImageHelper::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation){
 
-    uint32_t queueFamilyIndices[] = {Vk::Renderer::queueFamilyIndicesStruct.graphicsFamily.value()};
+    uint32_t queueFamilyIndices[] = {p_renderer->queueFamilyIndicesStruct.graphicsFamily.value()};
     VkImageCreateInfo imageInfo = Vk::Structs::image_create_info(VK_IMAGE_TYPE_2D, width, height, 1, mipLevels, arrayLayers, format, tiling, VK_IMAGE_LAYOUT_UNDEFINED, usage,
         numSamples, createFlags, VK_SHARING_MODE_EXCLUSIVE, 1, queueFamilyIndices);
 
     VmaAllocationCreateInfo allocInfo = Vk::Structs::vma_allocation_create_info(VMA_MEMORY_USAGE_GPU_ONLY);
 
-    if (vmaCreateImage(Vk::Renderer::allocator, &imageInfo, &allocInfo, &image, &imageAllocation, nullptr) != VK_SUCCESS) {
+    if (vmaCreateImage(p_renderer->allocator, &imageInfo, &allocInfo, &image, &imageAllocation, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
     }
 }
 
 //helper function that creates and returns a VkImageView
 //Used for Texture creation and swap chain, more coming
-VkImageView Vk::Images::createImageView(VkImage image, enum VkImageViewType viewType, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t arrayLayers){
+VkImageView Vk::ImageHelper::createImageView(VkImage image, enum VkImageViewType viewType, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t arrayLayers){
     //code is the same as createImageViews, except for the format and the image
     VkImageViewCreateInfo viewInfo = Vk::Structs::image_view_create_info(image, viewType, format, aspectFlags, 0, mipLevels, 0, arrayLayers);
 
     VkImageView imageView;
-    if(vkCreateImageView(Vk::Renderer::device, &viewInfo, nullptr, &imageView) != VK_SUCCESS){
+    if(vkCreateImageView(p_renderer->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS){
         throw std::runtime_error("Failed to create loadModtexture image view");
     }
     return imageView;
 }
 
-void Vk::Images::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t arrayLayers) {
-    VkCommandBuffer commandBuffer = Vk::Renderer::beginSingleTimeCommands(Vk::Renderer::transferCommandPool); //was cpool
+void Vk::ImageHelper::transitionImageLayout(VkImage& image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels, uint32_t arrayLayers) {
+    VkCommandBuffer commandBuffer = p_renderer->beginSingleTimeCommands(p_renderer->transferCommandPool); //was cpool
     //one of the most common ways to perform layout transitions in using an Image Memory Barrier. A pipeline barrier like that is generally
     //used to sycnhronize access to resources. Like ensuring that a write to a buffer compeletes before reading from it. But it can also be used
     //to transition image layouts and transfer queue family ownership when VK_SHARING_MODE_EXCLUSIVE is used. (Interesting!)
@@ -79,12 +82,14 @@ void Vk::Images::transitionImageLayout(VkImage& image, VkFormat format, VkImageL
         throw std::runtime_error("Unsupported layout transition");
     }
     vkCmdPipelineBarrier(commandBuffer, sourceStage, destinationStage, 0, 0, nullptr, 0, nullptr, 1, &barrier);
-    Vk::Renderer::endSingleTimeCommands(commandBuffer, Vk::Renderer::transferCommandPool, Vk::Renderer::graphicsQueue);
+    //Vk::Renderer::endSingleTimeCommands(commandBuffer, Vk::Renderer::transferCommandPool, Vk::Renderer::graphicsQueue);
+    p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue);
+    
 }
 
 //helper function to record a copy buffer to image command
-void Vk::Images::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount){ //copy buffer isnt copying mipmaps //NOT COPYING MIPMAPPSSS!!!!!!!
-    VkCommandBuffer commandBuffer = Vk::Renderer::beginSingleTimeCommands(Vk::Renderer::transferCommandPool);
+void Vk::ImageHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount){ //copy buffer isnt copying mipmaps //NOT COPYING MIPMAPPSSS!!!!!!!
+    VkCommandBuffer commandBuffer = p_renderer->beginSingleTimeCommands(p_renderer->transferCommandPool);
 
     //just like buffer copies you need to specify which part of the buffer is going to be copied to which part of the image, using VkBufferImageCopy structs
 
@@ -98,20 +103,20 @@ void Vk::Images::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t widt
     //that is optimal for copying pixels to. Right now we are only copying one chunk of pixels to the whole image, but its possible to specify 
     //an array of VkBufferImageCopy to perform many different copies from this buffer to the image in one operation
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-    Vk::Renderer::endSingleTimeCommands(commandBuffer, Vk::Renderer::transferCommandPool, Vk::Renderer::graphicsQueue);
+    p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue);
 }
 
 //used in manually loading a configuring a skybox
-void Vk::Images::simpleLoadTexture(const char* file, int& width, int& height, char*& output){
+void Vk::ImageHelper::simpleLoadTexture(const char* file, int& width, int& height, char*& output){
     int texChannels;
     output = reinterpret_cast<char*>(stbi_load(file, &width, &height, &texChannels, STBI_rgb_alpha));
 }
 //used in manually freeing skybox
-void Vk::Images::simpleFreeTexture(void* data){
+void Vk::ImageHelper::simpleFreeTexture(void* data){
     stbi_image_free(data); //dont forget to clean up the original pixel array
 }
 
-bool Vk::Images::loadTextureImage(Vk::Renderer& engine, const char* file, VkImage& outImage, VmaAllocation& alloc, uint32_t& mipLevels){
+bool Vk::ImageHelper::loadTextureImage(Vk::Renderer& engine, const char* file, VkImage& outImage, VmaAllocation& alloc, uint32_t& mipLevels){
 
     int texWidth, texHeight, texChannels;
     //stbi_load takes the file path and number of channels to load. 
@@ -136,13 +141,13 @@ bool Vk::Images::loadTextureImage(Vk::Renderer& engine, const char* file, VkImag
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferAllocation;
     //engine.createBufferVMA(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
-    Vk::Renderer::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    p_renderer->createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
 
     //then we can copy the pixel data into the CPU visible buffer
     void* dataMemory;
-    vmaMapMemory(Vk::Renderer::allocator, stagingBufferAllocation, &dataMemory);
+    vmaMapMemory(p_renderer->allocator, stagingBufferAllocation, &dataMemory);
     memcpy(dataMemory, pixels, static_cast<size_t>(imageSize));
-    vmaUnmapMemory(Vk::Renderer::allocator, stagingBufferAllocation);
+    vmaUnmapMemory(p_renderer->allocator, stagingBufferAllocation);
 
     stbi_image_free(pixels); //dont forget to clean up the original pixel array
 
@@ -161,7 +166,7 @@ bool Vk::Images::loadTextureImage(Vk::Renderer& engine, const char* file, VkImag
     //then execute the buffer to image copy operation
     copyBufferToImage(stagingBuffer, outImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1);
 
-    vmaDestroyBuffer(Vk::Renderer::allocator, stagingBuffer, stagingBufferAllocation);
+    vmaDestroyBuffer(p_renderer->allocator, stagingBuffer, stagingBufferAllocation);
     //to be able to start sampling from the texture image in the shader, we need one last transition to prepare it for shader access:
     //this transitions the iamge to a Shader Read Only Optimal layout after the transfer (which needed a VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
     //transitionImageLayout(textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, mipLevels);
@@ -180,17 +185,17 @@ bool Vk::Images::loadTextureImage(Vk::Renderer& engine, const char* file, VkImag
 //Note it is uncommon practice to generate mipmap levels at runtime, usually they are pregenerated and stored in the texture file alongside
 //the base level to improve loading speed. Implemementing resizing in software and loading multiple levels from a file is left as an excersize
 //we will come back to this 
-void Vk::Images::generateMipmaps(VkImage& image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels){
+void Vk::ImageHelper::generateMipmaps(VkImage& image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels){
     // Check if image format supports linear blitting
     VkFormatProperties formatProperties;
-    vkGetPhysicalDeviceFormatProperties(Vk::Renderer::physicalDevice, imageFormat, &formatProperties);
+    vkGetPhysicalDeviceFormatProperties(p_renderer->physicalDevice, imageFormat, &formatProperties);
     if(!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) {
         throw std::runtime_error("Texture image format does not support linear blitting");
         //if that fails there are two alternatives, we could implement a fucntion that searches common texture image formats for one
         //that does support linear blitting. or we could use a library like stb_image_resize to do the blitting
     }
     
-    VkCommandBuffer commandBuffer = Vk::Renderer::beginSingleTimeCommands(Vk::Renderer::transferCommandPool); //was cpool
+    VkCommandBuffer commandBuffer = p_renderer->beginSingleTimeCommands(p_renderer->transferCommandPool); //was cpool
 
     VkImageMemoryBarrier barrier = Vk::Structs::image_memory_barrier(image, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 1);
     //we will make several transitions so we'll reuse this VkImageMemoryBarrier struct and only change whats needed in the loop
@@ -260,5 +265,5 @@ void Vk::Images::generateMipmaps(VkImage& image, VkFormat imageFormat, int32_t t
         0, nullptr,
         1, &barrier);
 
-    Vk::Renderer::endSingleTimeCommands(commandBuffer, Vk::Renderer::transferCommandPool, Vk::Renderer::graphicsQueue); //transient queue pool cause errors was cpool
+    p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue); //transient queue pool cause errors was cpool
 }

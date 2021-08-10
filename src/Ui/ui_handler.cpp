@@ -82,6 +82,7 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Separator();
         ImGui::Text("ESC toggles menu\n");
         ImGui::Text("SPACE cycles view focus\n");
+        ImGui::Text("O toggles auto camera\n");
         ImGui::Text("P pauses simulation\n");
         ImGui::Text("[ ] controls time\n\n");
 
@@ -200,17 +201,17 @@ void UiHandler::resetBtnClicked(){
 
 //runs as a seperate thread
 void UiHandler::startScene(){
-    showMainMenu = false;
-    showEscMenu = false;
-    showLoading = true;
+    showMainMenu.store(false);
+    showEscMenu.store(false);
+    showLoading.store(true);
     r_mediator.application_loadScene(sceneData);
-    showLoading = false;
+    showLoading.store(false);
     hideCursor();
 }
 
 void UiHandler::endScene(){
-    showEscMenu = false;
-    showMainMenu = true;
+    showEscMenu.store(false);
+    showMainMenu.store(true);
     r_mediator.application_endScene();
     showCursor();
 }

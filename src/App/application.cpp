@@ -48,6 +48,7 @@ void Application::loadScene(SceneData sceneData){
     scene = std::make_unique<MyScene>(mediator);
     scene->initScene(sceneData); //could be called in constructor?
     mediator.setScene(scene.get());
+    worldCamera.init();
     bindWindowCallbacks();
     sceneLoaded = true;
 }

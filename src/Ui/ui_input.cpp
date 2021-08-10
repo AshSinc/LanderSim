@@ -32,6 +32,8 @@ void UiInput::processKey(int key){
         r_mediator.physics_changeSimSpeed(1,false);
     if (key == GLFW_KEY_P)
         r_mediator.physics_changeSimSpeed(0, true);
+    if (key == GLFW_KEY_O)
+        r_mediator.camera_toggleAutoCamera();
 }
 
 void UiInput::scrollMoved(double xoffset, double yoffset){

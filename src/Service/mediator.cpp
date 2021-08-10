@@ -42,6 +42,9 @@ void Mediator::camera_setMouseLookActive(bool state){
 CameraData* Mediator::camera_getCameraDataPointer(){
     return p_worldCamera->getCameraDataPtr();
 }
+void Mediator::camera_toggleAutoCamera(){
+    p_worldCamera->toggleAutoCamera();
+}
 
 //Physics functions
 void Mediator::physics_changeSimSpeed(int direction, bool pause){

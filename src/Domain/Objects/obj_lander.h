@@ -25,7 +25,8 @@ struct LanderObj : virtual CollisionRenderObj{
         btTransform transform;
         transform.setIdentity();
 
-        initTransform(&transform);
+        //initTransform(&transform);
+        transform.setOrigin(btVector3(pos.x, pos.y, pos.z));
 
         btScalar btMass(mass);
 
@@ -63,22 +64,13 @@ struct LanderObj : virtual CollisionRenderObj{
         worldStats->gravitationalForce = gravitationalForce;
     }
 
-    void initTransform(btTransform* transform){
-        if(randomStartPositions){
-            transform->setOrigin(Service::getPointOnSphere(Service::getRandFloat(0,360), Service::getRandFloat(0,360), startDistance));
-        }
-        else{
-            transform->setOrigin(btVector3(pos.x, pos.y, pos.z));
-        }
-    }
-
     void initRigidBody(btTransform* transform, btRigidBody* rigidbody){
         btVector3 direction;
         if(collisionCourse || !randomStartPositions)
             //dest-current position is the direction, dest is origin so just negate
             direction = -transform->getOrigin();
         else
-            //instead of origin pick a random point LANDER_START_DISTANCE away from the asteroid
+            //instead of origin pick a random point LANDER_PAPP_DISTANCE away from the asteroid
             direction = Service::getPointOnSphere(Service::getRandFloat(0,360), Service::getRandFloat(0,360), passDistance)-transform->getOrigin();
 
         rigidbody->setLinearVelocity(direction.normalize()*initialSpeed); //start box falling towards asteroid

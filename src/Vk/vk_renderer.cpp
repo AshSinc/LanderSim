@@ -41,18 +41,24 @@
 
 #include "obj_render.h"
 
-//static var declarations
-VmaAllocator Vk::Renderer::allocator;
-QueueFamilyIndices Vk::Renderer::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
-VkQueue Vk::Renderer::graphicsQueue;
-VkCommandPool Vk::Renderer::transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
-VkDevice Vk::Renderer::device;
-VkPhysicalDevice Vk::Renderer::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
+#include <exception>
 
-Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): window{windowptr}, r_mediator{mediator}{}
+//static var declarations
+//VmaAllocator Vk::Renderer::allocator;
+//QueueFamilyIndices Vk::Renderer::queueFamilyIndicesStruct;// store the struct so we only call findQueueFamilies once
+//VkQueue Vk::Renderer::graphicsQueue;
+//VkCommandPool Vk::Renderer::transferCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
+//VkDevice Vk::Renderer::device;
+//VkPhysicalDevice Vk::Renderer::physicalDevice = VK_NULL_HANDLE; //stores the physical device handle
+
+Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): window{windowptr}, r_mediator{mediator}{
+    //imageHelper = std::make_unique<Vk::ImageHelper>(this);
+    imageHelper = new Vk::ImageHelper(this);
+}
 
 //uiHandler needs moved here
 void Vk::Renderer::init(){
+    //imageHelper = std::make_unique<ImageHelper>(this);
     createVkInstance();
     if (enableValidationLayers){
         Vk::Debug::Messenger::setupDebugMessenger(instance, &debugMessenger);
@@ -62,10 +68,12 @@ void Vk::Renderer::init(){
     }
     //passes the instance and window and a pointer to surface to update the surface value
     windowHandler.createSurface(instance, window, &surface);
-
+    
     pickPhysicalDevice();
     createLogicalDevice();
     createMemAlloc();
+
+    
 
     createSwapChain();
     createSwapChainImageViews();
@@ -97,8 +105,10 @@ void Vk::Renderer::reset(){
     //resettingScene = true;
 }
 
+std::mutex renderablesPointerMutex;
 void Vk::Renderer::setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects){
-    vkDeviceWaitIdle(device); //first we wait until the resources are not in use
+    //renderablesPointerMutex.lock();
+    //vkDeviceWaitIdle(device); //first we wait until the resources are not in use <----- segfault here, probably renderer crashed first?
     p_renderables = renderableObjects;
 
     //this is temporarily here
@@ -107,6 +117,7 @@ void Vk::Renderer::setRenderablesPointer(std::vector<std::shared_ptr<RenderObjec
         _materialParameters[iter.second.propertiesId].specular = iter.second.specular;
         _materialParameters[iter.second.propertiesId].extra = iter.second.extra;
     }
+    //renderablesPointerMutex.unlock();
 }
 
 void Vk::Renderer::setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
@@ -220,15 +231,15 @@ void Vk::Renderer::allocateDescriptorSetForSkybox(){
     skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     setWrite = Vk::Structs::write_descriptorset(0, skyboxSet, 1, 
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
+    queueSubmitMutex.lock();
     vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
+    queueSubmitMutex.unlock();
 }
 
 void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std::string name){
     Material* material = get_material(materialName);
     if(material != nullptr){
-        
         material->_multiTextureSets.resize(1);
-
         //we also allocate our multiTextureSet here but not per frame and we dont write it yet
         VkDescriptorSetAllocateInfo allocInfo = {};
         allocInfo.pNext = nullptr;
@@ -239,25 +250,46 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
 
         vkAllocateDescriptorSets(device, &allocInfo, &material->_multiTextureSets[0]);
 
-        std::array<VkWriteDescriptorSet, 2> setWrite{};
+        //std::array<VkWriteDescriptorSet, 2> setWrite{};
+        std::vector<VkWriteDescriptorSet> setWrite;
 
         VkDescriptorImageInfo diffImageInfo;
         diffImageInfo.sampler = diffuseSampler;
+
         diffImageInfo.imageView = _loadedTextures[name+"_diff"].imageView;
         diffImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-
         VkDescriptorImageInfo specImageInfo;
         specImageInfo.sampler = specularSampler;
         specImageInfo.imageView = _loadedTextures[name+"_spec"].imageView;
         specImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        //setWrite[0] = Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
+        //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo);
+        setWrite.push_back(Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo));
 
-        setWrite[0] = Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo);
+        //setWrite[1] = Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
+        //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo);
 
-        setWrite[1] = Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo);
+        setWrite.push_back(Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo));
+
+        //another crash before here. just hangs
+
+        std::cout << name << "\n";
+        std::cout << setWrite.size() << "\n";
+
+        queueSubmitMutex.lock();
+
+        try{
+            vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr); // <--- seg fault here  setWrite.data()
+        }
+        catch(std::exception& e){
+            std::cout << "Failed to update descriptor sets for  Texture " + name + "\n";
+            std::cout << e.what() << "\n";
+        }
+
+        queueSubmitMutex.unlock();
         
-        vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr);
     }
 }
 
@@ -559,10 +591,11 @@ void Vk::Renderer::drawFrame(){
     vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
 
     //submit the queue
+    queueSubmitMutex.lock();
     if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, _frames[currentFrame]._renderFence) != VK_SUCCESS) { //then fails here after texture flush
         throw std::runtime_error("Failed to submit draw command buffer");
     }
-
+    
     //Presentation
     //The last step of drawing a frame is submitting the result back to the swapchain
     VkSwapchainKHR swapChains[] = {swapChain};
@@ -571,6 +604,8 @@ void Vk::Renderer::drawFrame(){
     //now we submit the request to present an image to the swapchain. We'll add error handling later, as failure here doesnt necessarily mean we should stop
 
     result = vkQueuePresentKHR(presentQueue, &presentInfo); //takes ages after texture flush for some reason
+
+    queueSubmitMutex.unlock();
 
     //in addition to these checks we also check member variable frameBufferResized for manual confirmation
     //must do this after vkQueuePresentKHR() call to ensure semaphores are in a consinstent state, otherwise a signalled semaphore may never be properly waited on
@@ -583,6 +618,10 @@ void Vk::Renderer::drawFrame(){
     else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
         throw std::runtime_error("Failed to acquire swapchain image");
     }
+
+    
+
+
     frameCounter++;
     currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -632,6 +671,8 @@ void Vk::Renderer::cleanup(){
     p_uiHandler->cleanup();
 
     _mainDeletionQueue.flush();
+
+    delete imageHelper;
 
     vkDestroySurfaceKHR(instance, surface, nullptr); //surface should be destroyed before instance
     vkDestroyInstance(instance, nullptr); //all other vulkan resources should be cleaned u//helper function that gets max usable sample count for MSAA
@@ -796,7 +837,7 @@ void Vk::Renderer::createSwapChainImageViews(){
     swapChainImageViews.resize(swapChainImages.size());
     //loop through all swap chain iamges
     for(size_t i = 0; i < swapChainImages.size(); i++){
-        swapChainImageViews[i] = Vk::Images::createImageView(swapChainImages[i], VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+        swapChainImageViews[i] = imageHelper->createImageView(swapChainImages[i], VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
         _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, swapChainImageViews[i], nullptr);});
     }
 }    
@@ -1172,11 +1213,11 @@ void Vk::Renderer::createCommandPools(){
 void Vk::Renderer::createColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
 
-    Vk::Images::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
+    imageHelper->createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colourImage,
         colourImageAllocation);
 
-    colourImageView = Vk::Images::createImageView(colourImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    colourImageView = imageHelper->createImageView(colourImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, colourImage, colourImageAllocation);});
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, colourImageView, nullptr);});
@@ -1186,10 +1227,10 @@ void Vk::Renderer::createColourResources(){
 void Vk::Renderer::createDepthResources(){
     // we will go with VK_FORMAT_D32_SFLOAT but will add a findSupportedFormat() first to get something supported
     VkFormat depthFormat = Vk::Init::findDepthFormat(physicalDevice);
-    Vk::Images::createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
+    imageHelper->createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageAllocation);
 
-    depthImageView = Vk::Images::createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
+    depthImageView = imageHelper->createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
     
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, depthImage, depthImageAllocation);});
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, depthImageView, nullptr);});
@@ -1200,7 +1241,8 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
     _loadedTextures.clear();
     for(TextureInfo info : TEXTURE_INFOS){
         Texture texture;
-        Vk::Images::loadTextureImage(*this, info.filePath.c_str(), texture.image, texture.alloc, texture.mipLevels);
+        std::cout << info.filePath.c_str() << "\n";
+        imageHelper->loadTextureImage(*this, info.filePath.c_str(), texture.image, texture.alloc, texture.mipLevels);
         VkImageViewCreateInfo imageinfo = Vk::Structs::image_view_create_info(texture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_ASPECT_COLOR_BIT, 0, texture.mipLevels, 0, 1);
         vkCreateImageView(device, &imageinfo, nullptr, &texture.imageView);  
@@ -1218,7 +1260,7 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
     
     int i{0};
     for(std::string path : SKYBOX_PATHS){
-        Vk::Images::simpleLoadTexture(path.c_str(), width, height, textureData[i]);
+        imageHelper->simpleLoadTexture(path.c_str(), width, height, textureData[i]);
         i++;
     }
         
@@ -1230,39 +1272,39 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
     //we will now create a host visible staging buffer so that we can map memory and copy pixels to it
     VkBuffer stagingBuffer;
     VmaAllocation stagingBufferAllocation;
-    Vk::Renderer::createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
+    createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
     
     //map the memory
     char* dataMemory;
-    vmaMapMemory(Vk::Renderer::allocator, stagingBufferAllocation, (void**)&dataMemory);
+    vmaMapMemory(allocator, stagingBufferAllocation, (void**)&dataMemory);
     
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
         memcpy(dataMemory + (layerSize * i), textureData[i], static_cast<size_t>(layerSize));
     }
-    vmaUnmapMemory(Vk::Renderer::allocator, stagingBufferAllocation);
+    vmaUnmapMemory(allocator, stagingBufferAllocation);
 
     //Copy the data into the staging buffer.
     for (uint8_t i = 0; i < 6; ++i){    
-        Vk::Images::simpleFreeTexture(textureData[i]);
+        imageHelper->simpleFreeTexture(textureData[i]);
     }
 
-    Vk::Images::createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+    imageHelper->createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyboxImage, skyboxAllocation);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps
     //we first transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     //note because the iamge was created with VK_IMAGE_LAYOUT_UNDEFINED, we specify that as the initial layout. We can do this because we dont care
     //about its contents before performing the copy operation
-    Vk::Images::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, 6);
+    imageHelper->transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, 6);
     //then execute the buffer to image copy operation
-    Vk::Images::copyBufferToImage(stagingBuffer, skyboxImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
+    imageHelper->copyBufferToImage(stagingBuffer, skyboxImage, static_cast<uint32_t>(width), static_cast<uint32_t>(height), 6);
 
-    Vk::Images::transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, 6);
+    imageHelper->transitionImageLayout(skyboxImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 1, 6);
 
-    vmaDestroyBuffer(Vk::Renderer::allocator, stagingBuffer, stagingBufferAllocation);
+    vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
 
-    skyboxImageView = Vk::Images::createImageView(skyboxImage, VK_IMAGE_VIEW_TYPE_CUBE, VK_FORMAT_R8G8B8A8_SRGB,  VK_IMAGE_ASPECT_COLOR_BIT, 1, 6);
+    skyboxImageView = imageHelper->createImageView(skyboxImage, VK_IMAGE_VIEW_TYPE_CUBE, VK_FORMAT_R8G8B8A8_SRGB,  VK_IMAGE_ASPECT_COLOR_BIT, 1, 6);
 
     _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, skyboxImage, skyboxAllocation);});
     _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, skyboxImageView, nullptr);});
@@ -1390,6 +1432,8 @@ void Vk::Renderer::createVertexBuffer(){       //uploading vertex data to the gp
     VkBuffer stagingBuffer;      
     VmaAllocation stagingBufferAllocation;
 
+    //queueSubmitMutex.lock();
+
     //create the staging buffer in CPU accessible memory
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
 
@@ -1409,6 +1453,8 @@ void Vk::Renderer::createVertexBuffer(){       //uploading vertex data to the gp
 
     //now the data is copied from staging to gpu memory we should cleanup
     vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
+
+    //queueSubmitMutex.unlock();
 }
 
 //Index Buffer
@@ -1420,6 +1466,9 @@ void Vk::Renderer::createIndexBuffer(){
     VkDeviceSize bufferSize = sizeof(allIndices[0]) * allIndices.size();
     VkBuffer stagingBuffer;  //create our staging buffer      
     VmaAllocation stagingBufferAllocation;
+
+    //queueSubmitMutex.lock();
+
     createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, stagingBuffer, stagingBufferAllocation);
     void* mappedData;
     vmaMapMemory(allocator, stagingBufferAllocation, &mappedData);
@@ -1432,6 +1481,8 @@ void Vk::Renderer::createIndexBuffer(){
     copyBuffer(stagingBuffer, indexBuffer, bufferSize);
     //now the data is copied from staging to gpu memory we should cleanup
     vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
+
+    //queueSubmitMutex.unlock();
 }
 
 //Uniform Buffer
@@ -1509,8 +1560,11 @@ void Vk::Renderer::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkComman
     //now we execute the command buffer to complete the transfer
     VkSubmitInfo submitInfo = Vk::Structs::submit_info(&commandBuffer);
 
+    queueSubmitMutex.lock();
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE); //error here, we needed to submit to the transfer queue
+    
     vkQueueWaitIdle(queue);
+    queueSubmitMutex.unlock();
 
     //unlike draw command there are no events we need to wait on this time. We just want to execute on the buffers immediately.
     //we could use a fence and wait with vkWaitForFences, or simply wait for the transfer queue to become idle with vkQueueWaitIdle.

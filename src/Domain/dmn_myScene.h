@@ -35,10 +35,10 @@ class MyScene: public IScene{
         const std::vector<TextureInfo> TEXTURE_INFOS = {
             {"satellite_diff", "resources/textures/Satellite.jpg"},
             {"satellite_spec", "resources/textures/Satellite_Specular.jpg"},
-            //{"asteroid_diff", "textures/ASTEROID_COLOR.jpg"},
-            //{"asteroid_spec", "textures/ASTEROID_SPECULAR.jpg"}
-            {"asteroid_diff", "resources/textures/ASTEROID_COLORB.jpg"},
-            {"asteroid_spec", "resources/textures/ASTEROID_COLORB.jpg"}
+            {"asteroid_diff", "resources/textures/ASTEROID_COLOR.jpg"},
+            {"asteroid_spec", "resources/textures/ASTEROID_SPECULAR.jpg"}
+            //{"asteroid_diff", "resources/textures/ASTEROID_COLORB.jpg"},
+            //{"asteroid_spec", "resources/textures/ASTEROID_COLORB.jpg"}
         };
 
         //texture identifier and path pairs, used in loading and assigning to map

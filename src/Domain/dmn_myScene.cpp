@@ -3,6 +3,8 @@
 #include "obj_lander.h"
 #include "obj_asteroid.h"
 
+#include "sv_randoms.h"
+
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
 void MyScene::setSceneData(SceneData isceneData){
@@ -19,11 +21,11 @@ void MyScene::initScene(SceneData latestSceneData){
     r_mediator.renderer_loadTextures(TEXTURE_INFOS, SKYBOX_PATHS);
     r_mediator.ui_updateLoadingProgress(0.5f, "initialise world objects...");
     initObjects();
-    r_mediator.ui_updateLoadingProgress(0.7f, "initialise light objects...");
+    r_mediator.ui_updateLoadingProgress(0.6f, "initialise light objects...");
     initLights();
-    r_mediator.ui_updateLoadingProgress(0.8f, "configure render engine...");
+    r_mediator.ui_updateLoadingProgress(0.7f, "configure render engine...");
     configureRenderEngine();
-    r_mediator.ui_updateLoadingProgress(0.9f, "configure physics engine...");
+    r_mediator.ui_updateLoadingProgress(0.8f, "configure physics engine...");
     configurePhysicsEngine();
     r_mediator.ui_updateLoadingProgress(1.0f, "finalise...");
 }
@@ -70,7 +72,7 @@ void MyScene::initObjects(){
 
     std::shared_ptr<RenderObject> starSphere = std::shared_ptr<RenderObject>(new RenderObject());
     starSphere->id = id++;
-    starSphere->pos = glm::vec3(-5000,0,0);
+    starSphere->pos = glm::vec3(-9000,0,0);
     starSphere->scale = glm::vec3(100,100,100);
     setRendererMeshVars("sphere", starSphere.get());
     starSphere->material = r_mediator.renderer_getMaterial("unlitmesh");
@@ -82,8 +84,14 @@ void MyScene::initObjects(){
 
     std::shared_ptr<LanderObj> lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
-    lander->pos = glm::vec3(75,75,20);
-    lander->scale = glm::vec3(0.5f,0.5f,0.5f); //lander aka box
+    if(sceneData.RANDOMIZE_START){ //best to update this now
+        glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
+        lander->pos = pos;
+    }
+    else
+        lander->pos = glm::vec3(75,75,20);
+
+    lander->scale = glm::vec3(1.0f,1.0f,1.0f); //lander aka box
     setRendererMeshVars("box", lander.get());
     lander->material = r_mediator.renderer_getMaterial("defaultmesh");
     lander->material->diffuse = glm::vec3(0,0,1);
