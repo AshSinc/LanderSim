@@ -20,7 +20,7 @@ void UiHandler::drawUI(){
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    //ImGui::ShowDemoWindow();
+   // ImGui::ShowDemoWindow();
     
     if(showMainMenu)
         gui_ShowMainMenu();
@@ -136,6 +136,20 @@ void UiHandler::gui_ShowMainMenu(){
 
         ImGui::Text("\nScene Settings\n");
         ImGui::BeginGroup();
+        if (ImGui::Button("Reset", ImVec2(75,25)))
+            resetBtnClicked();
+        ImGui::SameLine();
+        if (ImGui::Button("Scenario1", ImVec2(75,25)))
+            scenarioBtnClicked(1);
+        ImGui::SameLine();
+        if (ImGui::Button("Scenario2", ImVec2(75,25)))
+            scenarioBtnClicked(2);
+        ImGui::SameLine();
+        if (ImGui::Button("Scenario3", ImVec2(75,25)))
+            scenarioBtnClicked(3);
+        ImGui::EndGroup();
+        
+        ImGui::BeginGroup();
         ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
         ImGui::SameLine();
         ImGui::Checkbox("Collision Course", &sceneData.LANDER_COLLISION_COURSE);
@@ -165,10 +179,6 @@ void UiHandler::gui_ShowMainMenu(){
             //appRunning = false;
             std::cout << "Close App\n";
         ImGui::EndGroup();
-
-        if (ImGui::Button("Reset Defaults", ImVec2(150,50))){
-            resetBtnClicked();
-        }
     }
     ImGui::End();
 }
@@ -196,7 +206,19 @@ void UiHandler::startBtnClicked(){
 }
 
 void UiHandler::resetBtnClicked(){
-    sceneData.reset();
+    loadDefaultSceneData();
+}
+
+void UiHandler::scenarioBtnClicked(int i){
+    switch(i){
+        case 1: sceneData = SCENARIO_1_SceneData; break;
+        case 2: sceneData = SCENARIO_2_SceneData; break;
+        case 3: sceneData = SCENARIO_3_SceneData; break;
+    }
+}
+
+void UiHandler::loadDefaultSceneData(){
+    sceneData = DEFAULT_SceneData;
 }
 
 //runs as a seperate thread

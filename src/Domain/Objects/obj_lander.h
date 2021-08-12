@@ -39,7 +39,7 @@ struct LanderObj : virtual CollisionRenderObj{
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 1.5f;
+        rbInfo.m_friction = 5.0f;
         rbInfo.m_spinningFriction  = 0.1f;
         //rbInfo.m_rollingFriction = 0.5f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);

@@ -43,6 +43,7 @@ void MyScene::configureRenderEngine(){
 }
 
 void MyScene::configurePhysicsEngine(){
+    r_mediator.physics_reset();
     r_mediator.physics_loadCollisionMeshes(&collisionObjects);
 }
 

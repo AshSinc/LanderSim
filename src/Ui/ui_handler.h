@@ -28,6 +28,11 @@ class UiHandler{
     WorldInput* p_worldInput;
 
     SceneData sceneData;
+    const SceneData DEFAULT_SceneData;
+    const ScenarioData_Scenario1 SCENARIO_1_SceneData;
+    const ScenarioData_Scenario2 SCENARIO_2_SceneData;
+    const ScenarioData_Scenario3 SCENARIO_3_SceneData;
+    
 
     void startBtnClicked();
     void resetBtnClicked();
@@ -39,7 +44,9 @@ class UiHandler{
     void gui_ShowEscMenu(); //holds esc menu
     void gui_ShowLoading(); //holds configuration for main loading bar
     void calculateFrameRate();
-    
+    void loadDefaultSceneData();
+    void scenarioBtnClicked(int i);
+
     ImVec2 statsPanelSize;
     ImVec2 mainMenuPanelSize;
     ImVec2 mainMenuPanelPos;

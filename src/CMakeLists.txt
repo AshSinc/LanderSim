@@ -5,6 +5,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   App/**.cpp
   Domain/**.cpp
   Domain/Objects/**.cpp
+  Domain/Data/**.cpp
   Ui/**.cpp
   Vk/**.cpp
   Service/**.cpp
@@ -14,6 +15,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   App/**.h
   Domain/**.h
   Domain/Objects/**.h
+  Domain/Data/**.h
   Ui/**.h
   Vk/**.h
   Service/**.h
@@ -21,7 +23,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   Service/BulletExtras/BulletWorldImporter/**.h
 )
 
-include_directories(App Ui Domain Domain/Objects Vk Service BulletExtrasPaths)
+include_directories(App Ui Domain Domain/Objects Domain/Data Vk Service BulletExtrasPaths)
 
 add_executable(LSApp ${SOURCES})
 

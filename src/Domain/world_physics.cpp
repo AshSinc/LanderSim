@@ -78,7 +78,7 @@ void WorldPhysics::checkCollisions(){
             //SOLUTION
             //Fix timesteps first, finda  way to test
 
-            //totalImpact*=deltaTime;
+            totalImpact*=deltaTime;
             std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
 
             if(totalImpact > 0){
@@ -161,7 +161,9 @@ WorldPhysics::~WorldPhysics(){
 
 void WorldPhysics::reset(){
     //set any variables back to default (user might load a new scene)
-    r_mediator.physics_changeSimSpeed(1.0f, false);
+    //changeSimSpeed(0, false); //pause and sim speed should be seperated
+    selectedSimSpeedIndex = 2;
+    setSimSpeedMultiplier(SIM_SPEEDS[selectedSimSpeedIndex]);
     //cleanup in the reverse order of creation/initialization
 	///-----cleanup_start-----
 	//remove the rigidbodies from the dynamics world and delete them

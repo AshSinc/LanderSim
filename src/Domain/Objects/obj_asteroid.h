@@ -9,7 +9,7 @@
 //#include "../Service/BulletExtras/BulletWorldImporter/btBulletWorldImporter.h"
 
 struct AsteroidObj : virtual CollisionRenderObj{
-    float maxRotationVelocity = 0.03f;
+    float maxRotationVelocity = 0.025f;
     bool randomStartRotation = false;
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
@@ -88,7 +88,7 @@ struct AsteroidObj : virtual CollisionRenderObj{
         //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 5.0f;
+        rbInfo.m_friction = 10.0f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
         rigidbody->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
 
