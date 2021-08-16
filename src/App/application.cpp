@@ -11,17 +11,17 @@ int Application::run(){
     try{
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
-        Vk::Renderer engine = Vk::Renderer(window, mediator); //instanciate render engine
+        Vk::Renderer renderer = Vk::Renderer(window, mediator); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, mediator);
 
         //associate objects with mediator class
         mediator.setCamera(&worldCamera);
         mediator.setUiHandler(&uiHandler);
         mediator.setPhysicsEngine(&worldPhysics);
-        mediator.setRenderEngine(&engine);
+        mediator.setRenderEngine(&renderer);
         mediator.setApplication(this);
-        
-        engine.init(); //initialise render engine
+
+        renderer.init(); //initialise render engine
 
         //set glfw callbacks for input
         glfwSetWindowUserPointer(window, &uiInput);
@@ -33,9 +33,9 @@ int Application::run(){
                 worldCamera.updateFixedLookPosition(); //have to 
             }
             
-            engine.drawFrame(); //render a frame
+            renderer.drawFrame(); //render a frame
         }
-        engine.cleanup();
+        renderer.cleanup();
     }
     catch (const std::exception &e){
         std::cerr << e.what() << std::endl;

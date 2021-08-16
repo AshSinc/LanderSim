@@ -9,8 +9,6 @@
 #define GLM_ENABLE_EXPERIMENTAL //using glm to hash Vertex attributes using a template specialisation of std::hash<T>
 #include <glm/gtx/hash.hpp> //used in unnordered_map to compare vertices
 #include <vk_mem_alloc.h>
-#include <functional> //these are used for deletion queues
-#include <deque>
 #include <string>
 
 //struct for holding the point light data

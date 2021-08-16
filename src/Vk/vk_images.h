@@ -1,14 +1,14 @@
 #pragma once
 
 #include "vk_types.h"
-#include "vk_renderer.h"
+#include "vk_renderer_base.h"
 #include "mediator.h"
 //namespace Vk::Images{
 namespace Vk{
     class ImageHelper{
         private:
             //Mediator& r_mediator;
-            Renderer* p_renderer; 
+            RendererBase* p_renderer; 
         public:
             void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags,
             VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation);
@@ -20,7 +20,7 @@ namespace Vk{
 
             void simpleLoadTexture(const char* file, int& width, int& height, char*& output);
             void simpleFreeTexture(void* data);
-            ImageHelper(Vk::Renderer* renderer): p_renderer{renderer}{}
+            ImageHelper(Vk::RendererBase* renderer): p_renderer{renderer}{}
         
     };
 }

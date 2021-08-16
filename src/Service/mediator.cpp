@@ -76,7 +76,7 @@ int Mediator::renderer_getMeshId(const std::string& name){
     return p_renderEngine->getMeshId(name);
 }
 Material* Mediator::renderer_getMaterial(const std::string& name){
-    return p_renderEngine->get_material(name);
+    return p_renderEngine->getMaterial(name);
 }
 void Mediator::renderer_loadTextures(const std::vector<TextureInfo>& TEXTURE_INFOS, const std::vector<std::string>& SKYBOX_PATHS){
     p_renderEngine->createTextureImages(TEXTURE_INFOS, SKYBOX_PATHS);

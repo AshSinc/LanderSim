@@ -19,7 +19,7 @@ struct ScenarioData_Scenario1: SceneData{
         INITIAL_LANDER_SPEED = 2.0f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
         ASTEROID_SCALE = 75.0f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = 0.5f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = 1.5f;
     }
 };
 
@@ -27,12 +27,12 @@ struct ScenarioData_Scenario2: SceneData{
     ScenarioData_Scenario2(){
         RANDOMIZE_START = true;
         LANDER_COLLISION_COURSE = false;
-        LANDER_START_DISTANCE = 250.0f;
+        LANDER_START_DISTANCE = 300.0f;
         LANDER_PASS_DISTANCE = 200.0f;
-        INITIAL_LANDER_SPEED = 2.0f;
+        INITIAL_LANDER_SPEED = 1.5f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
         ASTEROID_SCALE = 50.0f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = 0.2f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = 2.0f;
     }
 };
 
@@ -45,6 +45,6 @@ struct ScenarioData_Scenario3: SceneData{
         INITIAL_LANDER_SPEED = 2.0f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
         ASTEROID_SCALE = 100.0f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = 2.0f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = 5.0f;
     }
 };
