@@ -1,10 +1,9 @@
 #include <set>
 #include "vk_types.h"
-
-#include "vk_structs.h"
+#include "vk_structures.h"
 
 //VkSubmitInfo without synchronization, used for immediate transfers
-VkSubmitInfo Vk::Structs::submit_info(VkCommandBuffer* commandBuffer){
+VkSubmitInfo Vk::Structures::submit_info(VkCommandBuffer* commandBuffer){
 	VkSubmitInfo submitInfo = {};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
@@ -13,7 +12,7 @@ VkSubmitInfo Vk::Structs::submit_info(VkCommandBuffer* commandBuffer){
 }
 
 //VkSubmitInfo with synchronization, used in gpu synching
-VkSubmitInfo Vk::Structs::submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, 
+VkSubmitInfo Vk::Structures::submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, 
 		VkSemaphore* waitSemaphores, uint32_t waitCount,
 		VkPipelineStageFlags* waitStages,
 		VkSemaphore* signalSemaphores, uint32_t signalCount) {
@@ -29,7 +28,7 @@ VkSubmitInfo Vk::Structs::submit_info(VkCommandBuffer commandBuffers[], uint32_t
 	return submitInfo;
 }
 
-VkPresentInfoKHR Vk::Structs::present_info(VkSemaphore* signalSemaphores, uint32_t waitCount, 
+VkPresentInfoKHR Vk::Structures::present_info(VkSemaphore* signalSemaphores, uint32_t waitCount, 
 		VkSwapchainKHR* swapChains, uint32_t *imageIndex){
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -42,7 +41,7 @@ VkPresentInfoKHR Vk::Structs::present_info(VkSemaphore* signalSemaphores, uint32
 	return presentInfo;
 }
 
-VkApplicationInfo Vk::Structs::app_info(const char* name){
+VkApplicationInfo Vk::Structures::app_info(const char* name){
 	VkApplicationInfo appInfo{};
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = name;
@@ -53,7 +52,7 @@ VkApplicationInfo Vk::Structs::app_info(const char* name){
 	return appInfo;
 }
 
-VkInstanceCreateInfo Vk::Structs::instance_create_info(VkApplicationInfo &appInfo, std::vector<const char *> &extensions, const char* const * enabledLayerNames, uint32_t enabledLayerCount, void *next){
+VkInstanceCreateInfo Vk::Structures::instance_create_info(VkApplicationInfo &appInfo, std::vector<const char *> &extensions, const char* const * enabledLayerNames, uint32_t enabledLayerCount, void *next){
 	VkInstanceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
@@ -65,7 +64,7 @@ VkInstanceCreateInfo Vk::Structs::instance_create_info(VkApplicationInfo &appInf
 	return createInfo;
 }
 
-std::vector<VkDeviceQueueCreateInfo> Vk::Structs::queue_create_infos( std::set<uint32_t> &uniqueQueueFamilies, const float* queuePriority){
+std::vector<VkDeviceQueueCreateInfo> Vk::Structures::queue_create_infos( std::set<uint32_t> &uniqueQueueFamilies, const float* queuePriority){
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	
 	for(uint32_t queueFamily : uniqueQueueFamilies) {
@@ -79,7 +78,7 @@ std::vector<VkDeviceQueueCreateInfo> Vk::Structs::queue_create_infos( std::set<u
 	return queueCreateInfos;
 }
 
-VkDeviceCreateInfo Vk::Structs::device_create_info(VkPhysicalDeviceFeatures& deviceFeatures, std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, const std::vector<const char*>& deviceExtensions){
+VkDeviceCreateInfo Vk::Structures::device_create_info(VkPhysicalDeviceFeatures& deviceFeatures, std::vector<VkDeviceQueueCreateInfo>& queueCreateInfos, const std::vector<const char*>& deviceExtensions){
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -90,7 +89,7 @@ VkDeviceCreateInfo Vk::Structs::device_create_info(VkPhysicalDeviceFeatures& dev
 	return createInfo;
 }
 
-VmaAllocatorCreateInfo Vk::Structs::vma_allocator_info(VkPhysicalDevice& physicalDevice, VkDevice& device, VkInstance& instance, VmaAllocator& allocator){
+VmaAllocatorCreateInfo Vk::Structures::vma_allocator_info(VkPhysicalDevice& physicalDevice, VkDevice& device, VkInstance& instance, VmaAllocator& allocator){
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_2;
     //allocatorInfo.flags
@@ -103,7 +102,7 @@ VmaAllocatorCreateInfo Vk::Structs::vma_allocator_info(VkPhysicalDevice& physica
 	return allocatorInfo;
 }
 
-VkSwapchainCreateInfoKHR Vk::Structs::swapchain_create_info(VkSurfaceKHR& surface, uint32_t& imageCount, VkSurfaceFormatKHR& surfaceFormat, VkExtent2D& extent, 
+VkSwapchainCreateInfoKHR Vk::Structures::swapchain_create_info(VkSurfaceKHR& surface, uint32_t& imageCount, VkSurfaceFormatKHR& surfaceFormat, VkExtent2D& extent, 
 		uint32_t queueFamilyIndices[2], VkSurfaceTransformFlagBitsKHR& currentTransform, VkPresentModeKHR& presentMode){
 	VkSwapchainCreateInfoKHR createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -155,7 +154,7 @@ VkSwapchainCreateInfoKHR Vk::Structs::swapchain_create_info(VkSurfaceKHR& surfac
     createInfo.oldSwapchain = VK_NULL_HANDLE;
 	return createInfo;
 }
-VkAttachmentDescription Vk::Structs::attachment_description(VkFormat format, enum VkSampleCountFlagBits samples, enum VkAttachmentLoadOp loadOp, 
+VkAttachmentDescription Vk::Structures::attachment_description(VkFormat format, enum VkSampleCountFlagBits samples, enum VkAttachmentLoadOp loadOp, 
         enum VkAttachmentStoreOp storeOp, enum VkImageLayout initialLayout, enum VkImageLayout finalayout){
 
 	VkAttachmentDescription attachmentDesc{};
@@ -189,7 +188,7 @@ VkAttachmentDescription Vk::Structs::attachment_description(VkFormat format, enu
 	return attachmentDesc;
 }
 
-VkAttachmentReference Vk::Structs::attachment_reference(uint32_t attachmentIndex, enum VkImageLayout layout){
+VkAttachmentReference Vk::Structures::attachment_reference(uint32_t attachmentIndex, enum VkImageLayout layout){
 	VkAttachmentReference attachmentRef{};
     //attachment parameter specifies which attachment to reference by its index in the attachment descriptions array.
     //Our array only has one VkAttachmentDescription so we just need 0 for first element
@@ -201,7 +200,7 @@ VkAttachmentReference Vk::Structs::attachment_reference(uint32_t attachmentIndex
 	return attachmentRef;
 }	
 
-VkSubpassDependency Vk::Structs::subpass_dependency(uint32_t srcSubpass, uint32_t dstSubpass,VkPipelineStageFlags srcStageMask, VkAccessFlags srcAccessMask, 
+VkSubpassDependency Vk::Structures::subpass_dependency(uint32_t srcSubpass, uint32_t dstSubpass,VkPipelineStageFlags srcStageMask, VkAccessFlags srcAccessMask, 
 		VkPipelineStageFlags dstStageMask, VkAccessFlags dstAccessMask){
 	// we also want to add a Subpass Dependency as described in drawFrame() to wait for VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT before proceeding
     VkSubpassDependency subpassDependency{};
@@ -223,7 +222,7 @@ VkSubpassDependency Vk::Structs::subpass_dependency(uint32_t srcSubpass, uint32_
 	return subpassDependency;
 }
 
-VkSubpassDescription Vk::Structs::subpass_description(VkPipelineBindPoint pipelineBindPoint, uint32_t colourAttachmentCount, 
+VkSubpassDescription Vk::Structures::subpass_description(VkPipelineBindPoint pipelineBindPoint, uint32_t colourAttachmentCount, 
 		const VkAttachmentReference* pResolveAttachments, const VkAttachmentReference* pColorAttachments, const VkAttachmentReference* pDepthStencilAttachments){
     VkSubpassDescription subpassDesc{};
     subpassDesc.pipelineBindPoint = pipelineBindPoint;
@@ -242,7 +241,7 @@ VkSubpassDescription Vk::Structs::subpass_description(VkPipelineBindPoint pipeli
 	return subpassDesc;
 }
 
-VkRenderPassCreateInfo Vk::Structs::renderpass_create_info(std::vector<VkAttachmentDescription>& attachments, uint32_t subpassCount, 
+VkRenderPassCreateInfo Vk::Structures::renderpass_create_info(std::vector<VkAttachmentDescription>& attachments, uint32_t subpassCount, 
         VkSubpassDescription* pSubpasses,  uint32_t dependencyCount, VkSubpassDependency* pDependencies){
     VkRenderPassCreateInfo renderPassInfo{};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -255,7 +254,7 @@ VkRenderPassCreateInfo Vk::Structs::renderpass_create_info(std::vector<VkAttachm
     return renderPassInfo;
 }
 
-VkDescriptorSetLayoutBinding Vk::Structs::descriptorset_layout_binding(uint32_t binding, enum VkDescriptorType type, uint32_t descriptorCount, VkShaderStageFlags stageFlags, VkSampler* pSampler){
+VkDescriptorSetLayoutBinding Vk::Structures::descriptorset_layout_binding(uint32_t binding, enum VkDescriptorType type, uint32_t descriptorCount, VkShaderStageFlags stageFlags, VkSampler* pSampler){
     VkDescriptorSetLayoutBinding layoutBinding{};
     layoutBinding.binding = binding; //specifies the binding used in the shader (location 0)
     layoutBinding.descriptorType = type; //specified the descriptor type
@@ -270,7 +269,7 @@ VkDescriptorSetLayoutBinding Vk::Structs::descriptorset_layout_binding(uint32_t 
     return layoutBinding;
 }
 
-VkDescriptorSetLayoutCreateInfo Vk::Structs::descriptorset_layout_create_info(std::vector<VkDescriptorSetLayoutBinding>& bindings){
+VkDescriptorSetLayoutCreateInfo Vk::Structures::descriptorset_layout_create_info(std::vector<VkDescriptorSetLayoutBinding>& bindings){
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -278,7 +277,7 @@ VkDescriptorSetLayoutCreateInfo Vk::Structs::descriptorset_layout_create_info(st
     return layoutInfo;
 }
 
-VkPipelineShaderStageCreateInfo Vk::Structs::pipeline_shader_stage_create_info(enum VkShaderStageFlagBits pipelineStage, VkShaderModule &shaderModule, const VkSpecializationInfo* pSpecialInfo){
+VkPipelineShaderStageCreateInfo Vk::Structures::pipeline_shader_stage_create_info(enum VkShaderStageFlagBits pipelineStage, VkShaderModule &shaderModule, const VkSpecializationInfo* pSpecialInfo){
     //to actually use the shaders we will  need to assign them to a specific pipeline stage 
     //through VkPipelineShaderStageCreateInfo struct as part of the pipeline creation process
     VkPipelineShaderStageCreateInfo shaderStageInfo{};
@@ -294,7 +293,7 @@ VkPipelineShaderStageCreateInfo Vk::Structs::pipeline_shader_stage_create_info(e
 //    const VkVertexInputAttributeDescription* pVertexAttributeDescriptions,  uint32_t vertexAttributeDescriptionCount){
 //VkPipelineVertexInputStateCreateInfo Vk::Structs::pipeline_vertex_input_create_info(uint32_t bindingDescriptionCount, const VkVertexInputBindingDescription* pBindingDescriptions, 
 //       std::vector<VkVertexInputAttributeDescription>& attributeDescriptions){
-VkPipelineVertexInputStateCreateInfo Vk::Structs::pipeline_vertex_input_create_info(VertexInputDescription& vertexInputDescription){
+VkPipelineVertexInputStateCreateInfo Vk::Structures::pipeline_vertex_input_create_info(VertexInputDescription& vertexInputDescription){
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
     vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputDescription.bindings.size()); // there is only one binding description
@@ -305,7 +304,7 @@ VkPipelineVertexInputStateCreateInfo Vk::Structs::pipeline_vertex_input_create_i
     return vertexInputInfo;
 }
 
-VkPipelineInputAssemblyStateCreateInfo Vk::Structs::pipeline_input_assembly_state_create_info(enum VkPrimitiveTopology topology, VkBool32 restartEnabled){
+VkPipelineInputAssemblyStateCreateInfo Vk::Structures::pipeline_input_assembly_state_create_info(enum VkPrimitiveTopology topology, VkBool32 restartEnabled){
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     inputAssembly.topology = topology;
@@ -313,7 +312,7 @@ VkPipelineInputAssemblyStateCreateInfo Vk::Structs::pipeline_input_assembly_stat
     return inputAssembly;
 }
 
-VkViewport Vk::Structs::viewport(float x, float y, float width, float height, float minDepth, float maxDepth){
+VkViewport Vk::Structures::viewport(float x, float y, float width, float height, float minDepth, float maxDepth){
     VkViewport viewport{};
     viewport.x = x;
     viewport.y = y;
@@ -324,14 +323,14 @@ VkViewport Vk::Structs::viewport(float x, float y, float width, float height, fl
     return viewport;
 }
 
-VkRect2D Vk::Structs::scissor(int32_t offsetX, int32_t offsetY, VkExtent2D& extent){
+VkRect2D Vk::Structures::scissor(int32_t offsetX, int32_t offsetY, VkExtent2D& extent){
     VkRect2D scissor{};
     scissor.offset = {offsetX, offsetY};
     scissor.extent = extent;
     return scissor;
 }
 
-VkPipelineViewportStateCreateInfo Vk::Structs::pipeline_viewport_state_create_info(uint32_t viewportCount, const VkViewport* viewport, uint32_t scissorCount, const VkRect2D* scissor){
+VkPipelineViewportStateCreateInfo Vk::Structures::pipeline_viewport_state_create_info(uint32_t viewportCount, const VkViewport* viewport, uint32_t scissorCount, const VkRect2D* scissor){
     VkPipelineViewportStateCreateInfo viewportState{};
     viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewportState.viewportCount = 1;
@@ -341,7 +340,7 @@ VkPipelineViewportStateCreateInfo Vk::Structs::pipeline_viewport_state_create_in
     return viewportState;
 }
 
-VkPipelineRasterizationStateCreateInfo Vk::Structs::pipeline_rasterization_state_create_info(enum VkPolygonMode polygonMode, VkCullModeFlags cullMode,
+VkPipelineRasterizationStateCreateInfo Vk::Structures::pipeline_rasterization_state_create_info(enum VkPolygonMode polygonMode, VkCullModeFlags cullMode,
        enum VkFrontFace frontFace, VkBool32 depthClamp, VkBool32 depthBiasEnable, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor, VkBool32 discard){
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;;
@@ -363,7 +362,7 @@ VkPipelineRasterizationStateCreateInfo Vk::Structs::pipeline_rasterization_state
     return rasterizer;
 }
 
-VkPipelineMultisampleStateCreateInfo Vk::Structs::pipeline_msaa_state_create_info(VkSampleCountFlagBits rasterizationSamples){
+VkPipelineMultisampleStateCreateInfo Vk::Structures::pipeline_msaa_state_create_info(VkSampleCountFlagBits rasterizationSamples){
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
     multisampling.rasterizationSamples = rasterizationSamples;
@@ -375,7 +374,7 @@ VkPipelineMultisampleStateCreateInfo Vk::Structs::pipeline_msaa_state_create_inf
     return multisampling;
 }
 
-VkPipelineDepthStencilStateCreateInfo Vk::Structs::pipeline_depth_stencil_state_create_info(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, enum VkCompareOp depthCompareOp,
+VkPipelineDepthStencilStateCreateInfo Vk::Structures::pipeline_depth_stencil_state_create_info(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, enum VkCompareOp depthCompareOp,
         VkBool32 depthBoundsTestEnable, float minDepthBound, float maxDepthBound){
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
     depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -395,7 +394,7 @@ VkPipelineDepthStencilStateCreateInfo Vk::Structs::pipeline_depth_stencil_state_
     return depthStencil;    
 }
 
-VkPipelineColorBlendAttachmentState Vk::Structs::pipeline_colour_blend_attachment(VkColorComponentFlags colourComponentFlags, VkBool32 blendEnable, enum VkBlendFactor srcCBlendFactor, enum VkBlendFactor dstCBlendFactor, 
+VkPipelineColorBlendAttachmentState Vk::Structures::pipeline_colour_blend_attachment(VkColorComponentFlags colourComponentFlags, VkBool32 blendEnable, enum VkBlendFactor srcCBlendFactor, enum VkBlendFactor dstCBlendFactor, 
         enum VkBlendFactor srcABlendFactor, enum VkBlendFactor dstABlendFactor){
     VkPipelineColorBlendAttachmentState colourBlendAttachment{};
     colourBlendAttachment.colorWriteMask = colourComponentFlags;
@@ -422,7 +421,7 @@ VkPipelineColorBlendAttachmentState Vk::Structs::pipeline_colour_blend_attachmen
     //All possible operations in VkBlendFactor and VkBlendOp in enumerations in the specification*/
 }
 
-VkPipelineColorBlendStateCreateInfo Vk::Structs::pipeline_colour_blend_state_create_info(uint32_t attachmentCount, const VkPipelineColorBlendAttachmentState* colourBlendAttachment){
+VkPipelineColorBlendStateCreateInfo Vk::Structures::pipeline_colour_blend_state_create_info(uint32_t attachmentCount, const VkPipelineColorBlendAttachmentState* colourBlendAttachment){
     VkPipelineColorBlendStateCreateInfo colourBlending{};
     colourBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
     colourBlending.logicOpEnable = VK_FALSE;
@@ -435,7 +434,7 @@ VkPipelineColorBlendStateCreateInfo Vk::Structs::pipeline_colour_blend_state_cre
     colourBlending.blendConstants[3] = 0.0f; //optional
     return colourBlending;
 }
-VkPipelineDynamicStateCreateInfo Vk::Structs::pipeline_dynamic_state_create_info(uint32_t dynamicStateCount, const VkDynamicState* dynamicStates){
+VkPipelineDynamicStateCreateInfo Vk::Structures::pipeline_dynamic_state_create_info(uint32_t dynamicStateCount, const VkDynamicState* dynamicStates){
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamicState.dynamicStateCount = dynamicStateCount;
@@ -443,7 +442,7 @@ VkPipelineDynamicStateCreateInfo Vk::Structs::pipeline_dynamic_state_create_info
     return dynamicState;
 }
 
-VkPipelineLayoutCreateInfo Vk::Structs::pipeline_layout_create_info(uint32_t setLayoutCount, const VkDescriptorSetLayout* pSetLayouts, 
+VkPipelineLayoutCreateInfo Vk::Structures::pipeline_layout_create_info(uint32_t setLayoutCount, const VkDescriptorSetLayout* pSetLayouts, 
         uint32_t pushConstRangeCount, const VkPushConstantRange* pushConstantRanges){
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -454,7 +453,7 @@ VkPipelineLayoutCreateInfo Vk::Structs::pipeline_layout_create_info(uint32_t set
     return pipelineLayoutInfo;
 }
 
-VkGraphicsPipelineCreateInfo Vk::Structs::graphics_pipeline_create_info(uint32_t stageCount,const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, 
+VkGraphicsPipelineCreateInfo Vk::Structures::graphics_pipeline_create_info(uint32_t stageCount,const std::vector<VkPipelineShaderStageCreateInfo>& shaderStages, 
         const VkPipelineVertexInputStateCreateInfo* vertexInputInfo, const VkPipelineInputAssemblyStateCreateInfo* inputAssembly,
         const VkPipelineViewportStateCreateInfo* viewportState, const VkPipelineRasterizationStateCreateInfo* rasterizer,
         const VkPipelineMultisampleStateCreateInfo* multisampling, const VkPipelineDepthStencilStateCreateInfo* depthStencil,
@@ -490,7 +489,7 @@ VkGraphicsPipelineCreateInfo Vk::Structs::graphics_pipeline_create_info(uint32_t
     return pipelineInfo;
 }
 
-VkShaderModuleCreateInfo Vk::Structs::shader_module_create_info(const std::vector<char>& code){
+VkShaderModuleCreateInfo Vk::Structures::shader_module_create_info(const std::vector<char>& code){
 VkShaderModuleCreateInfo shaderCreateInfo{};
     shaderCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shaderCreateInfo.codeSize = code.size();
@@ -501,7 +500,7 @@ VkShaderModuleCreateInfo shaderCreateInfo{};
     return shaderCreateInfo;
 }
 
-VkFramebufferCreateInfo Vk::Structs::framebuffer_create_info(VkRenderPass& renderPass, std::vector<VkImageView>& attachments, VkExtent2D& extent, uint32_t layers){
+VkFramebufferCreateInfo Vk::Structures::framebuffer_create_info(VkRenderPass& renderPass, std::vector<VkImageView>& attachments, VkExtent2D& extent, uint32_t layers){
     VkFramebufferCreateInfo framebufferInfo{};
     framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebufferInfo.renderPass = renderPass; //specify which renderPass the framebuffer uses, needs to be campatible, basically the same number and attachments
@@ -513,7 +512,7 @@ VkFramebufferCreateInfo Vk::Structs::framebuffer_create_info(VkRenderPass& rende
     return framebufferInfo;
 }
 
-VkCommandPoolCreateInfo Vk::Structs::command_pool_create_info(uint32_t queueFamilyIndex){
+VkCommandPoolCreateInfo Vk::Structures::command_pool_create_info(uint32_t queueFamilyIndex){
     VkCommandPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     poolInfo.queueFamilyIndex = queueFamilyIndex; //we are submitting drawing commands so we need graphics queue family
@@ -521,7 +520,7 @@ VkCommandPoolCreateInfo Vk::Structs::command_pool_create_info(uint32_t queueFami
     return poolInfo;
 }
 
-VkImageCreateInfo Vk::Structs::image_create_info(enum VkImageType imageType, uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arrayLayers, VkFormat& format,
+VkImageCreateInfo Vk::Structures::image_create_info(enum VkImageType imageType, uint32_t width, uint32_t height, uint32_t depth, uint32_t mipLevels, uint32_t arrayLayers, VkFormat& format,
         VkImageTiling& tiling, enum VkImageLayout initialLayout, VkImageUsageFlags usage, VkSampleCountFlagBits numSamples, VkImageCreateFlagBits flags,
         enum VkSharingMode shardingMode, uint32_t queueFamilyIndexCount, uint32_t queueFamilyIndices[]){
     VkImageCreateInfo imageInfo{};
@@ -571,7 +570,7 @@ VkImageCreateInfo Vk::Structs::image_create_info(enum VkImageType imageType, uin
     return imageInfo;
 }
 
-VmaAllocationCreateInfo Vk::Structs::vma_allocation_create_info(enum VmaMemoryUsage usage){
+VmaAllocationCreateInfo Vk::Structures::vma_allocation_create_info(enum VmaMemoryUsage usage){
     VmaAllocationCreateInfo allocInfo{};
     //VMA_MEMORY_USAGE_GPU_ONLY;
     //VMA_MEMORY_USAGE_CPU_ONLY;
@@ -581,7 +580,7 @@ VmaAllocationCreateInfo Vk::Structs::vma_allocation_create_info(enum VmaMemoryUs
     return allocInfo;
 }
 
-VkImageMemoryBarrier Vk::Structs::image_memory_barrier(VkImage& image, VkImageAspectFlags aspectMask, uint32_t baseArrayLayer, 
+VkImageMemoryBarrier Vk::Structures::image_memory_barrier(VkImage& image, VkImageAspectFlags aspectMask, uint32_t baseArrayLayer, 
 uint32_t layerCount, uint32_t levelCount, uint32_t srcQueueFamilyIndex, uint32_t dstQueueFamilyIndex){
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -597,7 +596,7 @@ uint32_t layerCount, uint32_t levelCount, uint32_t srcQueueFamilyIndex, uint32_t
     return barrier;
 }
 
-VkImageBlit Vk::Structs::image_blit(int32_t mipWidth, int32_t mipHeight, VkImageAspectFlags srcAspectMask, VkImageAspectFlags dstAspectMask, uint32_t mipLevel){
+VkImageBlit Vk::Structures::image_blit(int32_t mipWidth, int32_t mipHeight, VkImageAspectFlags srcAspectMask, VkImageAspectFlags dstAspectMask, uint32_t mipLevel){
     VkImageBlit blit{};
     blit.srcOffsets[0] = { 0, 0, 0 };
     blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
@@ -614,7 +613,7 @@ VkImageBlit Vk::Structs::image_blit(int32_t mipWidth, int32_t mipHeight, VkImage
     return blit;
 }
 
-VkImageViewCreateInfo Vk::Structs::image_view_create_info(VkImage& image, enum VkImageViewType viewType, enum VkFormat format, VkImageAspectFlags aspectFlags,
+VkImageViewCreateInfo Vk::Structures::image_view_create_info(VkImage& image, enum VkImageViewType viewType, enum VkFormat format, VkImageAspectFlags aspectFlags,
         uint32_t baseMipLevel, uint32_t mipLevels, uint32_t baseArrayLayer, uint32_t layerCount){
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -629,7 +628,7 @@ VkImageViewCreateInfo Vk::Structs::image_view_create_info(VkImage& image, enum V
     return viewInfo;
 }
 
-VkSamplerCreateInfo Vk::Structs::sampler_create_info(enum VkFilter magAndMinFilter, enum VkSamplerAddressMode uvwAddressModes, VkBool32 anisotropyEnable,
+VkSamplerCreateInfo Vk::Structures::sampler_create_info(enum VkFilter magAndMinFilter, enum VkSamplerAddressMode uvwAddressModes, VkBool32 anisotropyEnable,
         uint32_t maxAnisotropy, enum VkBorderColor borderColour, VkBool32 compareEnable, enum VkCompareOp compareOp, enum VkSamplerMipmapMode mipmapMode,
         float mipLodBias, float minLod, float maxLod){
     VkSamplerCreateInfo samplerInfo{};
@@ -670,7 +669,7 @@ VkSamplerCreateInfo Vk::Structs::sampler_create_info(enum VkFilter magAndMinFilt
     return samplerInfo;
 }
 
-VkBufferCreateInfo Vk::Structs::buffer_create_info(VkDeviceSize& size, VkBufferUsageFlags& usage, enum VkSharingMode sharingMode, uint32_t queueFamilyIndexCount,
+VkBufferCreateInfo Vk::Structures::buffer_create_info(VkDeviceSize& size, VkBufferUsageFlags& usage, enum VkSharingMode sharingMode, uint32_t queueFamilyIndexCount,
     const uint32_t* pQueueFamilyIndices){
     VkBufferCreateInfo bufferInfo{};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -689,7 +688,7 @@ VkBufferCreateInfo Vk::Structs::buffer_create_info(VkDeviceSize& size, VkBufferU
     return bufferInfo;
 }
 
-VkCommandBufferAllocateInfo Vk::Structs::command_buffer_allocate_info(enum VkCommandBufferLevel level, VkCommandPool& pool, uint32_t commandBufferCount){
+VkCommandBufferAllocateInfo Vk::Structures::command_buffer_allocate_info(enum VkCommandBufferLevel level, VkCommandPool& pool, uint32_t commandBufferCount){
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.level = level;
@@ -698,14 +697,14 @@ VkCommandBufferAllocateInfo Vk::Structs::command_buffer_allocate_info(enum VkCom
     return allocInfo;
 }
 
-VkCommandBufferBeginInfo Vk::Structs::command_buffer_begin_info(VkCommandBufferUsageFlags flags){
+VkCommandBufferBeginInfo Vk::Structures::command_buffer_begin_info(VkCommandBufferUsageFlags flags){
     VkCommandBufferBeginInfo beginInfo{};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT ; //good practice to signal this is a one time submission.
     return beginInfo;
 }
 
-VkBufferCopy Vk::Structs::buffer_copy(VkDeviceSize& size){
+VkBufferCopy Vk::Structures::buffer_copy(VkDeviceSize& size){
     VkBufferCopy copyRegion{};
     copyRegion.srcOffset = 0; //optional
     copyRegion.dstOffset = 0; //optional
@@ -713,7 +712,7 @@ VkBufferCopy Vk::Structs::buffer_copy(VkDeviceSize& size){
     return copyRegion;
 }
 
-VkBufferImageCopy Vk::Structs::buffer_image_copy(VkDeviceSize byteOffset, uint32_t width, uint32_t height, enum VkImageAspectFlagBits aspectMask, 
+VkBufferImageCopy Vk::Structures::buffer_image_copy(VkDeviceSize byteOffset, uint32_t width, uint32_t height, enum VkImageAspectFlagBits aspectMask, 
     uint32_t mipLevel, uint32_t baseArrayLayer, uint32_t layerCount, uint32_t bufferRowLength, uint32_t bufferImageHeight){
     VkBufferImageCopy region{};
     region.bufferOffset = byteOffset; //byte offset in buffer at which pixel values start
@@ -731,14 +730,14 @@ VkBufferImageCopy Vk::Structs::buffer_image_copy(VkDeviceSize byteOffset, uint32
     return region;
 }
 
-VkDescriptorPoolSize Vk::Structs::descriptor_pool_size(enum VkDescriptorType type, uint32_t size){
+VkDescriptorPoolSize Vk::Structures::descriptor_pool_size(enum VkDescriptorType type, uint32_t size){
     VkDescriptorPoolSize poolSize;
     poolSize.type = type;
     poolSize.descriptorCount = size;
     return poolSize;
 }
 
-VkDescriptorPoolCreateInfo Vk::Structs::descriptor_pool_create_info(std::vector<VkDescriptorPoolSize>& poolSizes, uint32_t maxSets){
+VkDescriptorPoolCreateInfo Vk::Structures::descriptor_pool_create_info(std::vector<VkDescriptorPoolSize>& poolSizes, uint32_t maxSets){
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
@@ -749,7 +748,7 @@ VkDescriptorPoolCreateInfo Vk::Structs::descriptor_pool_create_info(std::vector<
     return poolInfo;
 }
 
-VkRenderPassBeginInfo Vk::Structs::render_pass_begin_info(VkRenderPass& renderPass, VkFramebuffer& frameBuffer, VkOffset2D offset, VkExtent2D& extent,
+VkRenderPassBeginInfo Vk::Structures::render_pass_begin_info(VkRenderPass& renderPass, VkFramebuffer& frameBuffer, VkOffset2D offset, VkExtent2D& extent,
         std::vector<VkClearValue>& clearValues){
     //starting a render pass
     VkRenderPassBeginInfo renderPassBeginInfo{};
@@ -769,7 +768,7 @@ VkRenderPassBeginInfo Vk::Structs::render_pass_begin_info(VkRenderPass& renderPa
     return renderPassBeginInfo;
 }
 
-VkDescriptorSetAllocateInfo Vk::Structs::descriptorset_allocate_info(VkDescriptorPool& descriptorPool, const VkDescriptorSetLayout* descriptorSetLayouts){
+VkDescriptorSetAllocateInfo Vk::Structures::descriptorset_allocate_info(VkDescriptorPool& descriptorPool, const VkDescriptorSetLayout* descriptorSetLayouts){
   VkDescriptorSetAllocateInfo allocInfo ={};
     allocInfo.pNext = nullptr;
     allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -779,7 +778,7 @@ VkDescriptorSetAllocateInfo Vk::Structs::descriptorset_allocate_info(VkDescripto
     return allocInfo;
 }
 
-VkWriteDescriptorSet Vk::Structs::write_descriptorset(uint32_t dstBinding, VkDescriptorSet& dstSet, uint32_t descCount, enum VkDescriptorType type, 
+VkWriteDescriptorSet Vk::Structures::write_descriptorset(uint32_t dstBinding, VkDescriptorSet& dstSet, uint32_t descCount, enum VkDescriptorType type, 
         const VkDescriptorBufferInfo* pBufferInfo, const VkDescriptorImageInfo* pImageInfo){
     VkWriteDescriptorSet setWrite{};
     setWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

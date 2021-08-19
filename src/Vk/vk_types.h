@@ -18,28 +18,28 @@ struct GPUPointLightData {
     alignas(16) glm::vec3 diffuse;
     alignas(16) glm::vec3 specular;
     alignas(16) glm::vec3 attenuation; // x - constant, y - linear, z - quadratic
+    
+    //SHADOWMAP can store transformation matrix here, need to update it one per tick
 };
 
-//struct for holding the point light data
-struct GPUSpotLightData {
-	alignas(16) glm::vec3 position;
-    alignas(16) glm::vec3 ambient;
-    alignas(16) glm::vec3 diffuse;
-    alignas(16) glm::vec3 specular;
-    alignas(16) glm::vec3 attenuation; // x - constant, y - linear, z - quadratic
+//struct for holding the spot light data
+struct GPUSpotLightData : GPUPointLightData {
     alignas(16) glm::vec3 direction; // z - is the spotlight angle
     alignas(16) glm::vec2 cutoffs; // z - is the spotlight angle
-    //angles
+    alignas(16) glm::mat4 depthMVP; //for the shadowmap
 };
 
 //struct for holding the scene data
 struct GPUSceneData {
-	//glm::vec4 cameraPos; // w is ignored, no longer needed
-	glm::vec4 fogDistances; //x for min, y for max, zw unused.
 	glm::vec4 lightDirection; //w for sun power
     glm::vec4 lightAmbient;
     glm::vec4 lightDiffuse;
     glm::vec4 lightSpecular;
+    //SHADOWMAP we should have a transformation matrix here, needs to be orthographic projection 
+    // Compute the MVP matrix from the light's point of view
+    glm::mat4 depthMVP;
+    //and we h
+    VkImage shadowmap;
 };
 
 //struct for holding the cameradata on GPU for reading from vertex shader
@@ -49,7 +49,7 @@ struct GPUCameraData{
     glm::mat4 viewproj;
 };
 
-//will hold a properties for each material
+//will hold properties for each material
 struct GPUMaterialData {
     alignas(16) glm::vec3 diffuse;
     alignas(16) glm::vec3 specular;

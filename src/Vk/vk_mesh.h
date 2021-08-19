@@ -7,8 +7,6 @@
 
 //this all needs cleaner up or moved into relevant classes/namespaces?
 
-
-
 struct VertexInputDescription {
 	std::vector<VkVertexInputBindingDescription> bindings;
 	std::vector<VkVertexInputAttributeDescription> attributes;

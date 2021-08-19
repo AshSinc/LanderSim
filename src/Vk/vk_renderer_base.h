@@ -11,6 +11,7 @@
 #include "vk_mesh.h"
 #include <unordered_map>
 #include <vector>
+#include <vk_mem_alloc.h>
 
 class UiHandler; //forward declare
 class WorldPhysics;
@@ -25,24 +26,30 @@ class Vertex;
 namespace Vk{
     class ImageHelper;
 
+    const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
+    const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i think 2 is standard according to this study by intel https://software.intel.com/content/www/us/en/develop/articles/practical-approach-to-vulkan-part-1.html
+    const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
+    const int MAX_LIGHTS = 10;
+
+    struct RenderStats{
+        double framerate = 0;
+        double fps = 0;
+    };
+
     class RendererBase{
-        public:
+    public:
 
-        struct RenderStats{
-            double framerate = 0;
-            double fps = 0;
-        }renderStats;
-
+        RenderStats renderStats;
         RenderStats& getRenderStats();
 
         struct DeletionQueue{
             std::deque<std::function<void()>> deletors;
-            void push_function(std::function<void()>&& function) {
+            void push_function(std::function<void()>&& function){
                 deletors.push_back(function);
             }
             void flush() {
                 // reverse iterate the deletion queue to execute all the functions
-                for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+                for (auto it = deletors.rbegin(); it != deletors.rend(); it++){
                     (*it)(); //call functors
                 }
                 deletors.clear();
@@ -57,7 +64,7 @@ namespace Vk{
         //constructor, should have code to enforce one instance
         RendererBase(GLFWwindow* windowptr, Mediator& mediator);
         //Exposed Functions for Main.cpp
-        void init(); //initialise engine (WorldPhysics* worldPhysics)
+        void init(); //initialise engine
         virtual void drawFrame() = 0; //draw a frame
         void cleanup(); //cleanup objects
 
@@ -83,8 +90,6 @@ namespace Vk{
         void createVkInstance();
         void createCommandPools();
 
-        //Cleanup
-        
         void flushSwapChain();
  
         //#ifdef NDEBUG //NDEBUG is a standard C++ macro for checking if we are compiling in debug mode or not
@@ -134,9 +139,7 @@ namespace Vk{
         VmaAllocation indexBufferAllocation; //stores the handle to the assigned memory on the GPU 
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size); //no need for public right now 
         
-        //Vars
         protected:
-        //Functions
         
         std::unordered_map<std::string,Material> _materials;
         Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout,const std::string& name, int id);
@@ -157,7 +160,6 @@ namespace Vk{
         std::vector<VkClearValue> clearValues; //stores clean values for clearing an image
 
         VkDescriptorSetLayout _multiTextureSetLayout;
-        VkDescriptorSetLayout _singleTextureSetLayout;
         VkDescriptorSetLayout _globalSetLayout; //handle to our global descriptor layout used for ubo, camera and sampler, set 0
         VkDescriptorSetLayout _objectSetLayout; //handle to our object descriptor layout, set 1
         VkDescriptorSetLayout _materialSetLayout; //handle to our object descriptor layout, set 1
@@ -184,8 +186,7 @@ namespace Vk{
         std::mutex queueSubmitMutex;
         Mediator& r_mediator;
         
-        //std::unique_ptr<Vk::ImageHelper> imageHelper;
-        Vk::ImageHelper* imageHelper;// = //would be better with unique_ptr, or just regular object! why doesnt that work, think its circular includes
+        Vk::ImageHelper* imageHelper;//would be better with unique_ptr, or just regular object! why doesnt that work, think its circular includes
         VkInstance instance;
         VkDebugUtilsMessengerEXT debugMessenger; //can have as many of these debug messenger obj as we want
         Vk::Debug::Messenger extDebug; //external debug trying to remove from code
@@ -201,13 +202,13 @@ namespace Vk{
         VkExtent2D swapChainExtent; //stores the extent we specified in the swap chain for later use
         std::vector<VkImageView> swapChainImageViews; //stores the image views
         VkRenderPass renderPass; //handle to render pass object
-        //Vars
+
         VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT; //MSAA, we will use a default of 1 sample per pixel which is no MSAA, but then check for support and adjsut at runtime
         
         std::vector<FrameData> _frames; //stores per frame variables like buffers and synchronization variables
 
         VkCommandPool transientCommandPool; //stores our transient command pool (for short lived command buffers) //TESTING
-        //Init
+
         size_t pad_uniform_buffer_size(size_t originalSize);
         std::vector<VkFence> imagesInFlight;
     };

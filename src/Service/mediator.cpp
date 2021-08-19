@@ -1,5 +1,6 @@
 #include "mediator.h"
 #include "application.h"
+#include "vk_renderer.h"
 
 //Scene Functions
 int Mediator::scene_getWorldObjectsCount(){
@@ -61,20 +62,15 @@ void Mediator::physics_reset(){
 }
 
 //Renderer functions
-Vk::Renderer::RenderStats& Mediator::renderer_getRenderStats(){
+Vk::RenderStats& Mediator::renderer_getRenderStats(){
     return p_renderEngine->getRenderStats();
 }
 std::vector<Vertex>& Mediator::renderer_getAllVertices(){
     return p_renderEngine->get_allVertices();
 } //reference all loaded model vertices
-
 std::vector<uint32_t>& Mediator::renderer_getAllIndices(){
     return p_renderEngine->get_allIndices();
 } //reference all loaded model vertices
-
-int Mediator::renderer_getMeshId(const std::string& name){
-    return p_renderEngine->getMeshId(name);
-}
 Material* Mediator::renderer_getMaterial(const std::string& name){
     return p_renderEngine->getMaterial(name);
 }
@@ -93,6 +89,9 @@ void Mediator::renderer_allocateDescriptorSetForTexture(const std::string& mater
 void Mediator::renderer_allocateDescriptorSetForSkybox(){
     p_renderEngine->allocateDescriptorSetForSkybox();
 }
+void Mediator::renderer_allocateShadowMapImages(){
+    p_renderEngine->allocateShadowMapImages();
+}
 void Mediator::renderer_setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
     p_renderEngine->setLightPointers(sceneLight, pointLights, spotLights);
 }
@@ -105,8 +104,8 @@ Mesh* Mediator::renderer_getLoadedMesh(std::string name){
 void Mediator::renderer_mapMaterialDataToGPU(){
     p_renderEngine->mapMaterialDataToGPU();
 }
-void Mediator::renderer_reset(){
-    p_renderEngine->reset();
+void Mediator::renderer_resetScene(){
+    p_renderEngine->resetScene();
 }
 void Mediator::renderer_flushTextures(){
     p_renderEngine->flushTextures();

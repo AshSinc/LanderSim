@@ -2,7 +2,6 @@
 #extension GL_ARB_separate_shader_objects : enable
 
 layout(set = 0, binding = 1) uniform SceneData{   
-	vec4 fogDistances;
 	vec4 lightDirection;
     vec4 lightAmbient;
     vec4 lightDiffuse;
@@ -25,9 +24,9 @@ struct MaterialData{
 
 //all object matrices
 //std140 enforces rules about memory layout and alignment
-//set is 1 and binding is 0 because its a new descriptor set slot
+//set is 2 and binding is 0 because its a new descriptor set slot
 layout( std140, set = 2, binding = 0 ) uniform MaterialBuffer{   
-	MaterialData materials[4]; //statically set materials max size in shader :(  could use storage buffer instead? there must be a way with uniform buffer though?
+	MaterialData materials[4]; //WARNING!!! statically set materials max size in shader :(  could use storage buffer instead? there must be a way with uniform buffer though?
 } materialBuffer;
 
 //point lighting object holds point light parameters
@@ -51,11 +50,11 @@ struct SpotLightingData{
 }; 
 
 layout( std140, set = 3, binding = 0 ) uniform PointLightingBuffer{   
-	PointLightingData lights[10]; //statically set light max size in shader
+	PointLightingData lights[10]; //WARNING!!! statically set light max size in shader
 } pointLightingBuffer;
 
 layout( std140, set = 3, binding = 1 ) uniform SpotLightingBuffer{   
-	SpotLightingData lights[10]; //statically set light max size in shader
+	SpotLightingData lights[10]; //WARNING!!! statically set light max size in shader
 } spotLightingBuffer;
 
 layout(set = 4, binding = 0) uniform sampler2D diffSampler;
@@ -87,9 +86,10 @@ void main() {
 	for(int i = 0; i < PushConstants.numSpotLights; i++)
 		result += CalcSpotLight(spotLightingBuffer.lights[i], norm, fragPos, viewDir);
 
-	float gamma = 2.2;
+	float gamma = 1.1;
 	vec3 gammaCorrected = pow(result, vec3(1.0/gamma));
-	outColor = vec4(result, 1.0);
+	//outColor = vec4(result, 1.0);
+	outColor = vec4(gammaCorrected, 1.0);
 }
 
 vec3 CalcDirLight(vec3 normal, vec3 viewDir){

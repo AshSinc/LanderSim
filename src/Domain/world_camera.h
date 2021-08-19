@@ -4,7 +4,6 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
 #include <glm/glm.hpp>
 #include <vector>
-//#include <atomic>
 
 class WorldObject;
 class Mediator;

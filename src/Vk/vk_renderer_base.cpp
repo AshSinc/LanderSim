@@ -1,6 +1,6 @@
 #include "vk_renderer_base.h"
 #include "vk_init_queries.h"
-#include "vk_structs.h"
+#include "vk_structures.h"
 #include "vk_images.h"
 #include "vk_pipeline.h"
 #include <imgui.h> //basic gui library for drawing simple guis
@@ -15,7 +15,6 @@ Vk::RendererBase::RendererBase(GLFWwindow* windowptr, Mediator& mediator): windo
 }
 
 void Vk::RendererBase::init(){
-    //imageHelper = std::make_unique<ImageHelper>(this);
     createVkInstance();
     if (enableValidationLayers){
         Vk::Debug::Messenger::setupDebugMessenger(instance, &debugMessenger);
@@ -61,7 +60,7 @@ void Vk::RendererBase::createVkInstance(){
         throw std::runtime_error("Validation layers requested, but not available.");
     }
 
-    VkApplicationInfo appInfo = Vk::Structs::app_info("Vulkan Testing App Name");
+    VkApplicationInfo appInfo = Vk::Structures::app_info("Vulkan Testing App Name");
     VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo; //also set up debug callbacks for create and destroy
     uint32_t enabledLayerCount = 0;
     const char *const *enabledLayerNames; //wtf 
@@ -74,7 +73,7 @@ void Vk::RendererBase::createVkInstance(){
         next = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
     }
     auto extensions = Vk::Init::getRequiredExtensions(enableValidationLayers);
-    VkInstanceCreateInfo createInfo = Vk::Structs::instance_create_info(appInfo, extensions, enabledLayerNames, enabledLayerCount, next);
+    VkInstanceCreateInfo createInfo = Vk::Structures::instance_create_info(appInfo, extensions, enabledLayerNames, enabledLayerCount, next);
 
     //call create instance, passing pointer to createInfo and instance, instance handle is stored in VKInstance instance
     if (vkCreateInstance(&createInfo, nullptr, &instance) != VK_SUCCESS)
@@ -124,7 +123,7 @@ void Vk::RendererBase::createLogicalDevice(){
         queueFamilyIndicesStruct.presentFamily.value(), queueFamilyIndicesStruct.transferFamily.value()};
 
     float queuePriority = 1.0f;
-    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos = Vk::Structs::queue_create_infos(uniqueQueueFamilies, &queuePriority);
+    std::vector<VkDeviceQueueCreateInfo> queueCreateInfos = Vk::Structures::queue_create_infos(uniqueQueueFamilies, &queuePriority);
 
     //currently available drivers only support a small number of queues for each family,
     //and we dont really need mroe than one because you can create all of the command buffers omn multiple threads
@@ -134,7 +133,7 @@ void Vk::RendererBase::createLogicalDevice(){
     deviceFeatures.samplerAnisotropy = VK_TRUE; //we want to enable the sampler anisotropy features for our sampler
 
     //with the previous 2 structs in place we can begin filling in the main VkDeviceCreateInfo struct
-    VkDeviceCreateInfo createInfo = Vk::Structs::device_create_info(deviceFeatures, queueCreateInfos, deviceExtensions);
+    VkDeviceCreateInfo createInfo = Vk::Structures::device_create_info(deviceFeatures, queueCreateInfos, deviceExtensions);
     
     //now we are ready to instantiate the logical device with a call to vkCreateDevice
     // params are the physical device to interface with, the queue and usage info we just specified,
@@ -160,7 +159,7 @@ void Vk::RendererBase::createLogicalDevice(){
 }
 
 void Vk::RendererBase::createMemAlloc(){
-    VmaAllocatorCreateInfo allocatorInfo = Vk::Structs::vma_allocator_info(physicalDevice, device, instance, allocator);  
+    VmaAllocatorCreateInfo allocatorInfo = Vk::Structures::vma_allocator_info(physicalDevice, device, instance, allocator);  
     vmaCreateAllocator(&allocatorInfo, &allocator);
     _mainDeletionQueue.push_function([=](){vmaDestroyAllocator(allocator);});
 }
@@ -183,7 +182,7 @@ void Vk::RendererBase::createSwapChain(){
     }
     uint32_t queueFamilyIndices[] = {queueFamilyIndicesStruct.graphicsFamily.value(), queueFamilyIndicesStruct.presentFamily.value()};
    
-    VkSwapchainCreateInfoKHR createInfo = Vk::Structs::swapchain_create_info(surface, imageCount, surfaceFormat, extent, queueFamilyIndices, swapChainSupport.capabilities.currentTransform, presentMode);
+    VkSwapchainCreateInfoKHR createInfo = Vk::Structures::swapchain_create_info(surface, imageCount, surfaceFormat, extent, queueFamilyIndices, swapChainSupport.capabilities.currentTransform, presentMode);
 
     //now we can create the swap chain with the call
     //params are logical device, the swapchain creation info, optional custom allocators, and a pointer to the variable to store the handle
@@ -224,11 +223,11 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
     //Create Descriptor Set layout describing the _globalSetLayout containing global scene and camera data
     //Cam is set 0 binding 0 because its first in this binding set
     //Scene is set 0 binding 1 because its second in this binding set
-    VkDescriptorSetLayoutBinding camBufferBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding camBufferBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     //binding for scene data at 1 in vertex and frag
-	VkDescriptorSetLayoutBinding sceneBind = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+	VkDescriptorSetLayoutBinding sceneBind = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     std::vector<VkDescriptorSetLayoutBinding> bindings =  {camBufferBinding, sceneBind};
-    VkDescriptorSetLayoutCreateInfo setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+    VkDescriptorSetLayoutCreateInfo setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_globalSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -239,10 +238,10 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
     //bind object storage buffer to 0 in vertex
     //this needs to be binding 1 because in allocatedescset for materials we add it to the write set in the second position (after texture set)
     //VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
-    VkDescriptorSetLayoutBinding materialsBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding materialsBind = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings = {materialsBind};
-	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_materialSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -250,10 +249,10 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
 
     //we will create the descriptor set layout for the objects as a seperate descriptor set
     //bind object storage buffer to 0 in vertex
-    VkDescriptorSetLayoutBinding objectBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding objectBind = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     bindings.clear();
     bindings = {objectBind};
-	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_objectSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
@@ -261,42 +260,31 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
 
     //we will create the descriptor set layout for the lights, could maybe be combined with materials? or object?
     //bind light storage buffer to 0 in frag
-    VkDescriptorSetLayoutBinding pointLightsBind = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    VkDescriptorSetLayoutBinding spotLightsBind = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding pointLightsBind = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding spotLightsBind = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings = {pointLightsBind, spotLightsBind};
-	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+	setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_lightingSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _lightingSetLayout, nullptr);});
 
-    //then we will create the descriptor set layout for the sampler as another seperate descriptor set
-    //bind samplerBuffer to 0 in frag 
-    VkDescriptorSetLayoutBinding textureLayoutBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
-    bindings.clear(); //clean this up no need for vectors here
-    bindings =  {textureLayoutBinding};
-	setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
-    if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_singleTextureSetLayout) != VK_SUCCESS){
-        throw std::runtime_error("Failed to create sampler texture set layout");
-    }
-    _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _singleTextureSetLayout, nullptr);});
-
-    VkDescriptorSetLayoutBinding diffuseSetBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding diffuseSetBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     //binding for scene data at 1 in vertex and frag
-	VkDescriptorSetLayoutBinding specularSetBinding = Vk::Structs::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+	VkDescriptorSetLayoutBinding specularSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings =  {diffuseSetBinding, specularSetBinding};
-    setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+    setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_multiTextureSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create descriptor set layout");
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _multiTextureSetLayout, nullptr);});
 
-    VkDescriptorSetLayoutBinding skyboxSetBinding = Vk::Structs::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding skyboxSetBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     bindings.clear();
     bindings =  {skyboxSetBinding};
-    setinfo = Vk::Structs::descriptorset_layout_create_info(bindings);
+    setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
     if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &_skyboxSetLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create skybox set layout");
     }
@@ -311,7 +299,7 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
 void Vk::RendererBase::createCommandPools(){
     //Command buffers are execued by submitting them on one of the device queues, liek graphics or presentation queues we retrieved.
     //Each command pool can only allocate command buffers that are submitted on a single type of queue.
-    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    VkCommandPoolCreateInfo poolInfo = Vk::Structures::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
 
     for (int i = 0; i < _frames.size(); i++) {
         if(vkCreateCommandPool(device, &poolInfo, nullptr, &_frames[i]._commandPool) != VK_SUCCESS){
@@ -330,7 +318,7 @@ void Vk::RendererBase::createCommandPools(){
 		vkDestroyCommandPool(device, transferCommandPool, nullptr);
 	});
 
-    VkCommandPoolCreateInfo uploadCommandPoolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    VkCommandPoolCreateInfo uploadCommandPoolInfo = Vk::Structures::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
 	//create pool for upload context //unused?
 	if(vkCreateCommandPool(device, &uploadCommandPoolInfo, nullptr, &_uploadContext._commandPool)!= VK_SUCCESS){
         throw std::runtime_error("Failed to create upload command pool");
@@ -424,29 +412,34 @@ void Vk::RendererBase::createUniformBuffers(){
 
 void Vk::RendererBase::createSamplers(){
     //create a sampler for texture
-	VkSamplerCreateInfo difSamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
+	VkSamplerCreateInfo difSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
         static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &difSamplerInfo, nullptr, &diffuseSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, diffuseSampler, nullptr);});
 
-    VkSamplerCreateInfo specSamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
+    VkSamplerCreateInfo specSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
         static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &specSamplerInfo, nullptr, &specularSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, specularSampler, nullptr);});
 
-    VkSamplerCreateInfo skySamplerInfo = Vk::Structs::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
+    VkSamplerCreateInfo skySamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
 	vkCreateSampler(device, &skySamplerInfo, nullptr, &skyboxSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, skyboxSampler, nullptr);});
+
+    //create a ShadowMap sampler here
+
+    //create a LanderLadar sampler ?
+    //This depends on if we are going to read it from compute shaders. AI could potentially run CPU or GPU or a bit of both? 
 }
 
 //before we can finish creating the pipeline, we need to tell vulkan about the framebuffer attachments that will be used while rendering
 //How many colour and depth buffers there will be, how many samples of each and how their contents should be handled throughout rendering ops
 void Vk::RendererBase::createRenderPass(){
     //in our case we will need a colour buffer represented by one of the images from the swap chain
-    VkAttachmentDescription colourAttachment = Vk::Structs::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+    VkAttachmentDescription colourAttachment = Vk::Structures::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //Subpasses and attachment references
@@ -456,7 +449,7 @@ void Vk::RendererBase::createRenderPass(){
     //For our first triangle we will just have one subpass.
     
     //Every subpass references one or more of the attachments described in the previous sections. These references are VkAttachmentReference structs
-    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentRef = Vk::Structures::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //because we need to resolve the above multisampled image before presentation (you cant present a multisampled image because
     //it contains multiple pixel values per pixel) we need an attachment that will resolve the image back to something we can 
@@ -464,11 +457,11 @@ void Vk::RendererBase::createRenderPass(){
     //VkAttachmentDescription colourAttachmentResolve = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
     //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    VkAttachmentDescription colourAttachmentResolve = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
     
     //the render pass now has to be instructed to resolve the multisampled colour image into the regular attachment
-    VkAttachmentReference colourAttachmentResolveRef = Vk::Structs::attachment_reference(2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentResolveRef = Vk::Structures::attachment_reference(2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     // why is that index 2 and not 1? need to check
 
     // we also want to add a Subpass Dependency as described in drawFrame() to wait for VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT before proceeding 
@@ -476,15 +469,15 @@ void Vk::RendererBase::createRenderPass(){
     //special value VK_SUBPASS_EXTERNAL refers to implicit subpass before or after the the render pass depending on whether specified in srcSubpass/dstSubpass
     //The operations that should waiti on this are in the colour attachment stage and involve the writing of the colour attachment
     //these settings will prevent the transition from happening until its actually necessary and allowed, ie when we want to start writing colours to it
-    VkSubpassDependency dependency = Vk::Structs::subpass_dependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    VkSubpassDependency dependency = Vk::Structures::subpass_dependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
     
     //we want to include a depth attachment for depth testing
     // VK_ATTACHMENT_STORE_OP_DONT_CARE; //we dont need to store depth data as it will be discarded every pass
     // VK_IMAGE_LAYOUT_UNDEFINED; //same as colour buffer, we dont care about previous depth contents
-    VkAttachmentDescription depthAttachment = Vk::Structs::attachment_description(Vk::Init::findDepthFormat(physicalDevice), msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+    VkAttachmentDescription depthAttachment = Vk::Structures::attachment_description(Vk::Init::findDepthFormat(physicalDevice), msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
  
-    VkAttachmentReference depthAttachmentRef = Vk::Structs::attachment_reference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference depthAttachmentRef = Vk::Structures::attachment_reference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     // and here is index 1, just described in wrong order
 
     //we add a reference to the attachment for the first (and only) subpass
@@ -492,12 +485,12 @@ void Vk::RendererBase::createRenderPass(){
     //we pass in the colourAttachmentResolveRef struct which will let the render pass define a multisample resolve operation
     //described in the struct, which will let us render the image to screen by resolving it to the right layout
     //pDepthStencilAttachment: Attachment for depth and stencil data        
-    VkSubpassDescription subpass = Vk::Structs::subpass_description(VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &colourAttachmentResolveRef, &colourAttachmentRef, &depthAttachmentRef);
+    VkSubpassDescription subpass = Vk::Structures::subpass_description(VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &colourAttachmentResolveRef, &colourAttachmentRef, &depthAttachmentRef);
 
     //now we udpate the VkRenderPassCreateInfo struct to refer to both attachments 
     //and the colourAttachmentResolve
     std::vector<VkAttachmentDescription> attachments = {colourAttachment, depthAttachment, colourAttachmentResolve};
-    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structures::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
 
     if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS){
         throw std::runtime_error("Failed to create render pass");
@@ -518,7 +511,7 @@ void Vk::RendererBase::createFramebuffers(){
     for(size_t i = 0; i < swapChainImageViews.size(); i++){
         std::vector<VkImageView> attachments = {colourImageView, depthImageView, swapChainImageViews[i]};
 
-        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(renderPass, attachments, swapChainExtent, 1);
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structures::framebuffer_create_info(renderPass, attachments, swapChainExtent, 1);
 
         if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &swapChainFramebuffers[i]) != VK_SUCCESS){
             throw std::runtime_error("Failed to create framebuffer");
@@ -528,14 +521,14 @@ void Vk::RendererBase::createFramebuffers(){
 }
 
 void Vk::RendererBase::initPipelines(){
-    //load and create all shader stages
+    //load and create all shaders
     auto default_lit_vert_c = Vk::Init::readFile("resources/shaders/default_lit_vert.spv"); 
-    auto default_lit_frag_c = Vk::Init::readFile("resources/shaders/default_lit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto unlit_frag_c = Vk::Init::readFile("resources/shaders/unlit_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto default_lit_frag_c = Vk::Init::readFile("resources/shaders/default_lit_frag.spv");
+    auto unlit_frag_c = Vk::Init::readFile("resources/shaders/unlit_frag.spv");
     auto textured_lit_frag_c = Vk::Init::readFile("resources/shaders/textured_lit_frag.spv");
 
-    auto skybox_vert_c = Vk::Init::readFile("resources/shaders/skybox_vert.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
-    auto skybox_frag_c = Vk::Init::readFile("resources/shaders/skybox_frag.spv"); //ths shader shouldnt be textured and should have a descriptor without the sampler
+    auto skybox_vert_c = Vk::Init::readFile("resources/shaders/skybox_vert.spv");
+    auto skybox_frag_c = Vk::Init::readFile("resources/shaders/skybox_frag.spv");
 
     auto default_lit_vert_m = createShaderModule(default_lit_vert_c);
     auto default_lit_frag_m = createShaderModule(default_lit_frag_c);
@@ -548,7 +541,7 @@ void Vk::RendererBase::initPipelines(){
     //begin default mesh pipeline creation (lit untextured mesh)
 	PipelineBuilder pipelineBuilder;
     VkDescriptorSetLayout defaultSetLayouts[] = { _globalSetLayout, _objectSetLayout, _materialSetLayout, _lightingSetLayout };
-    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = Vk::Structs::pipeline_layout_create_info(4, defaultSetLayouts);
+    VkPipelineLayoutCreateInfo mesh_pipeline_layout_info = Vk::Structures::pipeline_layout_create_info(4, defaultSetLayouts);
     
 	//setup push constants
 	VkPushConstantRange push_constant;
@@ -556,7 +549,7 @@ void Vk::RendererBase::initPipelines(){
 	push_constant.offset = 0;
 	//this push constant range takes up the size of a MeshPushConstants struct
 	push_constant.size = sizeof(PushConstants);
-	//this push constant range is accessible only in the vertex shader
+	//is accessible in frag shader
 	push_constant.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	mesh_pipeline_layout_info.pPushConstantRanges = &push_constant;
 	mesh_pipeline_layout_info.pushConstantRangeCount = 1;
@@ -569,21 +562,21 @@ void Vk::RendererBase::initPipelines(){
     _swapDeletionQueue.push_function([=](){vkDestroyPipelineLayout(device, meshPipelineLayout, nullptr);});
 
     //general setup of the pipeline
-    pipelineBuilder.viewport = Vk::Structs::viewport(0.0f, 0.0f, (float) swapChainExtent.width, (float) swapChainExtent.height, 0.0f, 1.0f);
-    pipelineBuilder.scissor = Vk::Structs::scissor(0,0,swapChainExtent);
+    pipelineBuilder.viewport = Vk::Structures::viewport(0.0f, 0.0f, (float) swapChainExtent.width, (float) swapChainExtent.height, 0.0f, 1.0f);
+    pipelineBuilder.scissor = Vk::Structures::scissor(0,0,swapChainExtent);
     VertexInputDescription vertexInputDescription = Vertex::get_vertex_description();
-    pipelineBuilder.vertexInputInfo = Vk::Structs::pipeline_vertex_input_create_info(vertexInputDescription);
-    pipelineBuilder.inputAssembly = Vk::Structs::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
-    pipelineBuilder.rasterizer = Vk::Structs::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
-    pipelineBuilder.multisampling = Vk::Structs::pipeline_msaa_state_create_info(msaaSamples);
-    pipelineBuilder.depthStencil = Vk::Structs::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);//VK_COMPARE_OP_LESS
-    pipelineBuilder.colourBlendAttachment = Vk::Structs::pipeline_colour_blend_attachment(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
+    pipelineBuilder.vertexInputInfo = Vk::Structures::pipeline_vertex_input_create_info(vertexInputDescription);
+    pipelineBuilder.inputAssembly = Vk::Structures::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
+    pipelineBuilder.rasterizer = Vk::Structures::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.multisampling = Vk::Structures::pipeline_msaa_state_create_info(msaaSamples);
+    pipelineBuilder.depthStencil = Vk::Structures::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);//VK_COMPARE_OP_LESS
+    pipelineBuilder.colourBlendAttachment = Vk::Structures::pipeline_colour_blend_attachment(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT);
     pipelineBuilder.pipelineLayout = meshPipelineLayout;
 
     //add required shaders for this stage
     pipelineBuilder.shaderStages.clear();
-    pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, default_lit_frag_m, nullptr));
+    pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, default_lit_frag_m, nullptr));
 
     VkPipeline meshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, meshPipeline, nullptr);});
@@ -594,15 +587,15 @@ void Vk::RendererBase::initPipelines(){
 
     //now we will make an unlit pipeline with no texture sampler
     pipelineBuilder.shaderStages.clear();
-    pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, unlit_frag_m, nullptr));
+    pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, unlit_frag_m, nullptr));
 
     VkPipeline unlitMeshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, unlitMeshPipeline, nullptr);});
 
     createMaterial(unlitMeshPipeline, meshPipelineLayout, "unlitmesh", 1);
     
-    //create pipeline layout for the textured mesh, which has 3 descriptor sets
+    //create pipeline layout for the textured mesh, which has 5 descriptor sets
 	//we start from  the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
 		
@@ -620,8 +613,8 @@ void Vk::RendererBase::initPipelines(){
 
     //now for the textured pipeline
     pipelineBuilder.shaderStages.clear();
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_lit_frag_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, textured_lit_frag_m, nullptr));
 
     pipelineBuilder.pipelineLayout = texturedPipeLayout;
 
@@ -634,7 +627,7 @@ void Vk::RendererBase::initPipelines(){
 
     //Skybox
     VkDescriptorSetLayout skyboxSetLayouts[] = {_globalSetLayout, _objectSetLayout, _skyboxSetLayout};
-    VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = Vk::Structs::pipeline_layout_create_info(3, skyboxSetLayouts);
+    VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = Vk::Structures::pipeline_layout_create_info(3, skyboxSetLayouts);
 
     if(vkCreatePipelineLayout(device, &skybox_pipeline_layout_info, nullptr, &_skyboxPipelineLayout) != VK_SUCCESS){
         throw std::runtime_error("Failed to create skybox pipeline layout");
@@ -643,8 +636,8 @@ void Vk::RendererBase::initPipelines(){
 
      //now for the skybox pipeline
     pipelineBuilder.shaderStages.clear();
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, skybox_vert_m, nullptr));
-	pipelineBuilder.shaderStages.push_back(Vk::Structs::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, skybox_frag_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, skybox_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, skybox_frag_m, nullptr));
 
     pipelineBuilder.rasterizer.cullMode = VK_CULL_MODE_FRONT_BIT; //because we are drawing on the inside of the cube
 
@@ -663,7 +656,7 @@ void Vk::RendererBase::initPipelines(){
 }
 
 VkShaderModule Vk::RendererBase::createShaderModule(const std::vector<char>& code){
-    VkShaderModuleCreateInfo createInfo = Vk::Structs::shader_module_create_info(code);
+    VkShaderModuleCreateInfo createInfo = Vk::Structures::shader_module_create_info(code);
     VkShaderModule shaderModule;
     if(vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS){
         throw std::runtime_error("Failed to create shader module");
@@ -703,7 +696,7 @@ void Vk::RendererBase::createCommandBuffers(){
 
     for (size_t i = 0; i < _frames.size(); i++){
 		//allocate the default command buffer that we will use for rendering
-		VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, _frames[i]._commandPool, 1);
+		VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structures::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, _frames[i]._commandPool, 1);
 
 		if(vkAllocateCommandBuffers(device, &cmdAllocInfo, &_frames[i]._mainCommandBuffer) != VK_SUCCESS){
             throw std::runtime_error("Unable to allocate command buffer");
@@ -774,10 +767,10 @@ void Vk::RendererBase::initUI(){
     init_info.CheckVkResultFn = nullptr; //should pass an error handling function if(result != VK_SUCCESS) throw error etc
 
     //ImGui_ImplVulkan_Init() needs a renderpass so we have to create one, which means we need a few structs specified first
-    VkAttachmentDescription attachmentDesc = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
+    VkAttachmentDescription attachmentDesc = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_LOAD, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
-    VkAttachmentReference colourAttachmentRef = Vk::Structs::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkAttachmentReference colourAttachmentRef = Vk::Structures::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -799,7 +792,7 @@ void Vk::RendererBase::initUI(){
     std::vector<VkAttachmentDescription> attachments; //we only have 1 but i set up the structs to take a vector so...
     attachments.push_back(attachmentDesc);
 
-    VkRenderPassCreateInfo renderPassInfo = Vk::Structs::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structures::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
 
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &guiRenderPass) != VK_SUCCESS) {
         throw std::runtime_error("Could not create ImGui render pass");
@@ -815,7 +808,7 @@ void Vk::RendererBase::initUI(){
     ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
     endSingleTimeCommands(command_buffer,transferCommandPool, graphicsQueue);
 
-    VkCommandPoolCreateInfo poolInfo = Vk::Structs::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    VkCommandPoolCreateInfo poolInfo = Vk::Structures::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
     if(vkCreateCommandPool(device, &poolInfo, nullptr, &guiCommandPool) != VK_SUCCESS){
         throw std::runtime_error("Failed to create gui command pool");
     }   
@@ -825,7 +818,7 @@ void Vk::RendererBase::initUI(){
     guiCommandBuffers.resize(imageCount);
 
 	//allocate the gui command buffer
-	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
+	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structures::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, guiCommandPool, guiCommandBuffers.size());
     
 	if(vkAllocateCommandBuffers(device, &cmdAllocInfo, guiCommandBuffers.data()) != VK_SUCCESS){
             throw std::runtime_error("Unable to allocate gui command buffers");
@@ -838,7 +831,7 @@ void Vk::RendererBase::initUI(){
     for(size_t i = 0; i < imageCount; i++){
         std::vector<VkImageView> attachment;
         attachment.push_back(swapChainImageViews.at(i));
-        VkFramebufferCreateInfo framebufferInfo = Vk::Structs::framebuffer_create_info(guiRenderPass, attachment, swapChainExtent, 1);
+        VkFramebufferCreateInfo framebufferInfo = Vk::Structures::framebuffer_create_info(guiRenderPass, attachment, swapChainExtent, 1);
 
         if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &guiFramebuffers[i]) != VK_SUCCESS){
             throw std::runtime_error("Failed to create gui framebuffer");
@@ -853,14 +846,14 @@ VkCommandBuffer Vk::RendererBase::beginSingleTimeCommands(VkCommandPool pool){
     //memory transfer operation are executed using command buffers, just like drawing commands. Therfor we must first allocate a temp command buffer.
     //You may wish to create a seperate command pool for these kinds of short lived buffers, because the implementation may be able to apply memory
     //allocation optimizations. You should use VK_COMMAND_POOL_CREATE_TRANSIENT_BIT flag during command pool generation in that case.
-    VkCommandBufferAllocateInfo allocInfo = Vk::Structs::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, pool, 1);
+    VkCommandBufferAllocateInfo allocInfo = Vk::Structures::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, pool, 1);
 
     VkCommandBuffer commandBuffer;
     vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
 
     //now we immediately start recording the command buffer
     //good practice to signal this is a one time submission.
-    VkCommandBufferBeginInfo beginInfo = Vk::Structs::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     vkBeginCommandBuffer(commandBuffer, &beginInfo);
 
@@ -872,7 +865,7 @@ void Vk::RendererBase::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCo
     vkEndCommandBuffer(commandBuffer);
 
     //now we execute the command buffer to complete the transfer
-    VkSubmitInfo submitInfo = Vk::Structs::submit_info(&commandBuffer);
+    VkSubmitInfo submitInfo = Vk::Structures::submit_info(&commandBuffer);
 
     queueSubmitMutex.lock();
     vkQueueSubmit(queue, 1, &submitInfo, VK_NULL_HANDLE); //error here, we needed to submit to the transfer queue
@@ -900,9 +893,9 @@ void Vk::RendererBase::endSingleTimeCommands(VkCommandBuffer commandBuffer, VkCo
 void Vk::RendererBase::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage vmaUsage, VkBuffer& buffer, VmaAllocation& allocation){
     uint32_t queueFamilyIndices[] = {queueFamilyIndicesStruct.graphicsFamily.value(), queueFamilyIndicesStruct.transferFamily.value()};
     //both graphics and transfer queue families involved so count 2 and concurrent sharing for now
-    VkBufferCreateInfo bufferInfo = Vk::Structs::buffer_create_info(size, usage, VK_SHARING_MODE_CONCURRENT, 2, queueFamilyIndices);
+    VkBufferCreateInfo bufferInfo = Vk::Structures::buffer_create_info(size, usage, VK_SHARING_MODE_CONCURRENT, 2, queueFamilyIndices);
     
-    VmaAllocationCreateInfo vmaAllocInfo = Vk::Structs::vma_allocation_create_info(vmaUsage);
+    VmaAllocationCreateInfo vmaAllocInfo = Vk::Structures::vma_allocation_create_info(vmaUsage);
 
     vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &buffer, &allocation, nullptr);
 }
@@ -975,7 +968,7 @@ void Vk::RendererBase::createIndexBuffer(){
 
 void Vk::RendererBase::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size) {
     VkCommandBuffer commandBuffer = beginSingleTimeCommands(transientCommandPool);
-    VkBufferCopy copyRegion = Vk::Structs::buffer_copy(size);
+    VkBufferCopy copyRegion = Vk::Structures::buffer_copy(size);
     //contents of buffers are transferred using the vkCmdCopyBuffer command. Takes source and dest buffer as arguments and an array of regions to copy.
     //the regions are defined in VkBufferCopy structs and consist of a source buffer offset, destination buffer offset and size. 
     //note Can't specify VK_WHOLE_SIZE here unlike vkMapMemory
@@ -997,7 +990,7 @@ void Vk::RendererBase::createDescriptorPool(){
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}
     };
-    VkDescriptorPoolCreateInfo poolInfo = Vk::Structs::descriptor_pool_create_info(poolSizes, 30);
+    VkDescriptorPoolCreateInfo poolInfo = Vk::Structures::descriptor_pool_create_info(poolSizes, 30);
     //now we can create the descriptor pool and store in the member variable descriptorPool
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool");
@@ -1015,23 +1008,23 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
         //it specifies the buffer and region within it that contains the data for the descriptor
         
         //allocate globalDescriptor set for each frame
-		VkDescriptorSetAllocateInfo globalSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_globalSetLayout);
+		VkDescriptorSetAllocateInfo globalSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_globalSetLayout);
 		if(vkAllocateDescriptorSets(device, &globalSetAllocInfo, &_frames[i].globalDescriptor) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for globalDescriptor set");
         }
 
         //allocate a storage object descriptor set for each frame
-        VkDescriptorSetAllocateInfo objectSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_objectSetLayout);
+        VkDescriptorSetAllocateInfo objectSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_objectSetLayout);
 		if(vkAllocateDescriptorSets(device, &objectSetAllocInfo, &_frames[i].objectDescriptor) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for object descriptor set");
         }
         //allocate a uniform material descriptor set for each frame
-        VkDescriptorSetAllocateInfo materialSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_materialSetLayout);
+        VkDescriptorSetAllocateInfo materialSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_materialSetLayout);
 		if(vkAllocateDescriptorSets(device, &materialSetAllocInfo, &_frames[i].materialSet) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for material decriptor set");
         }
         //allocate a uniform lighting descriptor set for each frame
-        VkDescriptorSetAllocateInfo lightingSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_lightingSetLayout);
+        VkDescriptorSetAllocateInfo lightingSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_lightingSetLayout);
 		if(vkAllocateDescriptorSets(device, &lightingSetAllocInfo, &_frames[i].lightSet) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for lighting descriptor set");
         }
@@ -1043,7 +1036,7 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		cameraInfo.offset = 0; //at 0 offset
 		cameraInfo.range = sizeof(GPUCameraData); //of the size of a camera data struct
         //binding camera uniform buffer to 0
-        setWrite[0] = Vk::Structs::write_descriptorset(0, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &cameraInfo);
+        setWrite[0] = Vk::Structures::write_descriptorset(0, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &cameraInfo);
 
         VkDescriptorBufferInfo sceneInfo;
 		sceneInfo.buffer = _sceneParameterBuffer;
@@ -1052,7 +1045,7 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
         //and they will be reading from the same buffer
 		sceneInfo.range = sizeof(GPUSceneData);
         //binding scene uniform buffer to 1, we are using dynamic offsets so set the flag
-        setWrite[1] = Vk::Structs::write_descriptorset(1, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
+        setWrite[1] = Vk::Structures::write_descriptorset(1, _frames[i].globalDescriptor, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo objectBufferInfo;
@@ -1060,7 +1053,7 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		objectBufferInfo.offset = 0;
 		objectBufferInfo.range = sizeof(GPUObjectData) * MAX_OBJECTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[2] = Vk::Structs::write_descriptorset(0, _frames[i].objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
+        setWrite[2] = Vk::Structures::write_descriptorset(0, _frames[i].objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo materialBufferInfo;
@@ -1068,7 +1061,7 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		materialBufferInfo.offset = 0;
 		materialBufferInfo.range = sizeof(GPUMaterialData) * MATERIALS_COUNT;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[3] = Vk::Structs::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
+        setWrite[3] = Vk::Structures::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo pointlightsBufferInfo;
@@ -1076,7 +1069,7 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		pointlightsBufferInfo.offset = 0;
 		pointlightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[4] = Vk::Structs::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
+        setWrite[4] = Vk::Structures::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
 
         //object buffer info describes the location and the size
         VkDescriptorBufferInfo spotLightsBufferInfo;
@@ -1084,19 +1077,19 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		spotLightsBufferInfo.offset = 0;
 		spotLightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
-        setWrite[5] = Vk::Structs::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
+        setWrite[5] = Vk::Structures::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
     }
 
     //allocate a skybox descriptor set for each frame
-    VkDescriptorSetAllocateInfo skyboxSetAllocInfo = Vk::Structs::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
+    VkDescriptorSetAllocateInfo skyboxSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
     if(vkAllocateDescriptorSets(device, &skyboxSetAllocInfo, &skyboxSet) != VK_SUCCESS){
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");
     }
 }
 
-Vk::RendererBase::RenderStats& Vk::RendererBase::getRenderStats(){
+Vk::RenderStats& Vk::RendererBase::getRenderStats(){
     return renderStats;
 }
 

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "vk_types.h"
-//#include "vk_windowHandler.h"
+
 class GLFWwindow;
 
 namespace Vk::Init{

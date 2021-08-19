@@ -1,10 +1,8 @@
 #pragma once
 #include <vector>
-
 #include "obj_light.h"
 #include "obj_pointLight.h"
 #include "obj_spotLight.h"
-
 #include <unordered_map>
 #include <memory>
 #include <string>

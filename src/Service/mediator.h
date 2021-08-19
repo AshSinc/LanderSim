@@ -1,28 +1,36 @@
 #pragma once
-#include "world_physics.h"
-#include "vk_renderer.h"
-#include "obj.h"
 #include <string>
-#include "dmn_iScene.h"
-//#include "obj_render.h"
-#include "vk_mesh.h"
-#include "obj_render.h"
-#include "obj_collisionRender.h"
 #include <map>
-#include "world_stats.h"
-//#include "application.h"
-#include "data_scene.h"
+#include <vector>
+#include <memory>
 
 class WorldCamera;
 class UiHandler;
 class Application;
-//class WorldPhysics;
+class WorldPhysics;
+class CollisionRenderObj;
+class RenderObject;
+class GLFWwindow;
 
 namespace Vk{
     class Renderer;
+    struct RenderStats;
 }
-class IScene;
 
+struct CameraData;
+struct Mesh;
+struct Vertex;
+struct Material;
+struct TextureInfo;
+struct ModelInfo;
+struct WorldObject;
+struct WorldLightObject;
+struct WorldPointLightObject;
+struct WorldSpotLightObject;
+struct SceneData;
+struct WorldStats;
+
+class IScene;
 
 class Mediator{
     private:
@@ -57,21 +65,21 @@ class Mediator{
         void camera_toggleAutoCamera();
 
         //renderer functions
-        Vk::Renderer::RenderStats& renderer_getRenderStats();
+        Vk::RenderStats& renderer_getRenderStats();
         std::vector<Vertex>& renderer_getAllVertices();
         std::vector<uint32_t>& renderer_getAllIndices();
-        int renderer_getMeshId(const std::string& name);
         Material* renderer_getMaterial(const std::string& name);
         void renderer_loadTextures(const std::vector<TextureInfo>& TEXTURE_INFOS, const std::vector<std::string>& SKYBOX_PATHS);
         void renderer_loadModels(const std::vector<ModelInfo>& MODEL_INFOS);
         void renderer_setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects);
         void renderer_allocateDescriptorSetForTexture(const std::string& materialName, const std::string& name);
         void renderer_allocateDescriptorSetForSkybox();
+        void renderer_allocateShadowMapImages();
         void renderer_setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights);
         void renderer_setCameraDataPointer(CameraData* cameraData);
         Mesh* renderer_getLoadedMesh(std::string name);
         void renderer_mapMaterialDataToGPU();
-        void renderer_reset();
+        void renderer_resetScene();
         void renderer_flushTextures();
 
         //Scene functions

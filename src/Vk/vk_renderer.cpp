@@ -20,7 +20,7 @@
 #include <glm/gtc/matrix_transform.hpp> //view transformations like glm::lookAt, and projection transformations like glm::perspective glm::rotate
 #define TINYOBJLOADER_IMPLEMENTATION //same as with STD, define in one source file to avoid linker errors
 #include <tiny_obj_loader.h> //we will use tiny obj loader to load our meshes from file (could use fast_obj_loader.h if this is too slow)
-#include "vk_structs.h"
+#include "vk_structures.h"
 #include "vk_images.h"
 #include "world_camera.h"
 #include "obj_render.h"
@@ -28,8 +28,8 @@
 
 Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): RendererBase(windowptr, mediator){}
 
-void Vk::Renderer::reset(){
-    resetTextureImages = true;
+void Vk::Renderer::resetScene(){
+    sceneShutdownRequest = true;
 }
 
 void Vk::Renderer::setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects){
@@ -49,13 +49,33 @@ void Vk::Renderer::setLightPointers(WorldLightObject* sceneLight, std::vector<Wo
     p_spotLights = spotLights;
 }
 
+void Vk::Renderer::allocateShadowMapImages(){
+    //start with scene light
+    imageHelper->createImage(SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, p_sceneLight->shadowmapImage, p_sceneLight->shadowMapImageAllocation);
+    _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, p_sceneLight->shadowmapImage, p_sceneLight->shadowMapImageAllocation);});
+    p_sceneLight->shadowMapImageView = imageHelper->createImageView(p_sceneLight->shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT,  VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
+    _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, p_sceneLight->shadowMapImageView, nullptr);});
+
+    //then each spotlight
+    for(int i = 0; i < p_spotLights->size(); i++){
+       imageHelper->createImage(SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
+                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, p_spotLights->at(i).shadowmapImage, p_spotLights->at(i).shadowMapImageAllocation);
+        _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, p_spotLights->at(i).shadowmapImage, p_spotLights->at(i).shadowMapImageAllocation);});
+        p_spotLights->at(i).shadowMapImageView = imageHelper->createImageView(p_spotLights->at(i).shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT,  VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
+        _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, p_spotLights->at(i).shadowMapImageView, nullptr);});
+    }
+
+    //then point lights, ommiting for now as we won't have any and i'd need to work out cube maps
+}
+
 void Vk::Renderer::allocateDescriptorSetForSkybox(){
     VkWriteDescriptorSet setWrite{};
     VkDescriptorImageInfo skyImageInfo;
     skyImageInfo.sampler = skyboxSampler;
     skyImageInfo.imageView = skyboxImageView; //this should exist before this call
     skyImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    setWrite = Vk::Structs::write_descriptorset(0, skyboxSet, 1, 
+    setWrite = Vk::Structures::write_descriptorset(0, skyboxSet, 1, 
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &skyImageInfo);
     queueSubmitMutex.lock();
     vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
@@ -88,24 +108,22 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
         specImageInfo.sampler = specularSampler;
         specImageInfo.imageView = _loadedTextures[name+"_spec"].imageView;
         specImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
         //setWrite[0] = Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
         //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo);
-        setWrite.push_back(Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
+        setWrite.push_back(Vk::Structures::write_descriptorset(0, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo));
 
         //setWrite[1] = Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
         //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo);
 
-        setWrite.push_back(Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
+        setWrite.push_back(Vk::Structures::write_descriptorset(1, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo));
-
-        //another crash before here. just hangs
 
         std::cout << name << "\n";
         std::cout << setWrite.size() << "\n";
 
         queueSubmitMutex.lock();
-
         try{
             vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr); // <--- seg fault here  setWrite.data()
         }
@@ -113,9 +131,7 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
             std::cout << "Failed to update descriptor sets for  Texture " + name + "\n";
             std::cout << e.what() << "\n";
         }
-
         queueSubmitMutex.unlock();
-        
     }
 }
 
@@ -177,10 +193,17 @@ void Vk::Renderer::mapLightingDataToGPU(){
 
 //
 void Vk::Renderer::updateSceneData(GPUCameraData& camData){
-    _sceneParameters.lightDirection = glm::vec4(camData.view * glm::vec4(p_sceneLight->pos, 0));
+    glm::vec3 lightDir = glm::vec3(camData.view * glm::vec4(p_sceneLight->pos, 0));
+    _sceneParameters.lightDirection = glm::vec4(lightDir, 0);
     _sceneParameters.lightAmbient = glm::vec4(p_sceneLight->ambient, 1);
     _sceneParameters.lightDiffuse = glm::vec4(p_sceneLight->diffuse, 1);
     _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
+    // Compute the MVP matrix from the light's point of view
+    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10000,10000,-10000,10000,-10000,10000);
+    glm::mat4 depthViewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
+    glm::mat4 depthModelMatrix = glm::mat4(1.0);
+    _sceneParameters.depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
+    //this is used to render the scene from the lights POV to generate a shadow map
 }
 
 //point lights
@@ -191,6 +214,8 @@ void Vk::Renderer::updateLightingData(GPUCameraData& camData){
         _pointLightParameters[i].ambient = p_pointLights->at(i).ambient;
         _pointLightParameters[i].specular = p_pointLights->at(i).specular;
         _pointLightParameters[i].attenuation = p_pointLights->at(i).attenuation;
+        //not going to implement pointlight shadow maps.
+        //When we do want to we will need to create a shadow cube map per light instead of a 2d texture (because point lights emit in all directions)
     }
 
     for(int i = 0; i < p_spotLights->size(); i++){
@@ -201,6 +226,162 @@ void Vk::Renderer::updateLightingData(GPUCameraData& camData){
         _spotLightParameters[i].attenuation = p_spotLights->at(i).attenuation;
         _spotLightParameters[i].direction = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).direction, 0));
         _spotLightParameters[i].cutoffs = p_spotLights->at(i).cutoffs;
+
+        //depthMVP matrix for shadowmap
+        glm::mat4 depthProjectionMatrix = glm::perspective<float>(glm::radians(45.0f), 1.0f, 2.0f, 50.0f);
+        glm::mat4 depthViewMatrix = glm::lookAt(_spotLightParameters[i].position, _spotLightParameters[i].position-_spotLightParameters[i].direction, glm::vec3(0,1,0));
+        glm::mat4 depthModelMatrix = glm::mat4(1.0);
+        _spotLightParameters[i].depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
+    }
+}
+
+void Vk::Renderer::drawFrame(){
+    vkWaitForFences(device, 1, &_frames[currentFrame]._renderFence, VK_TRUE, UINT64_MAX); 
+    
+    //so the first step is to acquire an image from the swap chain
+    uint32_t imageIndex;
+    //we will store the return rsult of the call VkResult and use it to check if the swap chain needs recreated if its out of date
+    VkResult result = vkAcquireNextImageKHR(device,swapChain, UINT64_MAX, _frames[currentFrame]._presentSemaphore, VK_NULL_HANDLE, &imageIndex);
+    if(result == VK_ERROR_OUT_OF_DATE_KHR){
+        recreateSwapChain();
+        return;
+    }
+    else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
+        throw std::runtime_error("Failed to acquire swapchain image");
+    }
+
+    //before we continue using the frame we should check to make sure it is not in use in the chain somewhere
+    if(imagesInFlight[imageIndex] != VK_NULL_HANDLE){
+        vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+    }
+    //once we are clear we assign this inFlightFence to imagesInFlight so we can keep it locked until this pass is done for this image
+    imagesInFlight[imageIndex] = _frames[currentFrame]._renderFence;
+
+    //we have the imageIndex and are cleared for operations on it so it should be safe to rerecord the command buffer here
+    //recordCommandBuffer(imageIndex);
+    recordCommandBuffer_ShadowMaps(imageIndex);
+    recordCommandBuffer_Objects(imageIndex);
+    recordCommandBuffer_GUI(imageIndex);
+
+    VkSemaphore waitSemaphores[] = {_frames[currentFrame]._presentSemaphore}; 
+    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}; 
+    VkSemaphore signalSemaphores[] = {_frames[currentFrame]._renderSemaphore};
+
+    //Submitting the command buffer
+    //queue submission and synchronization is configured through VkSubmitInfo struct
+    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
+    VkSubmitInfo submitInfo = Vk::Structures::submit_info(buffers, 2, waitSemaphores, 1, 
+        waitStages, signalSemaphores, 1);
+    
+    //move our reset fences here, its best to simply reset a fence right before its used
+    vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
+
+    //submit the queue
+    queueSubmitMutex.lock();
+    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, _frames[currentFrame]._renderFence) != VK_SUCCESS) { //then fails here after texture flush
+        throw std::runtime_error("Failed to submit draw command buffer");
+    }
+    
+    //Presentation
+    //The last step of drawing a frame is submitting the result back to the swapchain
+    VkSwapchainKHR swapChains[] = {swapChain};
+    VkPresentInfoKHR presentInfo = Vk::Structures::present_info(&_frames[currentFrame]._renderSemaphore, 1, swapChains, &imageIndex);
+
+    //now we submit the request to present an image to the swapchain. We'll add error handling later, as failure here doesnt necessarily mean we should stop
+    result = vkQueuePresentKHR(presentQueue, &presentInfo); //takes ages after texture flush for some reason
+
+    queueSubmitMutex.unlock();
+
+    //in addition to these checks we also check member variable frameBufferResized for manual confirmation
+    //must do this after vkQueuePresentKHR() call to ensure semaphores are in a consinstent state, otherwise a signalled semaphore may never be properly waited on
+    //to actually manually detect resizes we use glfwSetFramebufferSizeCallback() to set a callback in initWindow()
+    //if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frameBufferResized){
+    if(result == VK_ERROR_OUT_OF_DATE_KHR){ //ignoring frameBufferResized and VK_SUBOPTIMAL_KHR stops race condition causing validation errors, not ideal
+        //frameBufferResized = false;
+        recreateSwapChain();
+    }
+    else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
+        throw std::runtime_error("Failed to acquire swapchain image");
+    }
+
+    frameCounter++;
+    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+    calculateFrameRate(); //just to display in the UI
+
+    //if user has quit the scene we set resetTextureImages to true
+    //then flush textures and related buffers, unset the renderables pointer
+    //this could be cleaner
+    if(sceneShutdownRequest){
+        sceneShutdownRequest = false;
+        flushSceneBuffers();
+        flushTextures();
+        r_mediator.application_resetScene();
+        p_renderables = NULL;
+    }
+}
+
+void Vk::Renderer::recordCommandBuffer_ShadowMaps(int i){
+    //similar to recordCommandBuffer_Objects but calculate shadowmap for each light
+    //vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+}
+
+void Vk::Renderer::recordCommandBuffer_Objects(int i){
+    //have to reset this even if not recording it!
+    vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+
+    //must record even if scene isnt loaded to allow it to clear the background from the UI
+    VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(0);
+    if(vkBeginCommandBuffer(_frames[i]._mainCommandBuffer, &beginInfo) != VK_SUCCESS){
+        throw std::runtime_error("Failed to begin recording command buffer");
+    }
+
+    //note that the order of clear values should be identical to the order of attachments
+    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(renderPass, swapChainFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+
+    vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    if(r_mediator.application_getSceneLoaded())
+    if(p_renderables != NULL && !p_renderables->empty()){   
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        drawObjects(i);
+    }
+    
+    //we we can end the render pass
+    vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
+
+    //and we have finished recording, we check for errrors here
+    if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+}
+
+void Vk::Renderer::recordCommandBuffer_GUI(int i){
+    //now for the UI render pass
+    vkResetCommandBuffer(guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    
+    VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(0);
+    if(vkBeginCommandBuffer(guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
+        throw std::runtime_error("Failed to begin recording gui command buffer");
+    }
+
+    r_mediator.ui_drawUI(); //then we will draw UI
+
+    //note that the order of clear values should be identical to the order of attachments 
+    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
+    vkCmdBeginRenderPass(guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    // Record Imgui Draw Data and draw funcs into command buffer
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), guiCommandBuffers[i]);
+
+    //we we can end the render pass
+    vkCmdEndRenderPass(guiCommandBuffers[i]);
+
+     //and we have finished recording, we check for errrors here
+    if (vkEndCommandBuffer(guiCommandBuffers[i]) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record gui command buffer!");
     }
 }
 
@@ -298,154 +479,6 @@ void Vk::Renderer::drawObjects(int curFrame){
 	vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[p_renderables->at(0)->meshId].indexCount, 1, _loadedMeshes[p_renderables->at(0)->meshId].indexBase, 0, 0);
 }
 
-void Vk::Renderer::rerecordCommandBuffer(int i){
-    //have to reset this even if not recording it!
-    vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
-
-    //must record even if scene isnt loaded to allow it to clear the background from the UI
-    VkCommandBufferBeginInfo beginInfo = Vk::Structs::command_buffer_begin_info(0);
-    if(vkBeginCommandBuffer(_frames[i]._mainCommandBuffer, &beginInfo) != VK_SUCCESS){
-        throw std::runtime_error("Failed to begin recording command buffer");
-    }
-
-    //note that the order of clear values should be identical to the order of attachments
-    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structs::render_pass_begin_info(renderPass, swapChainFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
-
-    vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    //if(!resettingScene) //dont need this bool probably but helps readability here
-    if(r_mediator.application_getSceneLoaded())
-    if(p_renderables != NULL && !p_renderables->empty()){   
-        VkBuffer vertexBuffers[] = {vertexBuffer};
-        VkDeviceSize offsets[] = {0};
-        vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
-        drawObjects(i);
-    }
-    
-    //we we can end the render pass
-    vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
-
-    //and we have finished recording, we check for errrors here
-    if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
-        throw std::runtime_error("failed to record command buffer!");
-    }
-
-    //now for the UI render pass
-    vkResetCommandBuffer(guiCommandBuffers[i], VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
-    
-    beginInfo = Vk::Structs::command_buffer_begin_info(0);
-    if(vkBeginCommandBuffer(guiCommandBuffers[i], &beginInfo) != VK_SUCCESS){
-        throw std::runtime_error("Failed to begin recording gui command buffer");
-    }
-
-    r_mediator.ui_drawUI(); //then we will draw UI
-
-    //note that the order of clear values should be identical to the order of attachments 
-    renderPassBeginInfo = Vk::Structs::render_pass_begin_info(guiRenderPass, guiFramebuffers[i], {0, 0}, swapChainExtent, clearValues);
-    vkCmdBeginRenderPass(guiCommandBuffers[i], &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    // Record Imgui Draw Data and draw funcs into command buffer
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), guiCommandBuffers[i]);
-
-    //we we can end the render pass
-    vkCmdEndRenderPass(guiCommandBuffers[i]);
-
-     //and we have finished recording, we check for errrors here
-    if (vkEndCommandBuffer(guiCommandBuffers[i]) != VK_SUCCESS) {
-        throw std::runtime_error("failed to record gui command buffer!");
-    }
-}
-
-void Vk::Renderer::drawFrame(){
-    
-    vkWaitForFences(device, 1, &_frames[currentFrame]._renderFence, VK_TRUE, UINT64_MAX); 
-    
-    //so the first step is to acquire an image from the swap chain
-    uint32_t imageIndex;
-    //we will store the return rsult of the call VkResult and use it to check if the swap chain needs recreated if its out of date
-    VkResult result = vkAcquireNextImageKHR(device,swapChain, UINT64_MAX, _frames[currentFrame]._presentSemaphore, VK_NULL_HANDLE, &imageIndex);
-    if(result == VK_ERROR_OUT_OF_DATE_KHR){
-        recreateSwapChain();
-        return;
-    }
-    else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
-        throw std::runtime_error("Failed to acquire swapchain image");
-    }
-
-    //before we continue using the frame we should check to make sure it is not in use in the chain somewhere
-    if(imagesInFlight[imageIndex] != VK_NULL_HANDLE){
-        vkWaitForFences(device, 1, &imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
-    }
-    //once we are clear we assign this inFlightFence to imagesInFlight so we can keep it locked until this pass is done for this image
-    imagesInFlight[imageIndex] = _frames[currentFrame]._renderFence;
-
-    //we have the imageIndex and are cleared for operations on it so it should be safe to rerecord the command buffer here
-    rerecordCommandBuffer(imageIndex);
-
-    VkSemaphore waitSemaphores[] = {_frames[currentFrame]._presentSemaphore}; 
-    VkPipelineStageFlags waitStages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}; 
-    VkSemaphore signalSemaphores[] = {_frames[currentFrame]._renderSemaphore};
-
-    //Submitting the command buffer
-    //queue submission and synchronization is configured through VkSubmitInfo struct
-    VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
-    VkSubmitInfo submitInfo = Vk::Structs::submit_info(buffers, 2, waitSemaphores, 1, 
-        waitStages, signalSemaphores, 1);
-    
-    //move our reset fences here, its best to simply reset a fence right before its used
-    vkResetFences(device, 1, &_frames[currentFrame]._renderFence); //unlike semaphores, fences must be manually reset
-
-    //submit the queue
-    queueSubmitMutex.lock();
-    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, _frames[currentFrame]._renderFence) != VK_SUCCESS) { //then fails here after texture flush
-        throw std::runtime_error("Failed to submit draw command buffer");
-    }
-    
-    //Presentation
-    //The last step of drawing a frame is submitting the result back to the swapchain
-    VkSwapchainKHR swapChains[] = {swapChain};
-    VkPresentInfoKHR presentInfo = Vk::Structs::present_info(&_frames[currentFrame]._renderSemaphore, 1, swapChains, &imageIndex);
-
-    //now we submit the request to present an image to the swapchain. We'll add error handling later, as failure here doesnt necessarily mean we should stop
-
-    result = vkQueuePresentKHR(presentQueue, &presentInfo); //takes ages after texture flush for some reason
-
-    queueSubmitMutex.unlock();
-
-    //in addition to these checks we also check member variable frameBufferResized for manual confirmation
-    //must do this after vkQueuePresentKHR() call to ensure semaphores are in a consinstent state, otherwise a signalled semaphore may never be properly waited on
-    //to actually manually detect resizes we use glfwSetFramebufferSizeCallback() to set a callback in initWindow()
-    //if(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || frameBufferResized){
-    if(result == VK_ERROR_OUT_OF_DATE_KHR){ //ignoring frameBufferResized and VK_SUBOPTIMAL_KHR stops race condition causing validation errors, not ideal
-        //frameBufferResized = false;
-        recreateSwapChain();
-    }
-    else if(result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR){
-        throw std::runtime_error("Failed to acquire swapchain image");
-    }
-
-    
-
-
-    frameCounter++;
-    currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-    //this could be cleaner
-    //if user has quit the scene we set resetTextureImages to true
-    //then flush textures and related buffers, unset the renderables pointer
-    //
-    if(resetTextureImages){
-        resetTextureImages = false;
-        flushSceneBuffers();
-        flushTextures();
-        r_mediator.application_resetScene();
-        p_renderables = NULL;
-    }
-
-    calculateFrameRate();
-}
-
 void Vk::Renderer::calculateFrameRate(){
     double currentFrameTime = glfwGetTime();
     if(currentFrameTime - previousFrameTime >= 1.0 ){ // If last update was more than 1 sec ago
@@ -453,7 +486,7 @@ void Vk::Renderer::calculateFrameRate(){
         renderStats.fps = frameCounter-previousFrameCount;
         previousFrameTime += 1.0;
         previousFrameCount = frameCounter;
-     }
+    }
 }
 
 //creates texture images by loading them from file and 
@@ -463,7 +496,7 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
         Texture texture;
         std::cout << info.filePath.c_str() << "\n";
         imageHelper->loadTextureImage(*this, info.filePath.c_str(), texture.image, texture.alloc, texture.mipLevels);
-        VkImageViewCreateInfo imageinfo = Vk::Structs::image_view_create_info(texture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
+        VkImageViewCreateInfo imageinfo = Vk::Structures::image_view_create_info(texture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_ASPECT_COLOR_BIT, 0, texture.mipLevels, 0, 1);
         vkCreateImageView(device, &imageinfo, nullptr, &texture.imageView);  
         _loadedTextures[info.textureName] = texture;
@@ -610,10 +643,6 @@ void Vk::Renderer::populateVerticesIndices(std::string path, std::unordered_map<
     _loadedMeshes[numMeshes].indexCount = allIndices.size() - _loadedMeshes[numMeshes].indexBase; //how many indices in this model
 }
 
-Mesh* Vk::Renderer::getLoadedMesh(std::string name){
-    return get_mesh(name);
-}
-
 //used to pass vertices and indices to WorldState for building collision meshes from objects directly (only used for asteroid mesh)
 std::vector<Vertex>& Vk::Renderer::get_allVertices(){
     return allVertices;
@@ -622,7 +651,7 @@ std::vector<uint32_t>& Vk::Renderer::get_allIndices(){
     return allIndices;
 }
 
-Mesh* Vk::Renderer::get_mesh(const std::string& name){
+Mesh* Vk::Renderer::getLoadedMesh(const std::string& name){
 	auto it = _meshes.find(name);
 	if (it == _meshes.end()) {
 		return nullptr;
@@ -630,8 +659,4 @@ Mesh* Vk::Renderer::get_mesh(const std::string& name){
 	else {
 		return &(*it).second;
 	}
-}
-
-int Vk::Renderer::getMeshId(const std::string& name){
-    return get_mesh(name)->id;
 }

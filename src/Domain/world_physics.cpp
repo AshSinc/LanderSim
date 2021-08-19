@@ -2,8 +2,6 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
-//#include <random>
-//#include <iomanip> //used for setprecision in random function
 #include <glm/gtx/fast_square_root.hpp>
 #include "vk_renderer.h"
 #include "obj_collisionRender.h"

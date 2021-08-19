@@ -1,22 +1,17 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
 #include "vk_images.h"
+#include "vk_structures.h"
+#include <stb_image.h>
 #include <iostream>
-
-#include "vk_structs.h"
-
-
-
-//Vk::ImageHelper::ImageHelper(Mediator& mediator){}
 
 void Vk::ImageHelper::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation){
 
     uint32_t queueFamilyIndices[] = {p_renderer->queueFamilyIndicesStruct.graphicsFamily.value()};
-    VkImageCreateInfo imageInfo = Vk::Structs::image_create_info(VK_IMAGE_TYPE_2D, width, height, 1, mipLevels, arrayLayers, format, tiling, VK_IMAGE_LAYOUT_UNDEFINED, usage,
+    VkImageCreateInfo imageInfo = Vk::Structures::image_create_info(VK_IMAGE_TYPE_2D, width, height, 1, mipLevels, arrayLayers, format, tiling, VK_IMAGE_LAYOUT_UNDEFINED, usage,
         numSamples, createFlags, VK_SHARING_MODE_EXCLUSIVE, 1, queueFamilyIndices);
 
-    VmaAllocationCreateInfo allocInfo = Vk::Structs::vma_allocation_create_info(VMA_MEMORY_USAGE_GPU_ONLY);
+    VmaAllocationCreateInfo allocInfo = Vk::Structures::vma_allocation_create_info(VMA_MEMORY_USAGE_GPU_ONLY);
 
     if (vmaCreateImage(p_renderer->allocator, &imageInfo, &allocInfo, &image, &imageAllocation, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
@@ -27,7 +22,7 @@ void Vk::ImageHelper::createImage(uint32_t width, uint32_t height,  uint32_t mip
 //Used for Texture creation and swap chain, more coming
 VkImageView Vk::ImageHelper::createImageView(VkImage image, enum VkImageViewType viewType, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels, uint32_t arrayLayers){
     //code is the same as createImageViews, except for the format and the image
-    VkImageViewCreateInfo viewInfo = Vk::Structs::image_view_create_info(image, viewType, format, aspectFlags, 0, mipLevels, 0, arrayLayers);
+    VkImageViewCreateInfo viewInfo = Vk::Structures::image_view_create_info(image, viewType, format, aspectFlags, 0, mipLevels, 0, arrayLayers);
 
     VkImageView imageView;
     if(vkCreateImageView(p_renderer->device, &viewInfo, nullptr, &imageView) != VK_SUCCESS){
@@ -43,7 +38,7 @@ void Vk::ImageHelper::transitionImageLayout(VkImage& image, VkFormat format, VkI
     //to transition image layouts and transfer queue family ownership when VK_SHARING_MODE_EXCLUSIVE is used. (Interesting!)
     //There is an equivalent Buffer Memory Barrier to do this for buffers
 
-    VkImageMemoryBarrier barrier = Vk::Structs::image_memory_barrier(image, VK_IMAGE_ASPECT_COLOR_BIT, 0, arrayLayers, mipLevels);
+    VkImageMemoryBarrier barrier = Vk::Structures::image_memory_barrier(image, VK_IMAGE_ASPECT_COLOR_BIT, 0, arrayLayers, mipLevels);
     //first two fields are layout. can specify VK_IMAGE_LAYOUT_UNDEFINED for oldLayout if we dont care about existing contents
     barrier.oldLayout = oldLayout;
     barrier.newLayout = newLayout;
@@ -93,7 +88,7 @@ void Vk::ImageHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t
 
     //just like buffer copies you need to specify which part of the buffer is going to be copied to which part of the image, using VkBufferImageCopy structs
 
-    VkBufferImageCopy region = Vk::Structs::buffer_image_copy(0, width, height, VK_IMAGE_ASPECT_COLOR_BIT, 0 , 0 , layerCount);
+    VkBufferImageCopy region = Vk::Structures::buffer_image_copy(0, width, height, VK_IMAGE_ASPECT_COLOR_BIT, 0 , 0 , layerCount);
     //specifies how pixels are laid out in memory, eg you could have some padding bytes between rows of the image, 0 for both means the pixels are
     //simply tightly packed like they are in our case. 
     //imageSubresource, imageOffset and imageExtent fields indicate to which part of the image we want to copy the pixels.
@@ -197,7 +192,7 @@ void Vk::ImageHelper::generateMipmaps(VkImage& image, VkFormat imageFormat, int3
     
     VkCommandBuffer commandBuffer = p_renderer->beginSingleTimeCommands(p_renderer->transferCommandPool); //was cpool
 
-    VkImageMemoryBarrier barrier = Vk::Structs::image_memory_barrier(image, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 1);
+    VkImageMemoryBarrier barrier = Vk::Structures::image_memory_barrier(image, VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 1);
     //we will make several transitions so we'll reuse this VkImageMemoryBarrier struct and only change whats needed in the loop
 
     int32_t mipWidth = texWidth;
@@ -223,7 +218,7 @@ void Vk::ImageHelper::generateMipmaps(VkImage& image, VkFormat imageFormat, int3
         //the two elements of the srcOffsets array determine the 3D region that data will be blitted from. dstOffsets determines the region
         //data will be blitted to. X and Y dimensions of dstOffsets[1] are divided by 2 since each mip level is half the size of previous
         //z dimension of dstOffsets and srcOffsets must be 1 since these are 2 images
-        VkImageBlit blit = Vk::Structs::image_blit(mipWidth, mipHeight, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_ASPECT_COLOR_BIT, i);
+        VkImageBlit blit = Vk::Structures::image_blit(mipWidth, mipHeight, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_ASPECT_COLOR_BIT, i);
 
         //now we are set up we record the blit command
         //note textureImage is used for both source and destination. this is because we are blitting between different levels of the same image

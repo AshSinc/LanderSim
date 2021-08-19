@@ -1,8 +1,9 @@
 #include "ui_handler.h"
-#include "vk_structs.h"
+#include "vk_structures.h"
 #include "mediator.h"
 #include "world_stats.h"
 #include <thread>
+#include "vk_renderer_base.h"
 
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
@@ -87,7 +88,7 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("[ ] controls time\n\n");
 
         WorldStats& worldStats = r_mediator.physics_getWorldStats();
-        Vk::Renderer::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
+        Vk::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
 
         ImGui::Text("\nEngine\n");
         ImGui::Separator();
@@ -162,8 +163,6 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::EndGroup();
 
         ImGui::SameLine();
-
-  
 
         //ImVec2 p0 = ImGui::GetCursorScreenPos();
         //ImVec2 padding{10,10};

@@ -1,4 +1,5 @@
 #pragma once
+
 struct SceneData{
     bool RANDOMIZE_START = true;
     bool LANDER_COLLISION_COURSE = false;

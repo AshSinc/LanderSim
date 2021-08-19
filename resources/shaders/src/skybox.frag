@@ -1,7 +1,6 @@
 #version 450
 
 layout(set = 0, binding = 1) uniform SceneData{   
-	vec4 fogDistances;
 	vec4 lightDirection;
     vec4 lightAmbient;
     vec4 lightDiffuse;

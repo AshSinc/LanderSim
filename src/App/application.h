@@ -8,9 +8,8 @@
 #include <memory>
 #include <atomic>
 #include "data_scene.h"
-namespace Vk{
-    class WindowHandler;
-}
+#include "vk_windowHandler.h"
+#include "dmn_myScene.h"
 
 class GLFWwindow;
 

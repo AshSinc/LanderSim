@@ -6,15 +6,9 @@
 #include <vector>
 #include <chrono>
 #include <bullet/btBulletDynamicsCommon.h>
-//#include <BulletCollision/Gimpact/btGImpactShape.h>
-//#include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
-
 #include "obj_collisionRender.h"
-
 #include <map>
-
 #include <memory>
-
 #include "world_stats.h"
 
 namespace Vk{

@@ -12,19 +12,11 @@ class Mediator;
 
 namespace Vk{  
 
-const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
-const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i think 2 is standard according to this study by intel https://software.intel.com/content/www/us/en/develop/articles/practical-approach-to-vulkan-part-1.html
-const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
-const int MAX_LIGHTS = 10;
-
 class Renderer : public RendererBase{
 public:
     //returns reference to allVertices, used by physics engine to copy model rather than reread obj file
     std::vector<Vertex>& get_allVertices();
     std::vector<uint32_t>& get_allIndices();
-
-    Mesh* get_mesh(const std::string& name);
-    int getMeshId(const std::string& name);
 
     void createTextureImages(const std::vector<TextureInfo>& TEXTURE_INFOS, const std::vector<std::string>& SKYBOX_PATHS);
     void loadModels(const std::vector<ModelInfo>& MODEL_INFOS);
@@ -34,18 +26,21 @@ public:
     void setRenderablesPointer(std::vector<std::shared_ptr<RenderObject>>* renderableObjects);
     void allocateDescriptorSetForTexture(std::string materialName, std::string name);
     void allocateDescriptorSetForSkybox();
+    void allocateShadowMapImages();
     void setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights);
-    Mesh* getLoadedMesh(std::string name);
     void mapMaterialDataToGPU();
-    void reset();
-    void callReset();
+    void resetScene();
 
     Renderer(GLFWwindow* windowptr, Mediator& mediator);
     void drawFrame(); //draw a frame
+    Mesh* getLoadedMesh(const std::string& name); 
+
 private:
+    uint32_t SHADOW_MAP_WIDTH = 512;
+    uint32_t SHADOW_MAP_HEIGHT = 512;
     GPUMaterialData _materialParameters[MATERIALS_COUNT];
     
-    bool resetTextureImages = false;
+    bool sceneShutdownRequest = false;
 
     WorldLightObject* p_sceneLight;
     std::vector<WorldPointLightObject>* p_pointLights;
@@ -69,12 +64,12 @@ private:
     
     //Render Loop
     void drawObjects(int currentFrame);
-    void rerecordCommandBuffer(int i);
+    void recordCommandBuffer_ShadowMaps(int imageIndex);
+    void recordCommandBuffer_Objects(int imageIndex);
+    void recordCommandBuffer_GUI(int imageIndex);
     void mapLightingDataToGPU();
     void updateLightingData(GPUCameraData& camData);
     void updateSceneData(GPUCameraData& camData);
-    
-    
     void populateCameraData(GPUCameraData& camData);
     void updateObjectTranslations();
 
@@ -90,4 +85,3 @@ private:
     UploadContext _uploadContext; //could be in public
 };
 }
-//#endif /* !VK_ENGINE_D */

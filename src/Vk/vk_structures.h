@@ -3,14 +3,11 @@
 #include "vk_mesh.h"
 #include <set>
 
-namespace Vk::Structs{
+namespace Vk::Structures{
 
   VkSubmitInfo submit_info(VkCommandBuffer* commandBuffer);
 
-  //VkSubmitInfo submit_info(VkCommandBuffer* cmd, VkSemaphore* waitSemaphores, uint32_t waitCount,
-  //  VkPipelineStageFlags* waitStages, VkSemaphore* signalSemaphores, uint32_t signalCount
-  //);
-   VkSubmitInfo submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, VkSemaphore* waitSemaphores, uint32_t waitCount,
+  VkSubmitInfo submit_info(VkCommandBuffer commandBuffers[], uint32_t cmdBufferCount, VkSemaphore* waitSemaphores, uint32_t waitCount,
     VkPipelineStageFlags* waitStages, VkSemaphore* signalSemaphores, uint32_t signalCount
   );
 
@@ -50,12 +47,6 @@ namespace Vk::Structs{
 
   VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info(enum VkShaderStageFlagBits pipelineStage, VkShaderModule &shaderModule, 
     const VkSpecializationInfo* pSpecialInfo);
-
-  //VkPipelineVertexInputStateCreateInfo pipeline_vertex_input_create_info(uint32_t bindingDescriptionCount, const VkVertexInputBindingDescription* pBindingDescriptions, 
-    //std::vector<VkVertexInputAttributeDescription>& attributeDescriptions);
-
-  //VkPipelineVertexInputStateCreateInfo pipeline_vertex_input_create_info(uint32_t bindingDescriptionCount, const VkVertexInputBindingDescription* pBindingDescriptions, 
-  //  const VkVertexInputAttributeDescription* pVertexAttributeDescriptions,  uint32_t vertexAttributeDescriptionCount);
 
   VkPipelineVertexInputStateCreateInfo pipeline_vertex_input_create_info(VertexInputDescription& vertexInputDescription);
 
@@ -105,14 +96,12 @@ namespace Vk::Structs{
   VmaAllocationCreateInfo vma_allocation_create_info(enum VmaMemoryUsage usage);
 
   VkImageMemoryBarrier image_memory_barrier(VkImage& image, VkImageAspectFlags aspectMask, uint32_t baseArrayLayer, 
-uint32_t layerCount, uint32_t levelCount, uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, uint32_t dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
+    uint32_t layerCount, uint32_t levelCount, uint32_t srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, uint32_t dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED);
 
   VkImageBlit image_blit(int32_t mipWidth, int32_t mipHeight, VkImageAspectFlags srcAspectMask, VkImageAspectFlags dstAspectMask, uint32_t mipLevel);
 
   VkImageViewCreateInfo image_view_create_info(VkImage& image, enum VkImageViewType viewType, enum VkFormat format, VkImageAspectFlags aspectFlags,
     uint32_t baseMipLevel, uint32_t mipLevels, uint32_t baseArrayLayer, uint32_t layerCount);
-
-  //VkSamplerCreateInfo sampler_create_info();
 
   VkSamplerCreateInfo sampler_create_info(enum VkFilter magAndMinFilter, enum VkSamplerAddressMode uvwAddressModes, VkBool32 anisotropyEnable,
     uint32_t maxAnisotropy, enum VkBorderColor borderColour, VkBool32 compareEnable, enum VkCompareOp compareOp, enum VkSamplerMipmapMode mipmapMode,
@@ -142,5 +131,3 @@ uint32_t layerCount, uint32_t levelCount, uint32_t srcQueueFamilyIndex = VK_QUEU
   VkWriteDescriptorSet write_descriptorset(uint32_t dstBinding, VkDescriptorSet& dstSet, uint32_t descCount, 
     enum VkDescriptorType type, const VkDescriptorBufferInfo* pBufferInfo, const VkDescriptorImageInfo* pImageInfo = nullptr);
 }
-
-

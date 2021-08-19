@@ -1,5 +1,6 @@
 #pragma once
 #include "obj_pointLight.h"
+#include <memory>
 
 struct WorldSpotLightObject : virtual WorldPointLightObject{
     glm::vec3 direction; // 

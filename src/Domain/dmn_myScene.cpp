@@ -2,7 +2,6 @@
 #include "obj_collisionRender.h"
 #include "obj_lander.h"
 #include "obj_asteroid.h"
-
 #include "sv_randoms.h"
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
@@ -40,6 +39,8 @@ void MyScene::configureRenderEngine(){
     r_mediator.renderer_allocateDescriptorSetForSkybox();
 
     r_mediator.renderer_mapMaterialDataToGPU(); //important to do after textures/materials are loaded
+
+    r_mediator.renderer_allocateShadowMapImages(); //uses LightPointers as set above, iterates through and creates VkImage for each
 }
 
 void MyScene::configurePhysicsEngine(){
@@ -140,20 +141,22 @@ void MyScene::initObjects(){
 
 void MyScene::initLights(){
     //set directional scene light values
+    //this is light from the star in the background
     sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.025f,0.025f,0.1f);
     sceneLight.diffuse = glm::vec3(0.8f,0.8f,0.25f);
 
-    WorldPointLightObject pointLight;
+    /*WorldPointLightObject pointLight;
     pointLight.pos = glm::vec3(4005,0,-5);
     pointLight.scale = glm::vec3(0.2f, 0.2f, 0.2f);
     pointLight.ambient = glm::vec3(0.9f,0.025f,0.1f);
     pointLight.diffuse = glm::vec3(0.9f,0.6f,0.5f);
     pointLight.specular = glm::vec3(0.8f,0.5f,0.5f);
     pointLight.attenuation = glm::vec3(1, 0.7f, 1.8f);
-    pointLights.push_back(pointLight);
+    pointLights.push_back(pointLight);*/
 
     //add a spot light object
+    //this will be a spotlight on the lander
     WorldSpotLightObject spotlight;
     spotlight.pos = {4000,0,-5};
     spotlight.scale = {0.05f,0.05f,0.05f};

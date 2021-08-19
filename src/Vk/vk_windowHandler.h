@@ -1,5 +1,4 @@
-#ifndef GLFW_WINDOW_HANDLER_D
-#define GLFW_WINDOW_HANDLER_D
+#pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -12,5 +11,3 @@ namespace Vk{
         void createSurface(VkInstance instance, GLFWwindow* window, VkSurfaceKHR* surface);
     };
 }
-
-#endif

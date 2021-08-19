@@ -3,8 +3,6 @@
 #include <stdexcept>
 #include <iostream>
 
-#include "dmn_myScene.h"
-
 struct SceneData;
 
 int Application::run(){
@@ -56,7 +54,7 @@ void Application::loadScene(SceneData sceneData){
 void Application::endScene(){
     sceneLoaded = false;
     unbindWindowCallbacks();
-    mediator.renderer_reset();
+    mediator.renderer_resetScene();
     mediator.physics_reset();
 }
 
