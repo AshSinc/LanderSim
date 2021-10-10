@@ -90,7 +90,7 @@ void Mediator::renderer_allocateDescriptorSetForSkybox(){
     p_renderEngine->allocateDescriptorSetForSkybox();
 }
 void Mediator::renderer_allocateShadowMapImages(){
-    p_renderEngine->allocateShadowMapImages();
+ //   p_renderEngine->allocateShadowMapImages();
 }
 void Mediator::renderer_setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
     p_renderEngine->setLightPointers(sceneLight, pointLights, spotLights);
@@ -109,6 +109,9 @@ void Mediator::renderer_resetScene(){
 }
 void Mediator::renderer_flushTextures(){
     p_renderEngine->flushTextures();
+}
+void Mediator::renderer_setShouldDrawOffscreen(bool b){
+    p_renderEngine->setShouldDrawOffscreen(b);
 }
 
 //application functions

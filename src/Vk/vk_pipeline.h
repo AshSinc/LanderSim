@@ -21,6 +21,6 @@ namespace Vk{
 		VkPipelineLayout pipelineLayout;
 
 		//build pipeline call so we can create multiple pipelines
-		VkPipeline build_pipeline(VkDevice device, VkRenderPass pass);
+		VkPipeline build_pipeline(VkDevice device, VkRenderPass pass, uint32_t numShaderStages);
 	};
 }

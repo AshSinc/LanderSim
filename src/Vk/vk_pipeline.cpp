@@ -2,7 +2,7 @@
 #include "vk_structures.h"
 #include <stdexcept>
 
-VkPipeline Vk::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass renderPass){ 
+VkPipeline Vk::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass renderPass, uint32_t numShaderStages){ 
     //viewport and scissor rectangle needs to be combined into a viewport state using VkPipelineViewportStateCreateInfo struct
     VkPipelineViewportStateCreateInfo viewportState = Vk::Structures::pipeline_viewport_state_create_info(1, &viewport, 1, &scissor);
     //build the pipeline here
@@ -11,7 +11,7 @@ VkPipeline Vk::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass ren
 
     //finally we can begin bringing the pipeline together
     //we start by referencing the array of VkPipelineShaderStageCreateInfo structs
-    VkGraphicsPipelineCreateInfo pipelineInfo = Vk::Structures::graphics_pipeline_create_info(2, shaderStages, &vertexInputInfo, &inputAssembly, &viewportState,
+    VkGraphicsPipelineCreateInfo pipelineInfo = Vk::Structures::graphics_pipeline_create_info(numShaderStages, shaderStages, &vertexInputInfo, &inputAssembly, &viewportState,
         &rasterizer, &multisampling, &depthStencil, &colourBlending, pipelineLayout, renderPass, 0);
 
     VkPipeline createdPipeline;

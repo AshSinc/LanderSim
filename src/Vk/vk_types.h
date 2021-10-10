@@ -26,7 +26,7 @@ struct GPUPointLightData {
 struct GPUSpotLightData : GPUPointLightData {
     alignas(16) glm::vec3 direction; // z - is the spotlight angle
     alignas(16) glm::vec2 cutoffs; // z - is the spotlight angle
-    alignas(16) glm::mat4 depthMVP; //for the shadowmap
+    //alignas(16) glm::mat4 mvpMatrix; //for the shadowmap
 };
 
 //struct for holding the scene data
@@ -37,9 +37,16 @@ struct GPUSceneData {
     glm::vec4 lightSpecular;
     //SHADOWMAP we should have a transformation matrix here, needs to be orthographic projection 
     // Compute the MVP matrix from the light's point of view
-    glm::mat4 depthMVP;
+    //glm::mat4 mvpMatrix;
     //and we h
-    VkImage shadowmap;
+    //VkImage shadowmap;
+};
+
+//struct for holding the light data on GPU for reading from vertex shader, for shadowmaps from each light
+struct GPULightVPData{
+    //glm::mat4 view;
+    //glm::mat4 projection;
+    glm::mat4 viewproj;
 };
 
 //struct for holding the cameradata on GPU for reading from vertex shader
@@ -81,6 +88,10 @@ struct FrameData {
     VkBuffer cameraBuffer;
     VmaAllocation cameraBufferAllocation;
 
+    VkBuffer lightVPBuffer;
+    VmaAllocation lightVPBufferAlloc;
+    VkDescriptorSet lightVPSet;
+
     VkDescriptorSet globalDescriptor;
 
     VkSemaphore _presentSemaphore, _renderSemaphore;
@@ -89,6 +100,9 @@ struct FrameData {
     VkCommandPool _commandPool;
     VkCommandBuffer _mainCommandBuffer;
     VmaAllocation _mainCommandBufferAlloc;
+
+    //VkCommandBuffer shadowmapCommandBuffer;
+    //VmaAllocation shadowmapCommandBufferAlloc;
 };
 
 //struct holding the push constants for the mesh

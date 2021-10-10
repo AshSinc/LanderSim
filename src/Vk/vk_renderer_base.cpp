@@ -270,6 +270,18 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _lightingSetLayout, nullptr);});
 
+    //shadowmap 
+    VkDescriptorSetLayoutBinding lightVPBufferBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding shadowmapSamplerSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    //bindings =  {lightVPBufferBinding};
+    bindings =  {lightVPBufferBinding, shadowmapSamplerSetBinding};
+    setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
+    if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &lightVPSetLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create lightVPSetLayout descriptor set layout");
+    }
+    _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, lightVPSetLayout, nullptr);});
+    //shadowmap
+
     VkDescriptorSetLayoutBinding diffuseSetBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     //binding for scene data at 1 in vertex and frag
 	VkDescriptorSetLayoutBinding specularSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
@@ -346,7 +358,7 @@ void Vk::RendererBase::createColourResources(){
 
     imageHelper->createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, colourImage,
-        colourImageAllocation);
+        colourImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
 
     colourImageView = imageHelper->createImageView(colourImage, VK_IMAGE_VIEW_TYPE_2D, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     
@@ -359,7 +371,7 @@ void Vk::RendererBase::createDepthResources(){
     // we will go with VK_FORMAT_D32_SFLOAT but will add a findSupportedFormat() first to get something supported
     VkFormat depthFormat = Vk::Init::findDepthFormat(physicalDevice);
     imageHelper->createImage(swapChainExtent.width, swapChainExtent.height, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
-        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageAllocation);
+        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, depthImage, depthImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
 
     depthImageView = imageHelper->createImageView(depthImage, VK_IMAGE_VIEW_TYPE_2D, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
     
@@ -402,6 +414,11 @@ void Vk::RendererBase::createUniformBuffers(){
         createBuffer(sizeof(GPUSpotLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
             _frames[i].spotLightParameterBuffer, _frames[i].spotLightParameterBufferAlloc);
         _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].spotLightParameterBuffer, _frames[i].spotLightParameterBufferAlloc);});
+
+        //create the spot lights Buffer one per swapchain frame
+        createBuffer(sizeof(GPULightVPData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU,
+            _frames[i].lightVPBuffer, _frames[i].lightVPBufferAlloc);
+        _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, _frames[i].lightVPBuffer, _frames[i].lightVPBufferAlloc);});
     }
 
     const size_t sceneParamBufferSize = swapChainImages.size() * pad_uniform_buffer_size(sizeof(GPUSceneData));
@@ -428,11 +445,6 @@ void Vk::RendererBase::createSamplers(){
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
 	vkCreateSampler(device, &skySamplerInfo, nullptr, &skyboxSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, skyboxSampler, nullptr);});
-
-    //create a ShadowMap sampler here
-
-    //create a LanderLadar sampler ?
-    //This depends on if we are going to read it from compute shaders. AI could potentially run CPU or GPU or a bit of both? 
 }
 
 //before we can finish creating the pipeline, we need to tell vulkan about the framebuffer attachments that will be used while rendering
@@ -578,7 +590,7 @@ void Vk::RendererBase::initPipelines(){
     pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
 	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, default_lit_frag_m, nullptr));
 
-    VkPipeline meshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
+    VkPipeline meshPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, meshPipeline, nullptr);});
 
     createMaterial(meshPipeline, meshPipelineLayout, "defaultmesh", 0);
@@ -590,7 +602,7 @@ void Vk::RendererBase::initPipelines(){
     pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
 	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, unlit_frag_m, nullptr));
 
-    VkPipeline unlitMeshPipeline = pipelineBuilder.build_pipeline(device, renderPass);
+    VkPipeline unlitMeshPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, unlitMeshPipeline, nullptr);});
 
     createMaterial(unlitMeshPipeline, meshPipelineLayout, "unlitmesh", 1);
@@ -599,7 +611,7 @@ void Vk::RendererBase::initPipelines(){
 	//we start from  the normal mesh layout
     VkPipelineLayoutCreateInfo textured_pipeline_layout_info = mesh_pipeline_layout_info;
 		
-    VkDescriptorSetLayout texturedSetLayouts[] = {_globalSetLayout, _objectSetLayout, _materialSetLayout, _lightingSetLayout, _multiTextureSetLayout}; //come back to this, should have _materialSetLayout in here as well
+    VkDescriptorSetLayout texturedSetLayouts[] = {_globalSetLayout, _objectSetLayout, _materialSetLayout, _lightingSetLayout, _multiTextureSetLayout};
 
 	textured_pipeline_layout_info.setLayoutCount = 5;
 	textured_pipeline_layout_info.pSetLayouts = texturedSetLayouts;
@@ -618,7 +630,7 @@ void Vk::RendererBase::initPipelines(){
 
     pipelineBuilder.pipelineLayout = texturedPipeLayout;
 
-	VkPipeline texPipeline = pipelineBuilder.build_pipeline(device, renderPass);
+	VkPipeline texPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, texPipeline, nullptr);});
 
     //use this texturedpipeline to create multiple textures with a name
@@ -643,7 +655,7 @@ void Vk::RendererBase::initPipelines(){
 
     pipelineBuilder.pipelineLayout = _skyboxPipelineLayout;
 
-	skyboxPipeline = pipelineBuilder.build_pipeline(device, renderPass);
+	skyboxPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, skyboxPipeline, nullptr);});
     
     //because these wrappers just deliver the code they can be local variables and destroyed at the end of the function
@@ -1028,7 +1040,13 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		if(vkAllocateDescriptorSets(device, &lightingSetAllocInfo, &_frames[i].lightSet) != VK_SUCCESS){
             throw std::runtime_error("Failed to allocate memory for lighting descriptor set");
         }
-        std::array<VkWriteDescriptorSet, 6> setWrite{};
+        //allocate a uniform light VP matrix descriptor set for each frame
+        VkDescriptorSetAllocateInfo lightVPSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &lightVPSetLayout);
+		if(vkAllocateDescriptorSets(device, &lightVPSetAllocInfo, &_frames[i].lightVPSet) != VK_SUCCESS){
+            throw std::runtime_error("Failed to allocate memory for light VP descriptor set");
+        }
+
+        std::array<VkWriteDescriptorSet, 7> setWrite{};
 
         //information about the buffer we want to point at in the descriptor
 		VkDescriptorBufferInfo cameraInfo;
@@ -1055,7 +1073,6 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
         //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[2] = Vk::Structures::write_descriptorset(0, _frames[i].objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
 
-        //object buffer info describes the location and the size
         VkDescriptorBufferInfo materialBufferInfo;
 		materialBufferInfo.buffer = _frames[i].materialBuffer;
 		materialBufferInfo.offset = 0;
@@ -1063,7 +1080,6 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
         //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[3] = Vk::Structures::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
 
-        //object buffer info describes the location and the size
         VkDescriptorBufferInfo pointlightsBufferInfo;
 		pointlightsBufferInfo.buffer = _frames[i].pointLightParameterBuffer;
 		pointlightsBufferInfo.offset = 0;
@@ -1071,13 +1087,20 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
         //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[4] = Vk::Structures::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
 
-        //object buffer info describes the location and the size
         VkDescriptorBufferInfo spotLightsBufferInfo;
 		spotLightsBufferInfo.buffer = _frames[i].spotLightParameterBuffer;
 		spotLightsBufferInfo.offset = 0;
 		spotLightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
         //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[5] = Vk::Structures::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
+
+        //light VP buffer only holds the light view projection matrix for shadowmap creation
+        VkDescriptorBufferInfo lightVPBufferInfo;
+		lightVPBufferInfo.buffer = _frames[i].lightVPBuffer;
+		lightVPBufferInfo.offset = 0;
+		lightVPBufferInfo.range = sizeof(GPULightVPData) * MAX_LIGHTS;
+        //notice we bind to 0 as this is part of a seperate descriptor set
+        setWrite[6] = Vk::Structures::write_descriptorset(0, _frames[i].lightVPSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &lightVPBufferInfo);
 
 		vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
     }
@@ -1086,6 +1109,45 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
     VkDescriptorSetAllocateInfo skyboxSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_skyboxSetLayout);
     if(vkAllocateDescriptorSets(device, &skyboxSetAllocInfo, &skyboxSet) != VK_SUCCESS){
         throw std::runtime_error("Failed to allocate memory for skybox descriptor set");
+    }
+}
+
+void Vk::RendererBase::flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free){
+    if (commandBuffer == VK_NULL_HANDLE){
+        return;
+    }
+
+    if(vkEndCommandBuffer(commandBuffer)  != VK_SUCCESS){
+        throw std::runtime_error("Failed to end command buffer in Vk::RendererBase::flushCommandBuffer");
+    }
+
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    // Create fence to ensure that the command buffer has finished executing
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = (VkFenceCreateFlags)0;
+
+    VkFence fence;
+    if(vkCreateFence(device, &fenceInfo, nullptr, &fence) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create fence in Vk::RendererBase::flushCommandBuffer");
+    }
+    // Submit to the queue
+    if(vkQueueSubmit(queue, 1, &submitInfo, fence) != VK_SUCCESS){
+        throw std::runtime_error("Failed to submit queue in Vk::RendererBase::flushCommandBuffer");
+    }
+    // Wait for the fence to signal that command buffer has finished executing
+    //10000000 is 10ms
+    if(vkWaitForFences(device, 1, &fence, VK_TRUE, 10000000) != VK_SUCCESS){
+        throw std::runtime_error("Failed to wait for fence in Vk::RendererBase::flushCommandBuffer");
+    }
+
+    vkDestroyFence(device, fence, nullptr);
+
+    if (free){
+        vkFreeCommandBuffers(device, pool, 1, &commandBuffer);
     }
 }
 

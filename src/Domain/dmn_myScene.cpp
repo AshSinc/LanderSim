@@ -40,7 +40,7 @@ void MyScene::configureRenderEngine(){
 
     r_mediator.renderer_mapMaterialDataToGPU(); //important to do after textures/materials are loaded
 
-    r_mediator.renderer_allocateShadowMapImages(); //uses LightPointers as set above, iterates through and creates VkImage for each
+    //r_mediator.renderer_allocateShadowMapImages(); //uses LightPointers as set above, iterates through and creates VkImage for each
 }
 
 void MyScene::configurePhysicsEngine(){
@@ -113,16 +113,17 @@ void MyScene::initObjects(){
     collisionObjects.push_back(lander);
     focusableObjects["Lander"] = lander;
 
-    std::shared_ptr<RenderObject> satellite = std::shared_ptr<RenderObject>(new RenderObject());
+    /*std::shared_ptr<RenderObject> satellite = std::shared_ptr<RenderObject>(new RenderObject());
     satellite->pos = glm::vec3(3900,100,0);
     satellite->scale = glm::vec3(0.2f,0.2f,0.2f);
     setRendererMeshVars("satellite", satellite.get());
     satellite->material = r_mediator.renderer_getMaterial("texturedmesh2");
     satellite->material->extra.x = 2048;
     objects.push_back(satellite);
-    renderableObjects.push_back(satellite);
+    renderableObjects.push_back(satellite);*/
 
     std::shared_ptr<AsteroidObj> asteroid = std::shared_ptr<AsteroidObj>(new AsteroidObj());
+    asteroid->id = id++;
     asteroid->pos = glm::vec3(0,0,0);
     asteroid->scale = glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE);
     setRendererMeshVars("asteroid", asteroid.get());
@@ -164,7 +165,11 @@ void MyScene::initLights(){
     spotlight.specular = {1,1,1};
     spotlight.attenuation = {1,0.07f,0.017f};
     spotlight.direction = glm::vec3(4010,50,-5) - spotlight.pos; //temp direction
-    spotlight.cutoffs = {glm::cos(glm::radians(10.0f)), glm::cos(glm::radians(25.0f))};
+    spotlight.cutoffAngles = glm::vec2(10.0f, 25.0f);
+    spotlight.cutoffs = {glm::cos(spotlight.cutoffAngles.x), glm::cos(spotlight.cutoffAngles.y)};
+    std::cout << spotlight.cutoffs.x << "\n";
+    std::cout << spotlight.cutoffs.y << "\n";
+    spotLights.push_back(spotlight);
 
     spotLights.push_back(spotlight);
 }

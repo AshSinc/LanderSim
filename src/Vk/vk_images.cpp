@@ -2,16 +2,18 @@
 #include "vk_images.h"
 #include "vk_structures.h"
 #include <stb_image.h>
+
 #include <iostream>
 
 void Vk::ImageHelper::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
-    VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation){
+    VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation, VmaMemoryUsage memoryUsageFlag){
 
     uint32_t queueFamilyIndices[] = {p_renderer->queueFamilyIndicesStruct.graphicsFamily.value()};
     VkImageCreateInfo imageInfo = Vk::Structures::image_create_info(VK_IMAGE_TYPE_2D, width, height, 1, mipLevels, arrayLayers, format, tiling, VK_IMAGE_LAYOUT_UNDEFINED, usage,
         numSamples, createFlags, VK_SHARING_MODE_EXCLUSIVE, 1, queueFamilyIndices);
-
-    VmaAllocationCreateInfo allocInfo = Vk::Structures::vma_allocation_create_info(VMA_MEMORY_USAGE_GPU_ONLY);
+    
+    VmaAllocationCreateInfo allocInfo = Vk::Structures::vma_allocation_create_info(memoryUsageFlag);
+    //VmaAllocationCreateInfo allocInfo = Vk::Structures::vma_allocation_create_info(VMA_MEMORY_USAGE_GPU_ONLY);
 
     if (vmaCreateImage(p_renderer->allocator, &imageInfo, &allocInfo, &image, &imageAllocation, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("failed to create image!");
@@ -73,6 +75,27 @@ void Vk::ImageHelper::transitionImageLayout(VkImage& image, VkFormat format, VkI
         sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
     }
+    //else if(oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL){
+    else if(oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL){
+        //do stuff
+        //The allowed values are specified https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#synchronization-access-types-supported
+        barrier.srcAccessMask = 0;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        //we can see that VK_ACCESS_TRANSFER_WRITE_BIT requires the Pipeline_Stage. Since these writes dont have to wait on anything
+        //we can specify and empty src access mask and VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT for the pre barrier operations to go in early
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
+    else if(oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_GENERAL){
+        //do stuff
+        //The allowed values are specified https://www.khronos.org/registry/vulkan/specs/1.0/html/vkspec.html#synchronization-access-types-supported
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        //we can see that VK_ACCESS_TRANSFER_WRITE_BIT requires the Pipeline_Stage. Since these writes dont have to wait on anything
+        //we can specify and empty src access mask and VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT for the pre barrier operations to go in early
+        sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    }
     else{
         throw std::runtime_error("Unsupported layout transition");
     }
@@ -98,6 +121,27 @@ void Vk::ImageHelper::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t
     //that is optimal for copying pixels to. Right now we are only copying one chunk of pixels to the whole image, but its possible to specify 
     //an array of VkBufferImageCopy to perform many different copies from this buffer to the image in one operation
     vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue);
+}
+
+//helper function to record a copy buffer to image command
+void Vk::ImageHelper::copyImageToBuffer(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height, uint32_t layerCount){ //copy buffer isnt copying mipmaps //NOT COPYING MIPMAPPSSS!!!!!!!
+    VkCommandBuffer commandBuffer = p_renderer->beginSingleTimeCommands(p_renderer->transferCommandPool);
+
+    //just like buffer copies you need to specify which part of the buffer is going to be copied to which part of the image, using VkBufferImageCopy structs
+
+    VkBufferImageCopy region = Vk::Structures::buffer_image_copy(0, width, height, VK_IMAGE_ASPECT_COLOR_BIT, 0 , 0 , layerCount);
+
+    //specifies how pixels are laid out in memory, eg you could have some padding bytes between rows of the image, 0 for both means the pixels are
+    //simply tightly packed like they are in our case. 
+    //imageSubresource, imageOffset and imageExtent fields indicate to which part of the image we want to copy the pixels.
+
+    //Buffer to image copy operations are enqueued using the vkCmdCopyBufferToImage function:
+    //fourth param indicates which layout the image is currently using. We are assuming the image has already been transitioned to the layout
+    //that is optimal for copying pixels to. Right now we are only copying one chunk of pixels to the whole image, but its possible to specify 
+    //an array of VkBufferImageCopy to perform many different copies from this buffer to the image in one operation
+    //vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyImageToBuffer(commandBuffer, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, buffer, 1, &region);
     p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue);
 }
 
@@ -151,7 +195,7 @@ bool Vk::ImageHelper::loadTextureImage(Vk::Renderer& engine, const char* file, V
     //the destination for a transfer. We simply add VK_IMAGE_USAGE_TRANSFER_SRC_BIT to indicate this
     //pass details to createImageVMA to fill textureImage and textureImageAllocation handles
     createImage(texWidth, texHeight, mipLevels, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outImage, alloc);
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, outImage, alloc, VMA_MEMORY_USAGE_GPU_ONLY);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps
     //we first transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
@@ -261,4 +305,36 @@ void Vk::ImageHelper::generateMipmaps(VkImage& image, VkFormat imageFormat, int3
         1, &barrier);
 
     p_renderer->endSingleTimeCommands(commandBuffer, p_renderer->transferCommandPool, p_renderer->graphicsQueue); //transient queue pool cause errors was cpool
+}
+
+void Vk::ImageHelper::insertImageMemoryBarrier(
+        VkCommandBuffer cmdbuffer,
+        VkImage image,
+        VkAccessFlags srcAccessMask,
+        VkAccessFlags dstAccessMask,
+        VkImageLayout oldImageLayout,
+        VkImageLayout newImageLayout,
+        VkPipelineStageFlags srcStageMask,
+        VkPipelineStageFlags dstStageMask,
+        VkImageSubresourceRange subresourceRange){
+
+    VkImageMemoryBarrier imageMemoryBarrier{};// = vks::initializers::imageMemoryBarrier();
+    imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	imageMemoryBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	imageMemoryBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    imageMemoryBarrier.srcAccessMask = srcAccessMask;
+    imageMemoryBarrier.dstAccessMask = dstAccessMask;
+    imageMemoryBarrier.oldLayout = oldImageLayout;
+    imageMemoryBarrier.newLayout = newImageLayout;
+    imageMemoryBarrier.image = image;
+    imageMemoryBarrier.subresourceRange = subresourceRange;
+
+    vkCmdPipelineBarrier(
+        cmdbuffer,
+        srcStageMask,
+        dstStageMask,
+        0,
+        0, nullptr,
+        0, nullptr,
+        1, &imageMemoryBarrier);
 }

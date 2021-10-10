@@ -64,7 +64,7 @@ namespace Vk{
         //constructor, should have code to enforce one instance
         RendererBase(GLFWwindow* windowptr, Mediator& mediator);
         //Exposed Functions for Main.cpp
-        void init(); //initialise engine
+        virtual void init(); //initialise engine
         virtual void drawFrame() = 0; //draw a frame
         void cleanup(); //cleanup objects
 
@@ -125,22 +125,25 @@ namespace Vk{
 
         VkImage depthImage; //depth image to draw to for calulcating depth
         VmaAllocation depthImageAllocation;
-        VkImageView depthImageView;
+        //VkImageView depthImageView;
         VkImage colourImage; //colour image to draw to for calulcating final output colour
         VmaAllocation colourImageAllocation;
-        VkImageView colourImageView;
+        //VkImageView colourImageView;
         
         std::unordered_map<std::string, Texture> _skyboxTextures;
 
         void initPipelines(); //load and configure pipelines and correspending shader stages and assign to materials
-        VkShaderModule createShaderModule(const std::vector<char>& code);
+        
         
         VmaAllocation vertexBufferAllocation; //stores the handle to the assigned memory on the GPU 
         VmaAllocation indexBufferAllocation; //stores the handle to the assigned memory on the GPU 
         void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size); //no need for public right now 
         
         protected:
-        
+        VkImageView colourImageView;
+        VkImageView depthImageView;
+
+        VkShaderModule createShaderModule(const std::vector<char>& code);
         std::unordered_map<std::string,Material> _materials;
         Material* createMaterial(VkPipeline pipeline, VkPipelineLayout layout,const std::string& name, int id);
 
@@ -161,16 +164,18 @@ namespace Vk{
 
         VkDescriptorSetLayout _multiTextureSetLayout;
         VkDescriptorSetLayout _globalSetLayout; //handle to our global descriptor layout used for ubo, camera and sampler, set 0
-        VkDescriptorSetLayout _objectSetLayout; //handle to our object descriptor layout, set 1
-        VkDescriptorSetLayout _materialSetLayout; //handle to our object descriptor layout, set 1
-        VkDescriptorSetLayout _lightingSetLayout; //handle to our object descriptor layout, set 1
+        VkDescriptorSetLayout _objectSetLayout; //handle to our object descriptor layout,
+        VkDescriptorSetLayout _materialSetLayout; 
+        VkDescriptorSetLayout _lightingSetLayout; 
         VkDescriptorSetLayout _skyboxSetLayout;
+        VkDescriptorSetLayout lightVPSetLayout; //handle to our light VP descriptor layout
         
         VkSampler skyboxSampler;
         VkDescriptorPool descriptorPool; //handle to our descriptor pool (need to read more about this)
 
         VkSampler diffuseSampler; //sampler
         VkSampler specularSampler; //sampler
+        //VkSampler shadowmapSampler; //sampler
         VkPipelineLayout _skyboxPipelineLayout;
         std::unordered_map<std::string, Texture> _loadedTextures;
 
@@ -211,5 +216,7 @@ namespace Vk{
 
         size_t pad_uniform_buffer_size(size_t originalSize);
         std::vector<VkFence> imagesInFlight;
+
+        void flushCommandBuffer(VkCommandBuffer commandBuffer, VkQueue queue, VkCommandPool pool, bool free);
     };
 }

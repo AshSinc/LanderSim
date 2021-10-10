@@ -15,3 +15,6 @@ $VULKAN_SDK/bin/glslc $SRC_PATH/unlit.frag -o $DST_PATH/unlit_frag.spv
 
 $VULKAN_SDK/bin/glslc $SRC_PATH/skybox.vert -o $DST_PATH/skybox_vert.spv
 $VULKAN_SDK/bin/glslc $SRC_PATH/skybox.frag -o $DST_PATH/skybox_frag.spv
+
+$VULKAN_SDK/bin/glslc $SRC_PATH/shadowmap.vert -o $DST_PATH/shadowmap_vert.spv
+$VULKAN_SDK/bin/glslc $SRC_PATH/shadowmap_test.frag -o $DST_PATH/shadowmap_frag_test.spv

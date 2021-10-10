@@ -25,8 +25,435 @@
 #include "world_camera.h"
 #include "obj_render.h"
 #include <exception>
+#include "vk_pipeline.h"
+#include "vk_init_queries.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
+
+#include <thread>
 
 Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): RendererBase(windowptr, mediator){}
+
+void Vk::Renderer::init(){
+    Vk::RendererBase::init();
+    createOffscreenImageAndView();
+    createOffscreenFramebuffer();
+    createOffscreenCommandBuffer();
+    createOffscreenImageBuffer();
+}
+
+void Vk::Renderer::createOffscreenImageBuffer(){
+    VkBufferCreateInfo createinfo = {};
+    createinfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    createinfo.size = OFFSCREEN_IMAGE_WIDTH * OFFSCREEN_IMAGE_HEIGHT * 4 * sizeof(int8_t);
+    createinfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    createinfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
+
+    //create the image copy buffer
+    createBuffer(createinfo.size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, offscreenImageBuffer, offscreenImageBufferAlloc);
+
+    _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenImageBuffer, offscreenImageBufferAlloc);});
+}
+
+void Vk::Renderer::createOffscreenCommandBuffer(){
+    VkCommandPoolCreateInfo poolInfo = Vk::Structures::command_pool_create_info(queueFamilyIndicesStruct.graphicsFamily.value());
+    if(vkCreateCommandPool(device, &poolInfo, nullptr, &offscreenCommandPool) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create gui command pool");
+    }   
+    _swapDeletionQueue.push_function([=](){vkDestroyCommandPool(device, offscreenCommandPool, nullptr);
+	});
+
+	//allocate the gui command buffer
+	VkCommandBufferAllocateInfo cmdAllocInfo = Vk::Structures::command_buffer_allocate_info(VK_COMMAND_BUFFER_LEVEL_PRIMARY, offscreenCommandPool, 1);
+    
+	if(vkAllocateCommandBuffers(device, &cmdAllocInfo, &offscreenCommandBuffer) != VK_SUCCESS){
+            throw std::runtime_error("Unable to allocate offscreen command buffers");
+    }
+    _swapDeletionQueue.push_function([=](){vkFreeCommandBuffers(device, offscreenCommandPool, 1, &offscreenCommandBuffer);});
+}
+
+void Vk::Renderer::createOffscreenFramebuffer(){
+
+    std::vector<VkImageView> attachments = {colourImageView, depthImageView, offscreenImageView};
+
+    VkFramebufferCreateInfo framebufferInfo = Vk::Structures::framebuffer_create_info(renderPass, attachments, swapChainExtent, 1);
+
+    if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &offscreenFramebuffer) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create framebuffer");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, offscreenFramebuffer, nullptr);});
+}
+
+void Vk::Renderer::createOffscreenImageAndView(){
+    imageHelper->createImage(OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, swapChainImageFormat, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, offscreenImage, offscreenImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, offscreenImage, offscreenImageAllocation);});
+
+    offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
+}
+
+/*void Vk::Renderer::createOffscreenRenderPass(){
+    //in our case we will need a colour buffer represented by one of the images from the swap chain
+    VkAttachmentDescription colourAttachment = Vk::Structures::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    //Subpasses and attachment references
+    //A single rendering pass can consist of multiple subpasses. Subpasses are sunsequent rendering operations that depend on contents of
+    //framebuffers in previous passes. Eg a sequence of post processing effects that are applied one after another
+    //if you group these operations onto one render pass then Vulkan is able to optimize.
+    //For our first triangle we will just have one subpass.
+    
+    //Every subpass references one or more of the attachments described in the previous sections. These references are VkAttachmentReference structs
+    VkAttachmentReference colourAttachmentRef = Vk::Structures::attachment_reference(0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    //because we need to resolve the above multisampled image before presentation (you cant present a multisampled image because
+    //it contains multiple pixel values per pixel) we need an attachment that will resolve the image back to something we can 
+    //VK_IMAGE_LAYOUT_PRESENT_SRC_KHR and in standard 1 bit sampling
+    //VkAttachmentDescription colourAttachmentResolve = Vk::Structs::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    //VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
+
+    VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
+
+    //VK_IMAGE_LAYOUT_
+    //the render pass now has to be instructed to resolve the multisampled colour image into the regular attachment
+    VkAttachmentReference colourAttachmentResolveRef = Vk::Structures::attachment_reference(2, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    //colourAttachmentResolve.finalLayout
+    // this index is 2, depth attachment is 1
+
+    // we also want to add a Subpass Dependency as described in drawFrame() to wait for VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT before proceeding 
+    //specify indices of dependency and dependent subpasses, 
+    //special value VK_SUBPASS_EXTERNAL refers to implicit subpass before or after the the render pass depending on whether specified in srcSubpass/dstSubpass
+    //The operations that should waiti on this are in the colour attachment stage and involve the writing of the colour attachment
+    //these settings will prevent the transition from happening until its actually necessary and allowed, ie when we want to start writing colours to it
+    VkSubpassDependency dependency = Vk::Structures::subpass_dependency(VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+    
+    //we want to include a depth attachment for depth testing
+    // VK_ATTACHMENT_STORE_OP_DONT_CARE; //we dont need to store depth data as it will be discarded every pass
+    // VK_IMAGE_LAYOUT_UNDEFINED; //same as colour buffer, we dont care about previous depth contents
+    VkAttachmentDescription depthAttachment = Vk::Structures::attachment_description(Vk::Init::findDepthFormat(physicalDevice), msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+        VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+ 
+    VkAttachmentReference depthAttachmentRef = Vk::Structures::attachment_reference(1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    // and here is index 1, just described in wrong order
+
+    //we add a reference to the attachment for the first (and only) subpass
+    //the index of the attachment in this array is directly referenced from the fragment shader with the layout(location = 0)out vec4 outColor directive.
+    //we pass in the colourAttachmentResolveRef struct which will let the render pass define a multisample resolve operation
+    //described in the struct, which will let us render the image to screen by resolving it to the right layout
+    //pDepthStencilAttachment: Attachment for depth and stencil data        
+    VkSubpassDescription subpass = Vk::Structures::subpass_description(VK_PIPELINE_BIND_POINT_GRAPHICS, 1, &colourAttachmentResolveRef, &colourAttachmentRef, &depthAttachmentRef);
+
+    //now we udpate the VkRenderPassCreateInfo struct to refer to both attachments 
+    //and the colourAttachmentResolve
+    std::vector<VkAttachmentDescription> attachments = {colourAttachment, depthAttachment, colourAttachmentResolve};
+    VkRenderPassCreateInfo renderPassInfo = Vk::Structures::renderpass_create_info(attachments, 1, &subpass, 1, &dependency);
+
+    if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &offscreenRenderPass) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create render pass");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, offscreenRenderPass, nullptr);});
+}*/
+
+// Take a screenshot from the current swapchain image
+	// This is done using a blit from the swapchain image to a linear image whose memory content is then saved as a ppm image
+	// Getting the image date directly from a swapchain image wouldn't work as they're usually stored in an implementation dependent optimal tiling format
+	// Note: This requires the swapchain images to be created with the VK_IMAGE_USAGE_TRANSFER_SRC_BIT flag (see VulkanSwapChain::create)
+//adapted from Sascha Willems example screenshot example
+void Vk::Renderer::writeOffscreenImageToDisk(){
+    bool supportsBlit = true;
+
+    // Check blit support for source and destination
+    VkFormatProperties formatProps;
+
+    // Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, swapChainImageFormat, &formatProps);
+    if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
+        std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
+        supportsBlit = false;
+    }
+
+    // Check if the device supports blitting to linear images
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
+    if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
+        std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
+        supportsBlit = false;
+    }
+
+    VkImage srcImage = offscreenImage;
+
+    VkImage dstImage;
+    VmaAllocation dstImageAllocation;
+
+    imageHelper->createImage(OFFSCREEN_IMAGE_WIDTH,  OFFSCREEN_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, VMA_MEMORY_USAGE_CPU_ONLY);
+
+    VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
+    cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    cmdBufAllocateInfo.commandPool = offscreenCommandPool;
+    cmdBufAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    cmdBufAllocateInfo.commandBufferCount = 1;
+
+    VkCommandBuffer cmdBuffer;
+    vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &cmdBuffer);
+    // If requested, also start recording for the new command buffer
+    VkCommandBufferBeginInfo cmdBufInfo = Vk::Structures::command_buffer_begin_info(0);
+    vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
+
+    // Transition source image from present to transfer source layout
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        srcImage,
+        VK_ACCESS_MEMORY_READ_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    // Transition destination image to transfer destination layout
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        dstImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    // If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
+    if (supportsBlit){
+        // Define the region to blit (we will blit the whole swapchain image)
+        VkOffset3D blitSize;
+        blitSize.x = OFFSCREEN_IMAGE_WIDTH;
+        blitSize.y = OFFSCREEN_IMAGE_HEIGHT;
+        blitSize.z = 1;
+        VkImageBlit imageBlitRegion{};
+        imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageBlitRegion.srcSubresource.layerCount = 1;
+        imageBlitRegion.srcOffsets[1] = blitSize;
+        imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageBlitRegion.dstSubresource.layerCount = 1;
+        imageBlitRegion.dstOffsets[1] = blitSize;
+
+        // Issue the blit command
+        vkCmdBlitImage(
+            cmdBuffer,
+            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &imageBlitRegion,
+            VK_FILTER_NEAREST);
+    }
+    else
+    {
+        // Otherwise use image copy (requires us to manually flip components)
+        VkImageCopy imageCopyRegion{};
+        imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageCopyRegion.srcSubresource.layerCount = 1;
+        imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        imageCopyRegion.dstSubresource.layerCount = 1;
+        imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
+        imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
+        imageCopyRegion.extent.depth = 1;
+
+        // Issue the copy command
+        vkCmdCopyImage(
+            cmdBuffer,
+            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &imageCopyRegion);
+    }
+
+    // Transition destination image to general layout, which is the required layout for mapping the image memory later on
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        dstImage,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_ACCESS_MEMORY_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);
+
+    // Get layout of the image (including row pitch)
+    VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+    VkSubresourceLayout subResourceLayout;
+    vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+
+    const char* mappedData;
+    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
+    mappedData += subResourceLayout.offset;
+
+    // If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
+    bool colorSwizzle = false;
+    // Check if source is BGR
+    // Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
+
+    if (!supportsBlit){
+        std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
+        colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChainImageFormat) != formatsBGR.end());
+    }
+
+    //std::thread thread(&Vk::Renderer::writeMappedImageToFile, this, std::ref(mappedData), subResourceLayout.rowPitch, colorSwizzle); //run on another thread
+    //this should be happening in another thread
+    std::ofstream file("filename.ppm", std::ios::out | std::ios::binary);
+
+    // ppm header
+    file << "P6\n" << OFFSCREEN_IMAGE_WIDTH << "\n" << OFFSCREEN_IMAGE_HEIGHT << "\n" << 255 << "\n";
+
+    // ppm binary pixel data
+    for (uint32_t y = 0; y < OFFSCREEN_IMAGE_HEIGHT; y++){
+        unsigned int *row = (unsigned int*)mappedData;
+        for (uint32_t x = 0; x < OFFSCREEN_IMAGE_WIDTH; x++){
+            if (colorSwizzle){
+                file.write((char*)row+2, 1);
+                file.write((char*)row+1, 1);
+                file.write((char*)row, 1);
+            }else
+            {
+                file.write((char*)row, 3);
+            }
+            row++;
+        }
+        mappedData += subResourceLayout.rowPitch;
+    }
+    file.close();
+
+    std::cout << "Screenshot saved to disk" << std::endl;
+    
+    vmaUnmapMemory(allocator, dstImageAllocation);
+    vkDestroyImage(device, dstImage, nullptr);
+}
+
+/*void Vk::Renderer::createShadowMapPipeline(){
+    auto shadowmap_vert_c = Vk::Init::readFile("resources/shaders/shadowmap_vert.spv"); 
+    auto shadowmap_vert_m = createShaderModule(shadowmap_vert_c);
+    auto shadowmap_frag_test_c = Vk::Init::readFile("resources/shaders/shadowmap_frag_test.spv"); 
+    auto shadowmap_frag_test_m = createShaderModule(shadowmap_frag_test_c);
+
+    VkDescriptorSetLayout shadowmapSetLayouts[] = {lightVPSetLayout, _objectSetLayout};
+    VkPipelineLayoutCreateInfo shadowmap_pipeline_layout_info = Vk::Structures::pipeline_layout_create_info(2, shadowmapSetLayouts);
+
+    //create the layout
+    shadowmapPipelineLayout;
+    if(vkCreatePipelineLayout(device, &shadowmap_pipeline_layout_info, nullptr, &shadowmapPipelineLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create shadowmap pipeline layout");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyPipelineLayout(device, shadowmapPipelineLayout, nullptr);});
+
+    PipelineBuilder pipelineBuilder;
+
+    //general setup of the pipeline
+    pipelineBuilder.viewport = Vk::Structures::viewport(0.0f, 0.0f, (float) SHADOW_MAP_WIDTH, (float) SHADOW_MAP_HEIGHT, 0.0f, 1.0f);
+    VkExtent2D extent{SHADOW_MAP_WIDTH,SHADOW_MAP_HEIGHT};
+    pipelineBuilder.scissor = Vk::Structures::scissor(0,0,extent);
+    VertexInputDescription vertexInputDescription = Vertex::get_vertex_description();
+    pipelineBuilder.vertexInputInfo = Vk::Structures::pipeline_vertex_input_create_info(vertexInputDescription);
+    pipelineBuilder.inputAssembly = Vk::Structures::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
+    pipelineBuilder.rasterizer = Vk::Structures::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.multisampling = Vk::Structures::pipeline_msaa_state_create_info(VK_SAMPLE_COUNT_1_BIT); //no msaa
+    pipelineBuilder.depthStencil = Vk::Structures::pipeline_depth_stencil_state_create_info(VK_TRUE, VK_TRUE, VK_COMPARE_OP_LESS_OR_EQUAL);//VK_COMPARE_OP_LESS
+    pipelineBuilder.colourBlendAttachment = Vk::Structures::pipeline_colour_blend_attachment(VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT, VK_FALSE);
+    pipelineBuilder.pipelineLayout = shadowmapPipelineLayout;
+
+    //add required shaders for this stage
+    pipelineBuilder.shaderStages.clear();
+    pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, shadowmap_vert_m, nullptr));
+    pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, shadowmap_frag_test_m, nullptr));
+
+    shadowmapPipeline = pipelineBuilder.build_pipeline(device, shadowmapRenderPass, 2);
+    _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, shadowmapPipeline, nullptr);});
+
+    vkDestroyShaderModule(device, shadowmap_frag_test_m, nullptr);
+    vkDestroyShaderModule(device, shadowmap_vert_m, nullptr);
+}
+
+void Vk::Renderer::createShadowMapImage(){
+    //create the layered Image with MAX_LIGHTS number of layers
+    imageHelper->createImage(SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT, 1, MAX_LIGHTS, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, shadowmapImage, shadowMapImageAllocation);
+    _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, shadowmapImage, shadowMapImageAllocation);});
+}
+
+void Vk::Renderer::createShadowMapFrameBuffer(){
+    VkFramebufferCreateInfo framebufferInfo;
+    framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+    framebufferInfo.pNext = NULL;
+    framebufferInfo.renderPass = shadowmapRenderPass;
+    framebufferInfo.attachmentCount = shadowmapImageViews.size();
+    framebufferInfo.pAttachments = shadowmapImageViews.data(); //think this should be an array of VkImages
+    framebufferInfo.width = SHADOW_MAP_WIDTH;
+    framebufferInfo.height = SHADOW_MAP_HEIGHT;
+    framebufferInfo.layers = 1;
+    framebufferInfo.flags = 0;
+
+    if(vkCreateFramebuffer(device, &framebufferInfo, nullptr, &shadowmapFramebuffer) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create shadowmap framebuffer");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyFramebuffer(device, shadowmapFramebuffer, nullptr);});
+}
+
+void Vk::Renderer::createShadowMapRenderPass(){
+    VkAttachmentDescription attachments[2];
+ 
+   // Depth attachment (shadow map)
+   attachments[0].format = VK_FORMAT_D32_SFLOAT;
+   attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+   attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+   attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+   attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+   attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+   attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+   attachments[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+   attachments[0].flags = 0;
+ 
+   // Attachment references from subpasses
+   VkAttachmentReference depth_ref;
+   depth_ref.attachment = 0;
+   depth_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+ 
+   // Subpass 0: shadow map rendering
+   VkSubpassDescription subpass[1];
+   subpass[0].pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+   subpass[0].flags = 0;
+   subpass[0].inputAttachmentCount = 0;
+   subpass[0].pInputAttachments = NULL;
+   subpass[0].colorAttachmentCount = 0;
+   subpass[0].pColorAttachments = NULL;
+   subpass[0].pResolveAttachments = NULL;
+   subpass[0].pDepthStencilAttachment = &depth_ref;
+   subpass[0].preserveAttachmentCount = 0;
+   subpass[0].pPreserveAttachments = NULL;
+ 
+   // Create render pass
+   VkRenderPassCreateInfo renderPassInfo;
+   renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+   renderPassInfo.pNext = NULL;
+   renderPassInfo.attachmentCount = 1;
+   renderPassInfo.pAttachments = attachments;
+   renderPassInfo.subpassCount = 1;
+   renderPassInfo.pSubpasses = subpass;
+   renderPassInfo.dependencyCount = 0;
+   renderPassInfo.pDependencies = NULL;
+   renderPassInfo.flags = 0;
+ 
+   if(vkCreateRenderPass(device, &renderPassInfo, nullptr, &shadowmapRenderPass) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create shadowmap render pass");
+    }
+    _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, shadowmapRenderPass, nullptr);});
+}*/
 
 void Vk::Renderer::resetScene(){
     sceneShutdownRequest = true;
@@ -49,25 +476,48 @@ void Vk::Renderer::setLightPointers(WorldLightObject* sceneLight, std::vector<Wo
     p_spotLights = spotLights;
 }
 
-void Vk::Renderer::allocateShadowMapImages(){
+//void Vk::Renderer::allocateShadowMapImages(){
+    /*
+    uint32_t layerCounter = 0;
     //start with scene light
-    imageHelper->createImage(SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
-                    VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, p_sceneLight->shadowmapImage, p_sceneLight->shadowMapImageAllocation);
-    _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, p_sceneLight->shadowmapImage, p_sceneLight->shadowMapImageAllocation);});
-    p_sceneLight->shadowMapImageView = imageHelper->createImageView(p_sceneLight->shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT,  VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
-    _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, p_sceneLight->shadowMapImageView, nullptr);});
+    //scene is layer 0 in shadowmapImage
+    shadowmapImageViews.push_back(VkImageView());
+    VkImageViewCreateInfo viewInfo = Vk::Structures::image_view_create_info(shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, layerCounter, 1);
+    if(vkCreateImageView(device, &viewInfo, nullptr, &shadowmapImageViews[layerCounter]) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create scene shadowMapImageView");
+    }
+    _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, shadowmapImageViews[layerCounter], nullptr);});
+
+    p_sceneLight->layer = layerCounter++;
 
     //then each spotlight
     for(int i = 0; i < p_spotLights->size(); i++){
-       imageHelper->createImage(SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_D32_SFLOAT, VK_IMAGE_TILING_OPTIMAL, 
-                VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, p_spotLights->at(i).shadowmapImage, p_spotLights->at(i).shadowMapImageAllocation);
-        _textureDeletionQueue.push_function([=](){vmaDestroyImage(allocator, p_spotLights->at(i).shadowmapImage, p_spotLights->at(i).shadowMapImageAllocation);});
-        p_spotLights->at(i).shadowMapImageView = imageHelper->createImageView(p_spotLights->at(i).shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT,  VK_IMAGE_ASPECT_DEPTH_BIT, 1, 1);
-        _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, p_spotLights->at(i).shadowMapImageView, nullptr);});
+        VkImageViewCreateInfo viewInfo = Vk::Structures::image_view_create_info(shadowmapImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_D32_SFLOAT, VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, layerCounter, 1);
+        if(vkCreateImageView(device, &viewInfo, nullptr, &shadowmapImageViews[layerCounter]) != VK_SUCCESS){
+            throw std::runtime_error("Failed to create p_spotLights shadowMapImageView");
+        }
+        _textureDeletionQueue.push_function([=](){vkDestroyImageView(device, shadowmapImageViews[layerCounter], nullptr);});
+        p_spotLights->at(i).layer = layerCounter++;
     }
-
     //then point lights, ommiting for now as we won't have any and i'd need to work out cube maps
-}
+
+
+    createShadowMapFrameBuffer();
+    */
+//}
+
+//void Vk::Renderer::allocateDescriptorSetForShadowmap(){
+    /*VkWriteDescriptorSet setWrite{};
+    VkDescriptorImageInfo shadowmapImageInfo;
+    shadowmapImageInfo.sampler = shadowmapSampler;
+    shadowmapImageInfo.imageView = shadowmapImageViews.data(); //this should exist before this call
+    shadowmapImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    setWrite = Vk::Structures::write_descriptorset(0, skyboxSet, 1, 
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &shadowmapImageInfo);
+    queueSubmitMutex.lock();
+    vkUpdateDescriptorSets(device,  1, &setWrite, 0, nullptr);
+    queueSubmitMutex.unlock();*/
+//}
 
 void Vk::Renderer::allocateDescriptorSetForSkybox(){
     VkWriteDescriptorSet setWrite{};
@@ -96,12 +546,9 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
 
         vkAllocateDescriptorSets(device, &allocInfo, &material->_multiTextureSets[0]);
 
-        //std::array<VkWriteDescriptorSet, 2> setWrite{};
         std::vector<VkWriteDescriptorSet> setWrite;
-
         VkDescriptorImageInfo diffImageInfo;
         diffImageInfo.sampler = diffuseSampler;
-
         diffImageInfo.imageView = _loadedTextures[name+"_diff"].imageView;
         diffImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
         VkDescriptorImageInfo specImageInfo;
@@ -109,23 +556,15 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
         specImageInfo.imageView = _loadedTextures[name+"_spec"].imageView;
         specImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        //setWrite[0] = Vk::Structs::write_descriptorset(0, material->_multiTextureSets[0], 1, 
-        //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo);
         setWrite.push_back(Vk::Structures::write_descriptorset(0, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo));
-
-        //setWrite[1] = Vk::Structs::write_descriptorset(1, material->_multiTextureSets[0], 1, 
-        //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo);
 
         setWrite.push_back(Vk::Structures::write_descriptorset(1, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo));
 
-        std::cout << name << "\n";
-        std::cout << setWrite.size() << "\n";
-
         queueSubmitMutex.lock();
         try{
-            vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr); // <--- seg fault here  setWrite.data()
+            vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr); // <--- seg fault here setWrite.data()
         }
         catch(std::exception& e){
             std::cout << "Failed to update descriptor sets for  Texture " + name + "\n";
@@ -164,6 +603,20 @@ void Vk::Renderer::populateCameraData(GPUCameraData& camData){
 	camData.viewproj = proj * view;
 }
 
+void Vk::Renderer::populateLanderCameraData(GPUCameraData& camData){
+    RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
+    glm::vec3 camPos = lander->pos;
+    glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
+    glm::vec3 landerUp = glm::vec3(0,1,0); //need to get lander up, which means getting it from bullet and storing it
+    //need to rotate by landerForward?
+    glm::mat4 view = glm::lookAt(camPos, landingSitePos, landerUp);
+    glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 15000.0f);
+    proj[1][1] *= -1;
+    camData.projection = proj;
+    camData.view = view;
+	camData.viewproj = proj * view;
+}
+
 void Vk::Renderer::mapMaterialDataToGPU(){ //not sure i need 3 of these if they were going to be read only anyway, test at some point
     for(int i = 0; i < swapChainImages.size(); i++){
         //copy material data array into position, can i do this outside of the render loop as it will be static? lets try
@@ -189,6 +642,15 @@ void Vk::Renderer::mapLightingDataToGPU(){
         memcpy(spotLightingData, &_spotLightParameters, sizeof(_spotLightParameters));
         vmaUnmapMemory(allocator, _frames[i].spotLightParameterBufferAlloc); 
     }
+
+    //now for the lightVP matrix uniform buffer
+    for(int i = 0; i < swapChainImages.size(); i++){
+        //copy current point light data array into buffer
+        char* lightVPData;
+        vmaMapMemory(allocator, _frames[i].lightVPBufferAlloc , (void**)&lightVPData);
+        memcpy(lightVPData, &lightVPParameters, sizeof(lightVPParameters));
+        vmaUnmapMemory(allocator, _frames[i].lightVPBufferAlloc); 
+    }
 }
 
 //
@@ -198,11 +660,11 @@ void Vk::Renderer::updateSceneData(GPUCameraData& camData){
     _sceneParameters.lightAmbient = glm::vec4(p_sceneLight->ambient, 1);
     _sceneParameters.lightDiffuse = glm::vec4(p_sceneLight->diffuse, 1);
     _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
-    // Compute the MVP matrix from the light's point of view
-    glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10000,10000,-10000,10000,-10000,10000);
-    glm::mat4 depthViewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
-    glm::mat4 depthModelMatrix = glm::mat4(1.0);
-    _sceneParameters.depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
+    // Compute the MVP matrix from the light's point of view, ortho projection, need to adjust values
+    glm::mat4 projectionMatrix = glm::ortho<float>(-1000,1000,-1000,1000,-1000,1000);
+    glm::mat4 viewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
+    glm::mat4 modelMatrix = glm::mat4(1.0);
+    lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;
     //this is used to render the scene from the lights POV to generate a shadow map
 }
 
@@ -227,15 +689,59 @@ void Vk::Renderer::updateLightingData(GPUCameraData& camData){
         _spotLightParameters[i].direction = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).direction, 0));
         _spotLightParameters[i].cutoffs = p_spotLights->at(i).cutoffs;
 
-        //depthMVP matrix for shadowmap
-        glm::mat4 depthProjectionMatrix = glm::perspective<float>(glm::radians(45.0f), 1.0f, 2.0f, 50.0f);
-        glm::mat4 depthViewMatrix = glm::lookAt(_spotLightParameters[i].position, _spotLightParameters[i].position-_spotLightParameters[i].direction, glm::vec3(0,1,0));
-        glm::mat4 depthModelMatrix = glm::mat4(1.0);
-        _spotLightParameters[i].depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
+        //mvpMatrix for shadowmap, perpective projection
+        glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+                           0.0f,-1.0f, 0.0f, 0.0f,
+                           0.0f, 0.0f, 0.5f, 0.0f,
+                           0.0f, 0.0f, 0.5f, 1.0f);
+
+        glm::mat4 projectionMatrix = clip * glm::perspective<float>(glm::radians(p_spotLights->at(i).cutoffAngles.y), 1.0f,  p_spotLights->at(i).cutoffAngles.x, p_spotLights->at(i).cutoffAngles.y);
+        
+        glm::mat4 viewMatrix = glm::lookAt(p_spotLights->at(i).pos, p_spotLights->at(i).pos - p_spotLights->at(i).direction, glm::vec3(0,1,0));
+        glm::mat4 modelMatrix = glm::mat4(1.0);
+        lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;
     }
 }
 
+void Vk::Renderer::setShouldDrawOffscreen(bool b){
+    shouldDrawOffscreenFrame = b;
+}
+
+int i = 0;
+void Vk::Renderer::drawOffscreenFrame(){
+    if(i == 0){
+        recordCommandBuffer_Offscreen();
+        i++;
+    }
+    else{
+        writeOffscreenImageToDisk();
+        i = 0;
+    }
+    shouldDrawOffscreenFrame = false;
+}
+
+void Vk::Renderer::fillOffscreenImageBuffer(){
+    imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
+    //vkCmdCopyImageToBuffer(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageBuffer, 1, &region);
+
+    /*VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
+    imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
+    imageCopyRegion.extent.depth = 1;
+
+    vkCmdCopyImage(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopyRegion);
+
+    imageHelper->transitionImageLayout(offscreenImageB, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);*/
+}
+
 void Vk::Renderer::drawFrame(){
+    if (shouldDrawOffscreenFrame)
+        drawOffscreenFrame();
+
     vkWaitForFences(device, 1, &_frames[currentFrame]._renderFence, VK_TRUE, UINT64_MAX); 
     
     //so the first step is to acquire an image from the swap chain
@@ -258,8 +764,6 @@ void Vk::Renderer::drawFrame(){
     imagesInFlight[imageIndex] = _frames[currentFrame]._renderFence;
 
     //we have the imageIndex and are cleared for operations on it so it should be safe to rerecord the command buffer here
-    //recordCommandBuffer(imageIndex);
-    recordCommandBuffer_ShadowMaps(imageIndex);
     recordCommandBuffer_Objects(imageIndex);
     recordCommandBuffer_GUI(imageIndex);
 
@@ -270,7 +774,7 @@ void Vk::Renderer::drawFrame(){
     //Submitting the command buffer
     //queue submission and synchronization is configured through VkSubmitInfo struct
     VkCommandBuffer buffers[] = {_frames[imageIndex]._mainCommandBuffer, guiCommandBuffers[imageIndex]};
-    VkSubmitInfo submitInfo = Vk::Structures::submit_info(buffers, 2, waitSemaphores, 1, 
+    VkSubmitInfo submitInfo = Vk::Structures::submit_info(buffers, 2, waitSemaphores, 1,
         waitStages, signalSemaphores, 1);
     
     //move our reset fences here, its best to simply reset a fence right before its used
@@ -320,10 +824,89 @@ void Vk::Renderer::drawFrame(){
     }
 }
 
-void Vk::Renderer::recordCommandBuffer_ShadowMaps(int i){
+void Vk::Renderer::recordCommandBuffer_Offscreen(){
     //similar to recordCommandBuffer_Objects but calculate shadowmap for each light
-    //vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+    vkResetCommandBuffer(offscreenCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+
+    VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(0);
+    if(vkBeginCommandBuffer(offscreenCommandBuffer, &beginInfo) != VK_SUCCESS){
+        throw std::runtime_error("Failed to begin recording offscreen command buffer");
+    }
+
+    VkExtent2D extent{OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT};
+    
+    //note that the order of clear values should be identical to the order of attachments
+    //VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(offscreenRenderPass, offscreenFramebuffer, {0, 0}, extent, clearValues);
+    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(renderPass, offscreenFramebuffer, {0, 0}, extent, clearValues);
+
+    vkCmdBeginRenderPass(offscreenCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    if(r_mediator.application_getSceneLoaded())
+    if(p_renderables != NULL && !p_renderables->empty()){   
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(offscreenCommandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(offscreenCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        drawOffscreen(0);
+    }
+    
+    //we we can end the render pass
+    vkCmdEndRenderPass(offscreenCommandBuffer);
+
+    //and we have finished recording, we check for errors here
+    if (vkEndCommandBuffer(offscreenCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record offscreen command buffer!");
+    }
+
+    //Submitting the command buffer
+    //queue submission and synchronization is configured through VkSubmitInfo struct
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &offscreenCommandBuffer;
+
+    //submit the queue
+    queueSubmitMutex.lock();
+    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) { //then fails here after texture flush
+        throw std::runtime_error("Failed to submit draw command buffer");
+    }
+
+    queueSubmitMutex.unlock();
 }
+
+/*void Vk::Renderer::recordCommandBuffer_ShadowMaps(int i){
+    //similar to recordCommandBuffer_Objects but calculate shadowmap for each light
+    vkResetCommandBuffer(_frames[i]._mainCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
+
+    VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(0);
+    if(vkBeginCommandBuffer(_frames[i]._mainCommandBuffer, &beginInfo) != VK_SUCCESS){
+        throw std::runtime_error("Failed to begin recording command buffer in shadowpass");
+    }
+
+    VkExtent2D extent{SHADOW_MAP_WIDTH, SHADOW_MAP_HEIGHT};
+    
+    //note that the order of clear values should be identical to the order of attachments
+    VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(shadowmapRenderPass, shadowmapFramebuffer, {0, 0}, extent, clearValues);
+
+    vkCmdBeginRenderPass(_frames[i]._mainCommandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    if(r_mediator.application_getSceneLoaded())
+    if(p_renderables != NULL && !p_renderables->empty()){   
+        VkBuffer vertexBuffers[] = {vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(_frames[i]._mainCommandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdBindIndexBuffer(_frames[i]._mainCommandBuffer, indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        drawShadowMaps(i);
+    }
+    
+    //we we can end the render pass
+    vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
+
+    //and we have finished recording, we check for errors here
+    if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record shadowmap command buffer!");
+    }
+}*/
 
 void Vk::Renderer::recordCommandBuffer_Objects(int i){
     //have to reset this even if not recording it!
@@ -385,6 +968,165 @@ void Vk::Renderer::recordCommandBuffer_GUI(int i){
     }
 }
 
+void Vk::Renderer::drawOffscreen(int curFrame){
+    ////fill a GPU camera data struct
+	GPUCameraData camData;
+    populateLanderCameraData(camData);
+    updateSceneData(camData);
+    
+    //and copy it to the buffer
+	void* data;
+	vmaMapMemory(allocator, _frames[curFrame].cameraBufferAllocation, &data);
+	memcpy(data, &camData, sizeof(GPUCameraData));
+	vmaUnmapMemory(allocator, _frames[curFrame].cameraBufferAllocation);
+
+    //UPDATE TRANSFORM MATRICES OF ALL MODELS HERE
+    updateObjectTranslations();
+
+    //fetch latest lighting data
+    updateLightingData(camData);
+    //map it to the GPU
+    mapLightingDataToGPU();
+    
+    //then do the objects data into the storage buffer
+    void* objectData;
+    vmaMapMemory(allocator, _frames[curFrame].objectBufferAlloc, &objectData);
+    GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
+    //loop through all objects in the scene, need a better container than a vector
+    for (int i = 0; i < p_renderables->size(); i++){
+        objectSSBO[i].modelMatrix = p_renderables->at(i)->transformMatrix;
+        //calculate the normal matrix, its done by inverse transpose of the model matrix * view matrix because we are working 
+        //in view space in the shader. taking only the top 3x3
+        //this is to account for rotation and scaling when using normals. should be done on cpu as its costly
+        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i)->transformMatrix)); 
+    }
+    vmaUnmapMemory(allocator, _frames[curFrame].objectBufferAlloc);
+  
+	char* sceneData;
+    vmaMapMemory(allocator, _sceneParameterBufferAlloc , (void**)&sceneData);
+	int frameIndex = frameCounter % MAX_FRAMES_IN_FLIGHT;
+	sceneData += pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex; 
+	memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
+	vmaUnmapMemory(allocator, _sceneParameterBufferAlloc); 
+
+    Material* lastMaterial = nullptr;
+
+    int renderObjectIds [2] = {1,3}; //renderables 1 and 3, these are 1 = star, 3 = asteroid, 
+    //need to include 4 landing site boxes too, and not render them in main loop
+    
+    for(const int i : renderObjectIds){
+    //for (int i = 1; i < p_renderables->size(); i++){
+        RenderObject* object = p_renderables->at(i).get();
+        //only bind the pipeline if it doesn't match with the already bound one
+        //object->id
+		if (object->material != lastMaterial) {
+            //object.
+            if(object->material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
+			vkCmdBindPipeline(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipeline);
+			lastMaterial = object->material;
+
+            //offset for our scene buffer
+            uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+            //bind the descriptor set when changing pipeline
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 0, 1, &_frames[curFrame].globalDescriptor, 1, &scene_uniform_offset);
+
+	        //object data descriptor
+        	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
+
+             //material descriptor, we are using a dynamic uniform buffer and referencing materials by their offset with propertiesId, which just stores the int relative to the material in _materials
+        	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
+            //the "firstSet" param above is 2 because in init_pipelines its described in VkDescriptorSetLayout[] in index 2!
+            
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
+
+            if (object->material->_multiTextureSets.size() > 0) {
+                vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                    object->material->pipelineLayout, 4, 1, &object->material->_multiTextureSets[0], 0, nullptr);
+		    }
+		}
+
+        //add material property id for this object to push constant
+		PushConstants constants;
+		constants.matIndex = object->material->propertiesId;
+        constants.numPointLights = p_pointLights->size();
+        constants.numSpotLights = p_spotLights->size();
+
+        //upload the mesh to the GPU via pushconstants
+		vkCmdPushConstants(offscreenCommandBuffer, object->material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
+
+        vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
+    }
+}
+
+/*void Vk::Renderer::drawShadowMaps(int curFrame){
+     ////fill a GPU camera data struct
+	GPUCameraData camData;
+    populateCameraData(camData);
+    updateSceneData(camData);
+    
+    //and copy it to the buffer
+	void* data;
+	vmaMapMemory(allocator, _frames[curFrame].cameraBufferAllocation, &data);
+	memcpy(data, &camData, sizeof(GPUCameraData));
+	vmaUnmapMemory(allocator, _frames[curFrame].cameraBufferAllocation);
+
+    //UPDATE TRANSFORM MATRICES OF ALL MODELS HERE
+    updateObjectTranslations();
+
+    //fetch latest lighting data
+    updateLightingData(camData);
+    //map it to the GPU
+    mapLightingDataToGPU();
+    
+    //then do the objects data into the storage buffer
+    void* objectData;
+    vmaMapMemory(allocator, _frames[curFrame].objectBufferAlloc, &objectData);
+    GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
+    //loop through all objects in the scene, need a better container than a vector
+    for (int i = 0; i < p_renderables->size(); i++){
+        objectSSBO[i].modelMatrix = p_renderables->at(i)->transformMatrix;
+        //calculate the normal matrix, its done by inverse transpose of the model matrix * view matrix because we are working 
+        //in view space in the shader. taking only the top 3x3
+        //this is to account for rotation and scaling when using normals. should be done on cpu as its costly
+        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i)->transformMatrix)); 
+    }
+    vmaUnmapMemory(allocator, _frames[curFrame].objectBufferAlloc);
+  
+    for (int i = 1; i < p_renderables->size(); i++){
+        RenderObject* object = p_renderables->at(i).get();
+        //only bind the pipeline if it doesn't match with the already bound one
+		vkCmdBindPipeline(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowmapPipeline);
+
+        //offset for our scene buffer
+        /*uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
+        //bind the descriptor set when changing pipeline
+        //vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+        //    object->material->pipelineLayout, 0, 1, &_frames[curFrame].globalDescriptor, 1, &scene_uniform_offset);
+
+        vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+            shadowmapPipelineLayout, 0, 1, &_frames[curFrame].lightVPSet, 0, nullptr);
+
+        //object data descriptor
+        vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+            shadowmapPipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
+
+        //add material property id for this object to push constant
+		//PushConstants constants;
+		//constants.matIndex = object->material->propertiesId;
+        //constants.numPointLights = p_pointLights->size();
+        //constants.numSpotLights = p_spotLights->size();
+
+        //upload the mesh to the GPU via pushconstants
+		//vkCmdPushConstants(offscreenCommandBuffer, object->material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
+
+        vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
+    }
+}*/
+
 void Vk::Renderer::drawObjects(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
@@ -427,7 +1169,11 @@ void Vk::Renderer::drawObjects(int curFrame){
 	vmaUnmapMemory(allocator, _sceneParameterBufferAlloc); 
 
     Material* lastMaterial = nullptr;
-    for (int i = 1; i < p_renderables->size(); i++){
+
+    int renderObjectIds [3] = {1,2,3}; //these are 0 = skybox,  1 = star, 2 = lander, 3 = asteroid, but skybox drawn after with different call
+    
+    for(const int i : renderObjectIds){
+    //for (int i = 1; i < p_renderables->size(); i++){
         RenderObject* object = p_renderables->at(i).get();
         //only bind the pipeline if it doesn't match with the already bound one
 		if (object->material != lastMaterial) {
@@ -471,6 +1217,7 @@ void Vk::Renderer::drawObjects(int curFrame){
         vkCmdDrawIndexed(_frames[curFrame]._mainCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
 
+    //draw skybox
     uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * frameIndex;
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 0, 1, &_frames[curFrame].globalDescriptor, 1, &scene_uniform_offset);
     vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
@@ -543,7 +1290,7 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
     }
 
     imageHelper->createImage(width, height, 1, 6, VK_SAMPLE_COUNT_1_BIT, VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyboxImage, skyboxAllocation);
+    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, skyboxImage, skyboxAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
 
     //we have created the texture image, next step is to copy the staging buffer to the texture image. This involves 2 steps
     //we first transition the image to VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
