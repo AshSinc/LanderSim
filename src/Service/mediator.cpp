@@ -60,6 +60,18 @@ void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<Collision
 void Mediator::physics_reset(){
     p_physicsEngine->reset();
 }
+bool Mediator::physics_landerImpulseRequested(){
+    return p_physicsEngine->landerImpulseRequested();
+}
+LanderBoostCommand& Mediator::physics_popLanderImpulseQueue(){
+    return p_physicsEngine->popLanderImpulseQueue();
+}
+void Mediator::physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
+    p_physicsEngine->addImpulseToLanderQueue(duration, x, y, z, torque);
+}
+void Mediator::physics_moveLandingSite(float x, float y, float z, bool torque){
+    p_physicsEngine->moveLandingSite(x,y,z,torque);
+}
 
 //Renderer functions
 Vk::RenderStats& Mediator::renderer_getRenderStats(){

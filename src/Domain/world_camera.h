@@ -4,6 +4,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
 #include <glm/glm.hpp>
 #include <vector>
+#include <string>
 
 class WorldObject;
 class Mediator;
@@ -25,7 +26,9 @@ private:
     float fixedObjectScaleFactor = 1;        
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
 
-    int objectFocusIndex = 2; //this needs changed to point to an actual object now, objects in scene need to be gettable, maybe put back in an unnordered map
+    const std::string FOCUS_NAMES[3] {"Lander", "Asteroid", "Landing_Site"};
+    const int FOCUS_NAMES_SIZE = sizeof(FOCUS_NAMES)/sizeof(FOCUS_NAMES[0]);
+    int objectFocusIndex = 0;
     CameraData cameraData;
 
     float lastMouseX, lastMouseY, yaw, pitch;

@@ -29,6 +29,7 @@ struct WorldPointLightObject;
 struct WorldSpotLightObject;
 struct SceneData;
 struct WorldStats;
+struct LanderBoostCommand;
 
 class IScene;
 
@@ -55,6 +56,10 @@ class Mediator{
         WorldStats& physics_getWorldStats();
         void physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects);
         void physics_reset();
+        bool physics_landerImpulseRequested();
+        LanderBoostCommand& physics_popLanderImpulseQueue();
+        void physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque = false);
+        void physics_moveLandingSite(float x, float y, float z, bool torque = false);
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);

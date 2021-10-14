@@ -604,12 +604,17 @@ void Vk::Renderer::populateCameraData(GPUCameraData& camData){
 }
 
 void Vk::Renderer::populateLanderCameraData(GPUCameraData& camData){
+    //LanderObj* lander = p_renderables->at(2).get(); //lander is obj 2
     RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
     glm::vec3 camPos = lander->pos;
     glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
-    glm::vec3 landerUp = glm::vec3(0,1,0); //need to get lander up, which means getting it from bullet and storing it
+    btVector3 lUp = r_mediator.physics_getWorldStats().landerUp;//glm::vec3(0,0,1); //need to get lander up, which means getting it from bullet and storing it
+    glm::vec3 landerUp = glm::vec3(lUp.getX(), lUp.getY(), lUp.getZ());
+    btVector3 lFwd = r_mediator.physics_getWorldStats().landerForward;//glm::vec3(0,0,1); //need to get lander up, which means getting it from bullet and storing it
+    glm::vec3 landerForward = glm::vec3(lFwd.getX(), lFwd.getY(), lFwd.getZ());
     //need to rotate by landerForward?
-    glm::mat4 view = glm::lookAt(camPos, landingSitePos, landerUp);
+    //glm::mat4 view = glm::lookAt(camPos, landingSitePos, landerUp);
+    glm::mat4 view = glm::lookAt(camPos, camPos + landerForward, landerUp);
     glm::mat4 proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 15000.0f);
     proj[1][1] *= -1;
     camData.projection = proj;
@@ -1011,8 +1016,7 @@ void Vk::Renderer::drawOffscreen(int curFrame){
 
     Material* lastMaterial = nullptr;
 
-    int renderObjectIds [2] = {1,3}; //renderables 1 and 3, these are 1 = star, 3 = asteroid, 
-    //need to include 4 landing site boxes too, and not render them in main loop
+    int renderObjectIds [6] = {1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
     
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
@@ -1170,8 +1174,8 @@ void Vk::Renderer::drawObjects(int curFrame){
 
     Material* lastMaterial = nullptr;
 
-    int renderObjectIds [3] = {1,2,3}; //these are 0 = skybox,  1 = star, 2 = lander, 3 = asteroid, but skybox drawn after with different call
-    
+    int renderObjectIds [7] = {1,2,3,4,5,6,7}; //these are 0 = skybox,  1 = star, 2 = lander, 3 = asteroid, but skybox drawn after with different call
+
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
         RenderObject* object = p_renderables->at(i).get();

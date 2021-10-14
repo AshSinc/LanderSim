@@ -8,6 +8,7 @@ class Mediator; //this should be temporary, mediator only needed for inneficient
 
 struct CollisionRenderObj : virtual RenderObject, virtual CollisionObj{
     btCollisionObject* p_btCollisionObject;
+    virtual void applyImpulse(btRigidBody* rigidbody, btVector3 vector, float duration){};
     virtual void timestepBehaviour(btRigidBody* body){};
     virtual void updateWorldStats(WorldStats* worldStats){}; //a little wierd to include this for only 1 object, but best solution for now to remove code from world_physics
     virtual void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){};

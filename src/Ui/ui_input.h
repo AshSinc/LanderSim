@@ -12,7 +12,10 @@ class UiInput{
         UiInput(Mediator& mediator);
         void mouseMoved(double xpos, double ypos);
         void scrollMoved(double xoffset, double yoffset);       
-        void processKey(int key);
+        void processKey(int key, bool repeatKeypress);
+        
     private:
         Mediator& r_mediator;
+        void processKeyGroupMovement(int key, bool repeatKeypress);
+        bool landingSiteInput = false;
 };

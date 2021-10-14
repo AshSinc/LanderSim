@@ -20,12 +20,16 @@ class MyScene: public IScene{
         void configureRenderEngine();
         void configurePhysicsEngine();
         void setRendererMeshVars(std::string name, RenderObject* renderObj);
+        void constructLandingSite(int id);
+        glm::mat4 rotation_from_euler(double roll, double pitch, double yaw);
         Mediator& r_mediator;
+        const float LANDING_SCALE_REDUCTION_FACTOR = 0.015f;
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {
             {"satellite", "resources/models/Satellite.obj"},
-            {"asteroid", "resources/models/asteroid.obj"},
+            //{"asteroid", "resources/models/asteroid.obj"},
+            {"asteroid", "resources/models/asteroidscaled.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
             {"box", "resources/models/box.obj"}

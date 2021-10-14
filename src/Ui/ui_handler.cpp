@@ -158,16 +158,10 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::SliderFloat("Lander Distance", &sceneData.LANDER_START_DISTANCE, 50.0f, 1000.0f);
         ImGui::SliderFloat("Lander Pass Distance", &sceneData.LANDER_PASS_DISTANCE, 0.0f, 1000.0f);
         ImGui::SliderFloat("Lander Initial Speed", &sceneData.INITIAL_LANDER_SPEED, 0.0f, 50.0f);
-        ImGui::SliderFloat("Asteroid Rotation", &sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY, 0.0f, 0.1f);
-        ImGui::SliderFloat("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 100.0f);
+        ImGui::SliderInt("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 8.0f);
         ImGui::EndGroup();
 
         ImGui::SameLine();
-
-        //ImVec2 p0 = ImGui::GetCursorScreenPos();
-        //ImVec2 padding{10,10};
-        //ImGui::SetCursorScreenPos(p0 + 10);
-        //ImGui::SetCursorScreenPos(p0 + padding.y);
 
         ImGui::BeginGroup();
         if (ImGui::Button("Start", ImVec2(150,50)))

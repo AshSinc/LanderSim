@@ -11,28 +11,26 @@ void WorldCamera::init(){
 }
 
 void WorldCamera::updateAutoCamera(float cameraDistanceScale){
-    WorldObject& r_object = r_mediator.scene_getWorldObject(objectFocusIndex);
-    //WorldObject& r_object = r_mediator.scene_getFocusableObject("Lander");
+    WorldObject& r_object = r_mediator.scene_getFocusableObject(FOCUS_NAMES[objectFocusIndex]);
     WorldObject& r_object2 = r_mediator.scene_getFocusableObject("Asteroid");
-    glm::vec3 directionToAsteroid = normalize(r_object2.pos-r_object.pos);
-    glm::vec3 dirScaled = directionToAsteroid * cameraDistanceScale;
-    glm::mat4 trans = glm::mat4(1.0f);
-    trans = glm::translate(trans, -dirScaled);
-    glm::vec4 cameraPosV4 = glm::mat4(trans)*glm::vec4(r_object.pos, 1.0f);
-    updateCamera(cameraPosV4, directionToAsteroid);
+    glm::vec3 direction;
+    glm::vec4 cameraPos;
 
-    //glm::quat temp1 = glm::normalize( glm::quat((GLfloat)( -xOffset), glm::vec3(0.0, 1.0, 0.0)) );
-    //glm::quat temp2 = glm::normalize( glm::quat((GLfloat)( -yOffset), dir_norm) );
-    //glm::vec4 camDirection = temp2 * (temp1 * directionToAsteroid * glm::inverse(temp1)) * glm::inverse(temp2);
-    //updateCamera();
-    
-    /*r_object.printString();
-    std::cout << "\n";
-    r_object2.printString();
-    std::cout << "\n";
-    std::cout << "ObjID: The Camera" << "\n";
-    std::cout << "pos: (" << cameraData.cameraPos.x << ", " << cameraData.cameraPos.y << ", " << cameraData.cameraPos.z << ")\n";
-    std::cout << "\n\n\n";*/
+    if(FOCUS_NAMES[objectFocusIndex] == "Landing_Site"){
+        direction = normalize(r_object2.pos-r_object.pos);
+        glm::vec3 dirScaled = direction * cameraDistanceScale;
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, -dirScaled);
+        cameraPos = glm::mat4(trans)*glm::vec4(r_object.pos, 1.0f);
+    }
+    else{
+        direction = normalize(r_object2.pos-r_object.pos);
+        glm::vec3 dirScaled = direction * cameraDistanceScale;
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, -dirScaled);
+        cameraPos = glm::mat4(trans)*glm::vec4(r_object.pos, 1.0f);
+    }
+    updateCamera(cameraPos, direction);
 }
 
 void WorldCamera::setMouseLookActive(bool state){
@@ -45,8 +43,8 @@ void WorldCamera::toggleAutoCamera(){
 }   
 
 void WorldCamera::updateFixedLookPosition(){
-    WorldObject& r_object = r_mediator.scene_getWorldObject(objectFocusIndex);
-    float fixedObjectScaleFactor = std::max(r_object.scale.x, 1.0f);
+    WorldObject& r_object = r_mediator.scene_getFocusableObject(FOCUS_NAMES[objectFocusIndex]);
+    float fixedObjectScaleFactor = std::max(r_object.scale.x/8, 1.0f);
     glm::vec3 newPos;
     if(usingAutoCamera){
         updateAutoCamera(fixedLookRadius*fixedLookRadius*fixedObjectScaleFactor);
@@ -65,11 +63,10 @@ void WorldCamera::updateFixedLookPosition(){
 
 //switches focus object when not in freelook
 void WorldCamera::changeFocus(){
-    int num_objects = r_mediator.scene_getWorldObjectsCount();
-    if(!freelook){
+    if(!freelook){//freelook isnt used but could be at some point
         objectFocusIndex++;
-        if(objectFocusIndex == num_objects)
-            objectFocusIndex = 2; //this shouldnt be hardcoded, for now Skybox and Star are object 0 and 1, so 2 onwards should be ok
+        if(objectFocusIndex == FOCUS_NAMES_SIZE) //if we are at array capacity
+            objectFocusIndex = 0;
     }
 }
 

@@ -11,6 +11,7 @@
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.025f;
     bool randomStartRotation = false;
+    WorldObject* landingSiteObject;
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         std::vector<Vertex>& allV = r_mediator.renderer_getAllVertices(); //reference all loaded model vertices
@@ -95,6 +96,14 @@ struct AsteroidObj : virtual CollisionRenderObj{
         initRigidBody(&transform, rigidbody);
 
         dynamicsWorld->addRigidBody(rigidbody);//add the body to the dynamics world
+
+        //we also want to store landing site world obj, so we can update it in timestep
+        //landingSiteObject = &r_mediator.scene_getFocusableObject("Landing_Site");
+    }
+
+    void timestepBehaviour(btRigidBody* body){
+        //body->
+        //landingSiteObject->
     }
 
     /*void serialiseBtShape(btGImpactMeshShape* meshShape){
@@ -152,8 +161,11 @@ struct AsteroidObj : virtual CollisionRenderObj{
             rigidbody->setAngularVelocity(btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f))); //random rotation of asteroid
         }
         else
-            rigidbody->setAngularVelocity(btVector3(0.005f, 0.015f, 0.01f)); //initial rotation of asteroid
+            rigidbody->setAngularVelocity(btVector3(0.0f, 0.0f, 0.0f)); //initial rotation of asteroid
+            //rigidbody->setAngularVelocity(btVector3(0.005f, 0.015f, 0.01f)); //initial rotation of asteroid
     }
+
+    void applyImpulse(btRigidBody* rigidbody, btVector3 vector, float duration){};
 
     ~AsteroidObj(){};
 };

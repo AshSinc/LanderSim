@@ -31,6 +31,12 @@ class UiHandler{
     const ScenarioData_Scenario1 SCENARIO_1_SceneData;
     const ScenarioData_Scenario2 SCENARIO_2_SceneData;
     const ScenarioData_Scenario3 SCENARIO_3_SceneData;
+
+    LandingSiteData landingSiteData;
+    const LandingSiteData DEFAULT_LandingSiteData;
+    const LandingSiteData_1 SCENARIO_1_LandingSiteData;
+    const LandingSiteData_2 SCENARIO_2_LandingSiteData;
+    //const ScenarioData_Scenario3 SCENARIO_3_LandingSiteData;
     
 
     void startBtnClicked();
