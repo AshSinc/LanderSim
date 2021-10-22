@@ -19,10 +19,6 @@ LandingSiteObj* Mediator::scene_getLandingSiteObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLandingSiteObject();
 }
-//LanderObj* Mediator::scene_getLanderObject(){
-//    MyScene* ls = dynamic_cast<LanderObj*>(p_scene);
-//    return ls->getLandingSiteObject();
-//}
 
 //Ui functions
 void Mediator::ui_toggleEscMenu(){
@@ -71,15 +67,12 @@ void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<Collision
 void Mediator::physics_reset(){
     p_physicsEngine->reset();
 }
-
 void Mediator::physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
     LanderObj* lo = dynamic_cast<LanderObj*>(&scene_getFocusableObject("Lander"));
     lo->addImpulseToLanderQueue(duration, x, y, z, torque);
-    //p_physicsEngine->addImpulseToLanderQueue(duration, x, y, z, torque);
 }
 void Mediator::physics_moveLandingSite(float x, float y, float z, bool torque){
     scene_getLandingSiteObject()->moveLandingSite(x,y,z,torque); //taking a shortcut here
-    //p_physicsEngine->moveLandingSite(x,y,z,torque);
 }
 void Mediator::physics_updateDeltaTime(){
     p_physicsEngine->updateDeltaTime();
@@ -94,7 +87,7 @@ std::vector<Vertex>& Mediator::renderer_getAllVertices(){
 } //reference all loaded model vertices
 std::vector<uint32_t>& Mediator::renderer_getAllIndices(){
     return p_renderEngine->get_allIndices();
-} //reference all loaded model vertices
+} //reference all loaded model indices
 Material* Mediator::renderer_getMaterial(const std::string& name){
     return p_renderEngine->getMaterial(name);
 }

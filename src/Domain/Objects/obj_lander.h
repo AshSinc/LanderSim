@@ -42,7 +42,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
         collisionShapes->push_back(collisionShape);
 
-        /// create lander transform
+        //create lander transform
         //btTransform transform;
         landerTransform.setIdentity();
 
@@ -82,18 +82,12 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     void updateLanderUpForward(btRigidBody* body){
         //store the lander up vector (for taking images and aligning)
         btTransform landerWorldTransform = body->getWorldTransform();
-        int indexUpAxis = 1;
-        btVector3 upBt = landerWorldTransform.getBasis().getColumn(indexUpAxis);
-        up = glm::vec3(upBt.getX(), upBt.getY(), upBt.getZ());
-        //std::cout << up.getX() << " " << up.getY() << " " << up.getZ() << " < -- column up\n";
+        int indexUpAxis = 2;
+        up = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexUpAxis));
 
         //store the lander forward vector (for taking images and aligning)
-        int indexFwdAxis = 0;
-        btVector3 forwardBt = landerWorldTransform.getBasis().getColumn(indexFwdAxis);
-        forward = glm::vec3(forwardBt.getX(), forwardBt.getY(), forwardBt.getZ());
-        //std::cout << forward.getX() << " " << forward.getY() << " " << forward.getZ() << " < -- column fwd\n";
-        //these values dont look correct
-        // maybe have to account for translation
+        int indexFwdAxis = 0; //not sure if this is actually the forward axis, need to test before using it
+        forward = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexFwdAxis));
     }
 
     void timestepBehaviour(btRigidBody* body, float timeStep){
@@ -114,7 +108,6 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         ai.landerSimulationTick(timeStep); //let the ai have a tick
 
         //check if we have a boost command queued
-        //if(p_mediator->physics_landerImpulseRequested()){
         if(landerImpulseRequested()){
             LanderBoostCommand& nextBoost = popLanderImpulseQueue();
             if(nextBoost.torque)
@@ -136,7 +129,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         relativeForce *= landerBoostStrength*boost.duration; //temporarily using duration as a multiplier
         btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
         btVector3 correctedForce = rot * relativeForce;
-        rigidbody->applyCentralImpulse(correctedForce);
+        rigidbody->applyCentralForce(correctedForce);
     }
     void applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost){
         btVector3 relativeForce = btVector3(boost.vector.x, boost.vector.y, boost.vector.z);
@@ -163,10 +156,6 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         landerBoostQueueLock.lock();
         landerBoostQueue.push_back(LanderBoostCommand{duration, glm::vec3{x,y,z}, torque});
         landerBoostQueueLock.unlock();
-        
-        //if(outputActionToFile){
-
-        //}
     }
 
     bool landerImpulseRequested(){

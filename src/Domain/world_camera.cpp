@@ -56,8 +56,6 @@ void WorldCamera::updateFixedLookPosition(){
         newPos.x = fixedLookRadius*fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.x;
         newPos.y = fixedLookRadius*fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.y;
         newPos.z = fixedLookRadius*fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(offsetPitch)) + r_object.pos.z;
-
-        //cameraData.cameraUp = normalize(glm::vec3(-r_object.pos));
         updateCamera(newPos, normalize(r_object.pos - newPos));
     }
 }

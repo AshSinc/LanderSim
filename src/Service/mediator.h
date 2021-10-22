@@ -39,7 +39,6 @@ class Mediator{
         WorldCamera* p_worldCamera;
         UiHandler* p_uiHandler;
         WorldPhysics* p_physicsEngine;
-        //Vk::Renderer* p_renderEngine;
         Vk::OffscreenRenderer* p_renderEngine;
         IScene* p_scene;
         Application* p_application;

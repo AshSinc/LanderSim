@@ -5,6 +5,7 @@
 #include <bullet/btBulletDynamicsCommon.h>
 
 class Mediator; //this should be temporary, mediator only needed for inneficient mesh loading of asteroid, this can be cleaned and half loading time, then mediator can be removed from function call
+//well it would half loading time if bullet shape file exporting worked :s
 
 struct CollisionRenderObj : virtual RenderObject, virtual CollisionObj{
     btCollisionObject* p_btCollisionObject;

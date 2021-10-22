@@ -81,7 +81,6 @@ struct LandingSiteObj : virtual WorldObject{
 
     void updateLandingSiteObjects(){
         //get LandingSite WorldObject too and update that first
-        //CollisionRenderObj asteroidRenderObject = *p_collisionObjects->at(1);//asteroid will be 1 , lander is 0
         WorldObject& asteroidRenderObject = p_mediator->scene_getFocusableObject("Asteroid");
         glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(initialPos, 1);
         pos = rotated_point;
@@ -102,17 +101,13 @@ struct LandingSiteObj : virtual WorldObject{
         glm::mat4 landerWorldTransform = translation * rotation * scaleM;
         int indexUpAxis = 2;
         up = glm::normalize(landerWorldTransform[2]);
-        //up = glm::vec3(up.x, up.z, up.y);//have to swizzle the values around as z is up in our world, but y is up in bullet
 
         int indexFwdAxis = 0;
         forward = glm::normalize(landerWorldTransform[0]);    
-        //forward = glm::vec3(forward.x, forward.z, forward.y);//have to swizzle the values around as z is up in our world, but y is up in bullet
     }
 
     //this function is just to help find locations for the landing site  manually move it in sim, update the render object position or rotation and print out the pos and rot
     void moveLandingSite(float x, float y, float z, bool torque){
-        //WorldObject& landingSite = r_mediator.scene_getFocusableObject("Landing_Site");
-
         if(torque){
             //input 
             float step = 1.0f;
