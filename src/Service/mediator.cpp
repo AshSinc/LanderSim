@@ -1,6 +1,9 @@
 #include "mediator.h"
 #include "application.h"
-#include "vk_renderer.h"
+#include "vk_renderer_offscreen.h"
+#include "dmn_myScene.h"
+#include "obj_landingSite.h"
+#include "obj_lander.h"
 
 //Scene Functions
 int Mediator::scene_getWorldObjectsCount(){
@@ -12,6 +15,14 @@ WorldObject& Mediator::scene_getWorldObject(int i){
 WorldObject& Mediator::scene_getFocusableObject(std::string name){
     return p_scene->getFocusableObject(name);
 }
+LandingSiteObj* Mediator::scene_getLandingSiteObject(){
+    MyScene* ls = dynamic_cast<MyScene*>(p_scene);
+    return ls->getLandingSiteObject();
+}
+//LanderObj* Mediator::scene_getLanderObject(){
+//    MyScene* ls = dynamic_cast<LanderObj*>(p_scene);
+//    return ls->getLandingSiteObject();
+//}
 
 //Ui functions
 void Mediator::ui_toggleEscMenu(){
@@ -60,17 +71,18 @@ void Mediator::physics_loadCollisionMeshes(std::vector<std::shared_ptr<Collision
 void Mediator::physics_reset(){
     p_physicsEngine->reset();
 }
-bool Mediator::physics_landerImpulseRequested(){
-    return p_physicsEngine->landerImpulseRequested();
-}
-LanderBoostCommand& Mediator::physics_popLanderImpulseQueue(){
-    return p_physicsEngine->popLanderImpulseQueue();
-}
+
 void Mediator::physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
-    p_physicsEngine->addImpulseToLanderQueue(duration, x, y, z, torque);
+    LanderObj* lo = dynamic_cast<LanderObj*>(&scene_getFocusableObject("Lander"));
+    lo->addImpulseToLanderQueue(duration, x, y, z, torque);
+    //p_physicsEngine->addImpulseToLanderQueue(duration, x, y, z, torque);
 }
 void Mediator::physics_moveLandingSite(float x, float y, float z, bool torque){
-    p_physicsEngine->moveLandingSite(x,y,z,torque);
+    scene_getLandingSiteObject()->moveLandingSite(x,y,z,torque); //taking a shortcut here
+    //p_physicsEngine->moveLandingSite(x,y,z,torque);
+}
+void Mediator::physics_updateDeltaTime(){
+    p_physicsEngine->updateDeltaTime();
 }
 
 //Renderer functions
@@ -125,6 +137,9 @@ void Mediator::renderer_flushTextures(){
 void Mediator::renderer_setShouldDrawOffscreen(bool b){
     p_renderEngine->setShouldDrawOffscreen(b);
 }
+void Mediator::renderer_writeOffscreenImageToDisk(){
+    p_renderEngine->writeOffscreenImageToDisk();
+}
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){
@@ -150,7 +165,7 @@ void Mediator::setPhysicsEngine(WorldPhysics* physicsEngine){
 void Mediator::setCamera(WorldCamera* camera){
     p_worldCamera = camera;
 }
-void Mediator::setRenderEngine(Vk::Renderer* renderer){
+void Mediator::setRenderEngine(Vk::OffscreenRenderer* renderer){
     p_renderEngine = renderer;
 }
 void Mediator::setScene(IScene* scene){

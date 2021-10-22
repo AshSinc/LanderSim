@@ -2,7 +2,8 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   ../src/App/**.cpp
   ../src/Domain/**.cpp
   ../src/Domain/Objects/**.cpp
-  ../src/Domain/Objects/**.h
+  #../src/Domain/Objects/**.h
+  ../src/Domain/Ai/**.cpp
   ../src/Ui/**.cpp
   ../src/Vk/**.cpp
   ../src/Service/**.cpp
@@ -11,6 +12,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   ../src/Domain/**.h
   ../src/Domain/Objects/**.h
   ../src/Domain/Data/**.h
+  ../src/Domain/Ai/**.h
   ../src/Ui/**.h
   ../src/Vk/**.h
   ../src/Service/**.h

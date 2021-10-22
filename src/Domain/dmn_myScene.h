@@ -4,6 +4,7 @@
 #include <string>
 #include "data_scene.h"
 
+
 class MyScene: public IScene{
         public:
         MyScene(Mediator& mediator);
@@ -12,6 +13,8 @@ class MyScene: public IScene{
         SceneData sceneData;
 
         void setSceneData(SceneData sceneData);
+        void setRendererMeshVars(std::string name, RenderObject* renderObj);
+        LandingSiteObj* getLandingSiteObject(){return landingSite.get();};
 
         private:
         void initLights();
@@ -19,11 +22,11 @@ class MyScene: public IScene{
         void initRenderables();
         void configureRenderEngine();
         void configurePhysicsEngine();
-        void setRendererMeshVars(std::string name, RenderObject* renderObj);
-        void constructLandingSite(int id);
+        
         glm::mat4 rotation_from_euler(double roll, double pitch, double yaw);
         Mediator& r_mediator;
-        const float LANDING_SCALE_REDUCTION_FACTOR = 0.015f;
+
+        std::shared_ptr<LandingSiteObj> landingSite;
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {

@@ -8,10 +8,8 @@
 #include "mediator.h"
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
-//#include <glm/gtc/quaternion.hpp>
-//#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
-
+#include "obj_landingSite.h"
 
 void WorldPhysics::updateDeltaTime(){
     auto now = std::chrono::high_resolution_clock::now();
@@ -33,102 +31,21 @@ void WorldPhysics::worldTick(){
         float fixedTimeStep = 0.01666666754F;
         float timeStep = deltaTime*worldStats.timeStepMultiplier;
         int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN;
+        //std::cout << deltaTime << "deltatime\n";
         //std::cout << "Timestep: "<< timeStep << "\n";
         //std::cout << "Max substeps: "<< maxSubSteps << "\n";
         dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
-
-        updateCollisionObjects();
+        updateCollisionObjects(timeStep);
         //temporary, should have bindable WorldObject property in WorldObject, so u can bind its movement to another object 
         //then check for a binding on movement
-        updateLandingSiteObjects(); 
+        r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
+        //updateLandingSiteObjects(); 
+
         checkCollisions();
     }
 }
 
-void WorldPhysics::updateLandingSiteObjects(){
-    //get LandingSite WorldObject too and update that first
-    CollisionRenderObj asteroidRenderObject = *p_collisionObjects->at(1);//asteroid will be 1 , lander is 0
-    WorldObject& landingSite = r_mediator.scene_getFocusableObject("Landing_Site");
-    glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(landingSite.initialPos, 1);
-    landingSite.pos = rotated_point;
-    landingSite.rot = asteroidRenderObject.rot*landingSite.initialRot;
-
-    for(int x = 0; x < 4; x++){
-        WorldObject& box = r_mediator.scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
-        glm::vec3 directionToOrigin = glm::normalize(-landingSite.initialPos);
-        glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(box.initialPos, 1);
-        box.pos = rotated_point;
-        box.rot = asteroidRenderObject.rot*box.initialRot;
-    }
-
-    //store the up vector (for taking images and aligning)
-    glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, landingSite.scale);
-    glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, landingSite.pos);
-    glm::mat4 rotation = landingSite.rot;
-    glm::mat4 landerWorldTransform = translation * rotation * scale;
-    int indexUpAxis = 1;
-    landingSite.up = landerWorldTransform[1];
-    int indexFwdAxis = 0;
-    landingSite.forward = landerWorldTransform[0];    
-}
-
-//this function is just to help find locations for the landing site, manually move it in sim, update the render object position or rotation and print out the pos and rot
-void WorldPhysics::moveLandingSite(float x, float y, float z, bool torque){
-    WorldObject& landingSite = r_mediator.scene_getFocusableObject("Landing_Site");
-
-    if(torque){
-        //input 
-        float step = 1.0f;
-        landingSite.yaw+=x*step;
-        landingSite.pitch+=y*step;
-        landingSite.roll+=z*step;
-
-        landingSite.initialRot = glm::yawPitchRoll(glm::radians(landingSite.yaw), glm::radians(landingSite.pitch), glm::radians(landingSite.roll));
-
-        for(int x = 0; x < 4; x++){
-            WorldObject& box = r_mediator.scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
-            box.initialRot = landingSite.initialRot;
-
-            glm::vec3 landingBoxPos;
-            switch (x){
-                case 0:landingBoxPos = landingSite.pos+glm::vec3(-1,-1,0);break;
-                case 1:landingBoxPos = landingSite.pos+glm::vec3(1,-1,0);break;
-                case 2:landingBoxPos = landingSite.pos+glm::vec3(-1,1,0);break;
-                case 3:landingBoxPos = landingSite.pos+glm::vec3(1,1,0);break;
-                default:break;
-            }
-
-            //we need to account for landing site rotation before getting our final box position
-            //we start with our offset landingBoxPos, make a translation matrix of our landingBoxPos, and the inverse of it
-            //then we construct the whole matrix, (remember to read in reverse order)
-            //ie we move the point back to 0,0,0 (-landingSitePos), rotate it around origin by landingSiteRot, then translate back to our starting position (+landingSitePos)
-            //also used in dmn_myScene, could move to Service/helper functions
-            glm::mat4 translate = glm::translate(glm::mat4(1), landingSite.pos);
-            glm::mat4 invTranslate = glm::inverse(translate);
-            glm::mat4 objectRotationTransform = translate * landingSite.initialRot * invTranslate;
-            //box.pos = objectRotationTransform*glm::vec4(landingBoxPos, 1);
-            box.initialPos = objectRotationTransform*glm::vec4(landingBoxPos, 1);
-        }
-    }
-    else{
-        glm::vec3 correctedDirection = landingSite.rot * glm::vec4(x, y, z, 0);
-        landingSite.pos += correctedDirection/10.0f;
-        landingSite.initialPos = landingSite.pos;
-        for(int x = 0; x < 4; x++){
-            WorldObject& box = r_mediator.scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
-            box.pos += correctedDirection/10.0f;
-            box.initialPos = box.pos;
-        }
-    } 
-
-    std::cout << "Landing Site Moved: " << "\n";
-    std::cout << glm::to_string(landingSite.initialPos) << "\n";
-    std::cout << landingSite.yaw  << ", " << landingSite.pitch << ", " << landingSite.roll << "\n";
-}
-
-
-
-void WorldPhysics::updateCollisionObjects(){
+void WorldPhysics::updateCollisionObjects(float timeStep){
     //update positions of world objects from similation transforms
     for(std::shared_ptr<CollisionRenderObj> collisionRenderObj : *p_collisionObjects){
         btCollisionObject* obj = collisionRenderObj->p_btCollisionObject;
@@ -141,7 +58,7 @@ void WorldPhysics::updateCollisionObjects(){
         collisionRenderObj->rot = rotationMatrix;
         collisionRenderObj->pos = glm::vec3(float(origin.getX()), float(origin.getY()), float(origin.getZ()));
 
-        collisionRenderObj->timestepBehaviour(body);
+        collisionRenderObj->timestepBehaviour(body, timeStep);
         collisionRenderObj->updateWorldStats(&worldStats);       
     }
 
@@ -237,37 +154,11 @@ void WorldPhysics::changeSimSpeed(int direction, bool pause){
     }
 }
 
-void WorldPhysics::addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
-    landerBoostQueueLock.lock();
-    landerBoostQueue.push_back(LanderBoostCommand{duration, glm::vec3{x,y,z}, torque});
-    landerBoostQueueLock.unlock();
-    
-    //if(outputActionToFile){
-
-    //}
-}
-
-bool WorldPhysics::landerImpulseRequested(){
-    landerBoostQueueLock.lock();
-    bool empty = landerBoostQueue.empty();
-    landerBoostQueueLock.unlock();
-    return !empty;
-}
-
-LanderBoostCommand& WorldPhysics::popLanderImpulseQueue(){
-    landerBoostQueueLock.lock();
-    LanderBoostCommand& command = landerBoostQueue.front();
-    landerBoostQueue.pop_front();
-    landerBoostQueueLock.unlock();
-    return command;
-}
-
 //instanciate the world space
 //adds default objects to scene
 WorldPhysics::WorldPhysics(Mediator& mediator): r_mediator{mediator}{
-    landerBoostQueue = std::deque<LanderBoostCommand>(0);
     initBullet();
-    updateDeltaTime();
+    //updateDeltaTime();
 }
 
 WorldPhysics::~WorldPhysics(){

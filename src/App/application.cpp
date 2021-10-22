@@ -1,5 +1,5 @@
 #include "application.h"
-#include "vk_renderer.h"
+#include "vk_renderer_offscreen.h"
 #include <stdexcept>
 #include <iostream>
 
@@ -9,7 +9,8 @@ int Application::run(){
     try{
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
-        Vk::Renderer renderer = Vk::Renderer(window, mediator); //instanciate render engine
+        //Vk::Renderer renderer = Vk::Renderer(window, mediator); //instanciate render engine
+        Vk::OffscreenRenderer renderer = Vk::OffscreenRenderer(window, mediator); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, mediator);
 
         //associate objects with mediator class
@@ -44,8 +45,8 @@ int Application::run(){
 
 void Application::loadScene(SceneData sceneData){
     scene = std::make_unique<MyScene>(mediator);
-    scene->initScene(sceneData); //could be called in constructor?
     mediator.setScene(scene.get());
+    scene->initScene(sceneData);
     worldCamera.init();
     bindWindowCallbacks();
     sceneLoaded = true;

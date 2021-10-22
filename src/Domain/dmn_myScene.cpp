@@ -4,6 +4,7 @@
 #include "obj_asteroid.h"
 #include "sv_randoms.h"
 #include <glm/gtx/string_cast.hpp>
+#include "obj_landingSite.h"
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
@@ -14,7 +15,6 @@ void MyScene::setSceneData(SceneData isceneData){
 void MyScene::initScene(SceneData latestSceneData){
     sceneData = latestSceneData;
     r_mediator.ui_updateLoadingProgress(0.1f, "loading models...");
-    //this this is crashing sometimes when running on seperate thread, need to thread safe renderer at least
     r_mediator.renderer_loadModels(MODEL_INFOS);
     r_mediator.ui_updateLoadingProgress(0.25f, "loading textures...");
     r_mediator.renderer_loadTextures(TEXTURE_INFOS, SKYBOX_PATHS);
@@ -46,6 +46,7 @@ void MyScene::configureRenderEngine(){
 void MyScene::configurePhysicsEngine(){
     r_mediator.physics_reset();
     r_mediator.physics_loadCollisionMeshes(&collisionObjects);
+    r_mediator.physics_updateDeltaTime();
 }
 
 //this is temporary fix, bad object design and logic caused this
@@ -130,75 +131,11 @@ void MyScene::initObjects(){
     collisionObjects.push_back(asteroid);
     focusableObjects["Asteroid"] = asteroid;
 
-    constructLandingSite(id);
-}
-
-void MyScene::constructLandingSite(int id){
-    //first get center of scenario landing site, scale it, 
-    //reduce scaling by a factor, helps with overshooting the landing site pos, not great still though
-    //instead i should move it down towards origin by an amount determined by scaleAmount
-    float scaleAmount = sceneData.ASTEROID_SCALE*LANDING_SCALE_REDUCTION_FACTOR;
-    glm::mat4 scale_m = glm::scale(glm::mat4(1.0f), glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE)); //scale matrix
-    glm::vec3 towardsOrigin = glm::normalize(-sceneData.landingSite.pos)*scaleAmount;
-    glm::vec3 landingSitePos = scale_m * glm::vec4(sceneData.landingSite.pos+towardsOrigin,1);
-    glm::mat4 landingSiteRot = sceneData.landingSite.rot;
-    std::cout << glm::to_string(sceneData.landingSite.rot) << "\n";
-    std::cout << glm::to_string(landingSiteRot) << "\n";
-
-    std::shared_ptr<WorldObject> landingSite = std::shared_ptr<WorldObject>(new WorldObject());
-
-    landingSite->pos = landingSitePos;
-    landingSite->initialPos = landingSitePos;
-    landingSite->rot = landingSiteRot;
-    landingSite->initialRot = landingSiteRot;
-
-    //this is only used when manually rotating the landing site
-    landingSite->yaw = sceneData.landingSite.yaw;
-    landingSite->pitch = sceneData.landingSite.pitch;
-    landingSite->roll = sceneData.landingSite.roll;
-
+    //std::shared_ptr<LandingSiteObj> 
+    landingSite = std::shared_ptr<LandingSiteObj>(new LandingSiteObj(&r_mediator));
+    landingSite.get()->constructLandingSite(sceneData, &objects, &renderableObjects, this);
     focusableObjects["Landing_Site"] = landingSite;
-
-    //we have created overall landing site object
-    //now for the markers, these are placed around landing site in a square
-    for(int x = 0; x < 4; x++){
-        glm::vec3 landingBoxPos;
-        switch (x){
-            case 0:landingBoxPos = landingSitePos+glm::vec3(-1,-1,0);break;
-            case 1:landingBoxPos = landingSitePos+glm::vec3(1,-1,0);break;
-            case 2:landingBoxPos = landingSitePos+glm::vec3(-1,1,0);break;
-            case 3:landingBoxPos = landingSitePos+glm::vec3(1,1,0);break;
-            default:break;
-        }
-
-        //we need to account for landing site rotation before getting our final box position
-        //we start with our offset landingBoxPos, make a translation matrix of our landingBoxPos, and the inverse of it
-        //then we construct the whole matrix, (remember to read in reverse order)
-        //ie we move the point back to 0,0,0 (-landingSitePos), rotate it around origin by landingSiteRot, then translate back to our starting position (+landingSitePos)
-        glm::mat4 translate = glm::translate(glm::mat4(1), landingSitePos);
-        glm::mat4 invTranslate = glm::inverse(translate);
-        glm::mat4 objectRotationTransform = translate * landingSiteRot * invTranslate;
-        landingBoxPos = objectRotationTransform*glm::vec4(landingBoxPos, 1);
-
-        std::shared_ptr<RenderObject> landingBox = std::shared_ptr<RenderObject>(new RenderObject());
-        landingBox->id = id++;
-        landingBox->pos = landingBoxPos;
-        landingBox->initialPos = landingBoxPos;
-        landingBox->rot = landingSiteRot;
-        landingBox->initialRot = landingSiteRot;
-        landingBox->scale = glm::vec3(0.1f,0.1f,0.1f);
-        setRendererMeshVars("box", landingBox.get());
-        landingBox->material = r_mediator.renderer_getMaterial("unlitmesh");
-        landingBox->material->extra.x = 2048;
-        landingBox->material->diffuse = glm::vec3(0,1.0f,0);
-        landingBox->material->specular = glm::vec3(0.5f,0.5f,0.5f);
-        landingBox->material->extra.x = 32;
-
-        objects.push_back(landingBox);
-        renderableObjects.push_back(landingBox);
-    }
 }
-
 
 void MyScene::initLights(){
     //set directional scene light values

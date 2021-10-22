@@ -23,11 +23,11 @@ class WorldInput;
 class Mediator;
 
 //holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
-struct LanderBoostCommand{
+/*struct LanderBoostCommand{
     float duration;
     glm::vec3 vector;
     bool torque; //true if rotation
-};
+};*/
 
 class WorldPhysics{
 public:
@@ -53,15 +53,8 @@ public:
     void changeSimSpeed(int direction, bool pause);
     void reset();
 
-    bool landerImpulseRequested();
-    LanderBoostCommand& popLanderImpulseQueue();
-    void addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque);
-    void moveLandingSite(float x, float y, float z, bool torque);
 private:
-    //std::vector<LanderBoostCommand> landerBoostQueue;
-    
-    std::mutex landerBoostQueueLock;
-    std::deque<LanderBoostCommand> landerBoostQueue;
+   
     int selectedSimSpeedIndex = 2;
     float SIM_SPEEDS[10] {0.25f,0.5f,1,2,4,8,16,32,64,128};
     int SPEED_ARRAY_SIZE = *(&SIM_SPEEDS + 1) - SIM_SPEEDS - 1; //get length of array (-1 because we want the last element) (https://www.educative.io/edpresso/how-to-find-the-length-of-an-array-in-cpp)
@@ -86,8 +79,7 @@ private:
 
     int SUBSTEP_SAFETY_MARGIN = 1; //need to redo timestep code completely
 
-    void updateCollisionObjects();
-    void updateLandingSiteObjects();
+    void updateCollisionObjects(float timeStep);
     void checkCollisions();
 
     glm::mat4 rotateAround(glm::vec3 aPointToRotate, glm::vec3 aRotationCenter, glm::mat4 aRotationMatrix );

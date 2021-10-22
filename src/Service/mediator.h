@@ -13,7 +13,7 @@ class RenderObject;
 class GLFWwindow;
 
 namespace Vk{
-    class Renderer;
+    class OffscreenRenderer;
     struct RenderStats;
 }
 
@@ -30,6 +30,7 @@ struct WorldSpotLightObject;
 struct SceneData;
 struct WorldStats;
 struct LanderBoostCommand;
+struct LandingSiteObj;
 
 class IScene;
 
@@ -38,7 +39,8 @@ class Mediator{
         WorldCamera* p_worldCamera;
         UiHandler* p_uiHandler;
         WorldPhysics* p_physicsEngine;
-        Vk::Renderer* p_renderEngine;
+        //Vk::Renderer* p_renderEngine;
+        Vk::OffscreenRenderer* p_renderEngine;
         IScene* p_scene;
         Application* p_application;
         
@@ -47,7 +49,7 @@ class Mediator{
         void setCamera(WorldCamera* camera);
         void setUiHandler(UiHandler* uiHandler);
         void setPhysicsEngine(WorldPhysics* physicsEngine);
-        void setRenderEngine(Vk::Renderer* renderer);
+        void setRenderEngine(Vk::OffscreenRenderer* renderer);
         void setScene(IScene* scene);
         void setApplication(Application* application);
 
@@ -60,6 +62,7 @@ class Mediator{
         LanderBoostCommand& physics_popLanderImpulseQueue();
         void physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque = false);
         void physics_moveLandingSite(float x, float y, float z, bool torque = false);
+        void physics_updateDeltaTime();
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);
@@ -87,11 +90,13 @@ class Mediator{
         void renderer_resetScene();
         void renderer_flushTextures();
         void renderer_setShouldDrawOffscreen(bool b);
-
+        void renderer_writeOffscreenImageToDisk();
+        
         //Scene functions
         int scene_getWorldObjectsCount();
         WorldObject& scene_getWorldObject(int i);
         WorldObject& scene_getFocusableObject(std::string name);
+        LandingSiteObj* scene_getLandingSiteObject();
 
         //ui functions
         void ui_toggleEscMenu();

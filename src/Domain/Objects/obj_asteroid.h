@@ -11,7 +11,6 @@
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.025f;
     bool randomStartRotation = false;
-    WorldObject* landingSiteObject;
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         std::vector<Vertex>& allV = r_mediator.renderer_getAllVertices(); //reference all loaded model vertices

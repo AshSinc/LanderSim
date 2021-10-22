@@ -12,18 +12,19 @@ void WorldCamera::init(){
 
 void WorldCamera::updateAutoCamera(float cameraDistanceScale){
     WorldObject& r_object = r_mediator.scene_getFocusableObject(FOCUS_NAMES[objectFocusIndex]);
-    WorldObject& r_object2 = r_mediator.scene_getFocusableObject("Asteroid");
+    
     glm::vec3 direction;
     glm::vec4 cameraPos;
 
     if(FOCUS_NAMES[objectFocusIndex] == "Landing_Site"){
-        direction = normalize(r_object2.pos-r_object.pos);
+        direction = -r_object.up;
         glm::vec3 dirScaled = direction * cameraDistanceScale;
         glm::mat4 trans = glm::mat4(1.0f);
         trans = glm::translate(trans, -dirScaled);
         cameraPos = glm::mat4(trans)*glm::vec4(r_object.pos, 1.0f);
     }
     else{
+        WorldObject& r_object2 = r_mediator.scene_getFocusableObject("Asteroid");
         direction = normalize(r_object2.pos-r_object.pos);
         glm::vec3 dirScaled = direction * cameraDistanceScale;
         glm::mat4 trans = glm::mat4(1.0f);

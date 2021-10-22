@@ -22,7 +22,7 @@ struct LandingSiteData_1: LandingSiteData{
 
 struct LandingSiteData_2: LandingSiteData{
     LandingSiteData_2(){
-        pos = glm::vec3(0,0,-50);
+        pos = glm::vec3(0,0,40);
         yaw = 0, pitch = 0, roll = 0;
         rot = glm::yawPitchRoll(glm::radians(yaw), glm::radians(pitch), glm::radians(roll));
     }
@@ -34,10 +34,10 @@ struct SceneData{
     float LANDER_START_DISTANCE = 1000.0f;
     float LANDER_PASS_DISTANCE = 750.0f;
     float INITIAL_LANDER_SPEED = 1.0f;
-    float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
+    float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.01f;
     //float ASTEROID_SCALE = 75.0f;
     int ASTEROID_SCALE = 1;
-    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/100;
+    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/10.0f;
     LandingSiteData landingSite = LandingSiteData_1();
 };
 
@@ -48,7 +48,7 @@ struct ScenarioData_Scenario1: SceneData{
         LANDER_START_DISTANCE = 1000.0f;
         LANDER_PASS_DISTANCE = 750.0f;
         INITIAL_LANDER_SPEED = 2.0f;
-        ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
+        ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.01f;
         ASTEROID_SCALE = 2;
         GRAVITATIONAL_FORCE_MULTIPLIER = 1.5f;
         LandingSiteData landingSite = LandingSiteData_1();
