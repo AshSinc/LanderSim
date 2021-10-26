@@ -24,6 +24,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     float landerVelocity = 0.0f;
     glm::vec3 landerVelocityVector = glm::vec3(0.0f);
+    glm::vec3 landerAngularVelocity = glm::vec3(0.0f);
     float gravitationalForce = 0.0f;
 
     float landerBoostStrength = 1.0f;
@@ -63,7 +64,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(landerTransform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 5.0f;
+        rbInfo.m_friction = 1.0f;
         rbInfo.m_spinningFriction  = 0.1f;
         //rbInfo.m_rollingFriction = 0.5f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
@@ -101,11 +102,13 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
         landerVelocityVector = Service::bt2glm(body->getLinearVelocity());
 
+        landerAngularVelocity = Service::bt2glm(body->getAngularVelocity());
+
         //will probably need to store actual velocity vector as well 
 
         updateLanderUpForward(body);
 
-        ai.landerSimulationTick(timeStep); //let the ai have a tick
+        ai.landerSimulationTick(body, timeStep); //let the ai have a tick
 
         //check if we have a boost command queued
         if(landerImpulseRequested()){
@@ -171,6 +174,14 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         landerBoostQueue.pop_front();
         landerBoostQueueLock.unlock();
         return command;
+    }
+
+    void landerCollided(){
+        ai.setAutopilot(false);
+    }
+
+    void landerSetAutopilot(bool b){
+        ai.setAutopilot(b);
     }
 
     ~LanderObj(){};

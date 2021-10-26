@@ -12,6 +12,7 @@
 #include "world_stats.h"
 #include <deque>
 #include <mutex>
+#include "myDiscreteDynamicsWorld.h"
 //#include "obj_lander.h"
 
 namespace Vk{
@@ -53,6 +54,8 @@ public:
     void changeSimSpeed(int direction, bool pause);
     void reset();
 
+    void initDynamicsWorld();
+
 private:
    
     int selectedSimSpeedIndex = 2;
@@ -61,7 +64,8 @@ private:
     
     //Bullet vars
     Mediator& r_mediator;
-    btDiscreteDynamicsWorld* dynamicsWorld;
+    //btDiscreteDynamicsWorld* dynamicsWorld;
+    MyDynamicsWorld* dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     btSequentialImpulseConstraintSolver* solver;

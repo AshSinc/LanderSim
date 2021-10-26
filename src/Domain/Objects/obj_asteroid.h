@@ -88,7 +88,7 @@ struct AsteroidObj : virtual CollisionRenderObj{
         //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 10.0f;
+        rbInfo.m_friction = 1.0f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
         rigidbody->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
 

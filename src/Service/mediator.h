@@ -31,6 +31,7 @@ struct SceneData;
 struct WorldStats;
 struct LanderBoostCommand;
 struct LandingSiteObj;
+struct LanderObj;
 
 class IScene;
 
@@ -62,6 +63,8 @@ class Mediator{
         void physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque = false);
         void physics_moveLandingSite(float x, float y, float z, bool torque = false);
         void physics_updateDeltaTime();
+        void physics_landerCollided();
+        void physics_initDynamicsWorld();
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);
@@ -96,6 +99,7 @@ class Mediator{
         WorldObject& scene_getWorldObject(int i);
         WorldObject& scene_getFocusableObject(std::string name);
         LandingSiteObj* scene_getLandingSiteObject();
+        LanderObj* scene_getLanderObject();
 
         //ui functions
         void ui_toggleEscMenu();

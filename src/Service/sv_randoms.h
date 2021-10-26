@@ -1,6 +1,8 @@
 #pragma once
 #include <glm/glm.hpp>
 class btVector3;
+class btMatrix3x3;
+class btTransform;
 
 namespace Service{
     btVector3 getPointOnSphere(float pitch, float yaw, float radius); //helper, gets point on sphere of given radius, origin 0
@@ -9,4 +11,11 @@ namespace Service{
     btVector3 glm2bt(const glm::vec3& vec);
 
     glm::vec3 bt2glm(const btVector3& vec);
+
+    btMatrix3x3 glmToBullet(const glm::mat3& m);
+
+    glm::mat4 bulletToGlm(const btTransform &t);
+
+    btTransform glmToBulletT(const glm::mat4 &m);
+
 }

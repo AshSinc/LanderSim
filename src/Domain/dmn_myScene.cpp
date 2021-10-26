@@ -46,6 +46,7 @@ void MyScene::configureRenderEngine(){
 void MyScene::configurePhysicsEngine(){
     r_mediator.physics_reset();
     r_mediator.physics_loadCollisionMeshes(&collisionObjects);
+    r_mediator.physics_initDynamicsWorld();
     r_mediator.physics_updateDeltaTime();
 }
 
@@ -85,7 +86,8 @@ void MyScene::initObjects(){
     objects.push_back(starSphere);
     renderableObjects.push_back(starSphere);
 
-    std::shared_ptr<LanderObj> lander = std::shared_ptr<LanderObj>(new LanderObj());
+    //std::shared_ptr<LanderObj> lander = std::shared_ptr<LanderObj>(new LanderObj());
+    lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
     if(sceneData.RANDOMIZE_START){ //best to update this now
         glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
@@ -100,11 +102,12 @@ void MyScene::initObjects(){
     lander->material->diffuse = glm::vec3(0,0,1);
     lander->material->specular = glm::vec3(1,0.5f,0.5f);
     lander->material->extra.x = 32;
-    lander->mass = 1;
+    lander->mass = 1.0f;
 
     lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
     lander->randomStartPositions = sceneData.RANDOMIZE_START;
-    lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER;
+    //lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER/sceneData.ASTEROID_SCALE;
+    lander->asteroidGravForceMultiplier = sceneData.ASTEROID_SCALE/2;
     lander->startDistance = sceneData.LANDER_START_DISTANCE;
     lander->passDistance = sceneData.LANDER_PASS_DISTANCE;
     lander->initialSpeed = sceneData.INITIAL_LANDER_SPEED;
@@ -113,6 +116,7 @@ void MyScene::initObjects(){
     renderableObjects.push_back(lander);
     collisionObjects.push_back(lander);
     focusableObjects["Lander"] = lander;
+    
 
     std::shared_ptr<AsteroidObj> asteroid = std::shared_ptr<AsteroidObj>(new AsteroidObj());
     asteroid->id = id++;
@@ -124,7 +128,9 @@ void MyScene::initObjects(){
     asteroid->mass = 100000;
     //asteroid.material->extra.x = 32;
     asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
-    asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
+    //asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
+    asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
+    std::cout << asteroid->maxRotationVelocity << " max rotational velocity\n";
 
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   

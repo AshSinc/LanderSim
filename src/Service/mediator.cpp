@@ -19,6 +19,10 @@ LandingSiteObj* Mediator::scene_getLandingSiteObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLandingSiteObject();
 }
+LanderObj* Mediator::scene_getLanderObject(){
+    MyScene* ls = dynamic_cast<MyScene*>(p_scene);
+    return ls->getLanderObject();
+}
 
 //Ui functions
 void Mediator::ui_toggleEscMenu(){
@@ -76,6 +80,12 @@ void Mediator::physics_moveLandingSite(float x, float y, float z, bool torque){
 }
 void Mediator::physics_updateDeltaTime(){
     p_physicsEngine->updateDeltaTime();
+}
+void Mediator::physics_landerCollided(){
+    scene_getLanderObject()->landerCollided();
+}
+void Mediator::physics_initDynamicsWorld(){
+    p_physicsEngine->initDynamicsWorld();
 }
 
 //Renderer functions

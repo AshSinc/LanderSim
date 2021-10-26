@@ -154,11 +154,14 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
         ImGui::SameLine();
         ImGui::Checkbox("Collision Course", &sceneData.LANDER_COLLISION_COURSE);
-        ImGui::SliderFloat("Gravity Multiplier", &sceneData.GRAVITATIONAL_FORCE_MULTIPLIER, 0.0f, 1.0f);
+        
         ImGui::SliderFloat("Lander Distance", &sceneData.LANDER_START_DISTANCE, 50.0f, 1000.0f);
         ImGui::SliderFloat("Lander Pass Distance", &sceneData.LANDER_PASS_DISTANCE, 0.0f, 1000.0f);
         ImGui::SliderFloat("Lander Initial Speed", &sceneData.INITIAL_LANDER_SPEED, 0.0f, 50.0f);
         ImGui::SliderInt("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 8.0f);
+        ImGui::SliderFloat("Gravity Multiplier", &sceneData.GRAVITATIONAL_FORCE_MULTIPLIER, 0.0f, 1.0f);
+        //sceneData.GRAVITATIONAL_FORCE_MULTIPLIER*=sceneData.ASTEROID_SCALE;
+        //sceneData.GRAVITATIONAL_FORCE_MULTIPLIER*=sceneData.ASTEROID_SCALE;
         ImGui::EndGroup();
 
         ImGui::SameLine();

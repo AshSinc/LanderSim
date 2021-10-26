@@ -30,10 +30,10 @@ void WorldPhysics::worldTick(){
         //understand how bullet handles this first, and find examples
         float fixedTimeStep = 0.01666666754F;
         float timeStep = deltaTime*worldStats.timeStepMultiplier;
-        int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN;
-        //std::cout << deltaTime << "deltatime\n";
-        //std::cout << "Timestep: "<< timeStep << "\n";
-        //std::cout << "Max substeps: "<< maxSubSteps << "\n";
+        int maxSubSteps = timeStep/fixedTimeStep;// + SUBSTEP_SAFETY_MARGIN;
+        std::cout << deltaTime << "deltatime\n";
+        std::cout << "Timestep: "<< timeStep << "\n";
+        std::cout << "Max substeps: "<< maxSubSteps << "\n";
         dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
         updateCollisionObjects(timeStep);
         //temporary, should have bindable WorldObject property in WorldObject, so u can bind its movement to another object 
@@ -51,9 +51,12 @@ void WorldPhysics::updateCollisionObjects(float timeStep){
         btCollisionObject* obj = collisionRenderObj->p_btCollisionObject;
         btRigidBody* body = btRigidBody::upcast(obj);
         btTransform transform = obj->getWorldTransform();
+        
         btVector3 origin = transform.getOrigin();
         btQuaternion rotation = transform.getRotation();
         glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f),rotation.getAngle(),glm::vec3(rotation.getAxis().getX(), rotation.getAxis().getY(), rotation.getAxis().getZ()));
+
+        //these conversions can use Service functions
 
         collisionRenderObj->rot = rotationMatrix;
         collisionRenderObj->pos = glm::vec3(float(origin.getX()), float(origin.getY()), float(origin.getZ()));
@@ -85,15 +88,19 @@ void WorldPhysics::checkCollisions(){
             //Fix timesteps first, finda  way to test
 
             totalImpact*=deltaTime;
-            std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
+            //std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
 
             if(totalImpact > 0){
                 worldStats.lastImpactForce = totalImpact;
+                
                 if(worldStats.lastImpactForce > worldStats.largestImpactForce)
                     worldStats.largestImpactForce = worldStats.lastImpactForce;
 
-                if (totalImpact > 5.f)
-                    std::cout << "Lander Destroyed\n";
+                if (totalImpact > 0.00001f){
+                    //std::cout << "Lander Contact\n";
+                    r_mediator.physics_landerCollided();
+                }
+
             }
         }
     }
@@ -119,8 +126,14 @@ void WorldPhysics::initBullet(){
     //overlappingPairCache = new btSimpleBroadphase();
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     solver = new btSequentialImpulseConstraintSolver();
-    dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+    //dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+
+    dynamicsWorld = new MyDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
     dynamicsWorld->setGravity(btVector3(0, 0, 0));
+}
+
+void WorldPhysics::initDynamicsWorld(){
+    dynamicsWorld->init(r_mediator);
 }
 
 void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){ 

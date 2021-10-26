@@ -11,8 +11,11 @@
 
 struct LandingSiteObj : virtual WorldObject{
 
+    const float BOX_SCALE_X = 0.2f, BOX_SCALE_Y= 0.2f, BOX_SCALE_Z= 0.2f;
+    const float BOX_DIST = 2.0f;
     const float LANDING_SCALE_REDUCTION_FACTOR = 0.015f;
     Mediator* p_mediator;
+
     LandingSiteObj(Mediator* mediator): p_mediator{mediator}{}
 
     void constructLandingSite(SceneData& sceneData, 
@@ -44,10 +47,10 @@ struct LandingSiteObj : virtual WorldObject{
         for(int x = 0; x < 4; x++){
             glm::vec3 landingBoxPos;
             switch (x){
-                case 0:landingBoxPos = landingSitePos+glm::vec3(-1,-1,0);break;
-                case 1:landingBoxPos = landingSitePos+glm::vec3(1,-1,0);break;
-                case 2:landingBoxPos = landingSitePos+glm::vec3(-1,1,0);break;
-                case 3:landingBoxPos = landingSitePos+glm::vec3(1,1,0);break;
+                case 0:landingBoxPos = landingSitePos+glm::vec3(-BOX_DIST,-BOX_DIST,0);break;
+                case 1:landingBoxPos = landingSitePos+glm::vec3(BOX_DIST,-BOX_DIST,0);break;
+                case 2:landingBoxPos = landingSitePos+glm::vec3(-BOX_DIST,BOX_DIST,0);break;
+                case 3:landingBoxPos = landingSitePos+glm::vec3(BOX_DIST,BOX_DIST,0);break;
                 default:break;
             }
 
@@ -66,11 +69,11 @@ struct LandingSiteObj : virtual WorldObject{
             landingBox->initialPos = landingBoxPos;
             landingBox->rot = landingSiteRot;
             landingBox->initialRot = landingSiteRot;
-            landingBox->scale = glm::vec3(0.1f,0.1f,0.1f);
+            landingBox->scale = glm::vec3(BOX_SCALE_X,BOX_SCALE_Y,BOX_SCALE_Z);
             myScene->setRendererMeshVars("box", landingBox.get());
             landingBox->material = p_mediator->renderer_getMaterial("unlitmesh");
             landingBox->material->extra.x = 2048;
-            landingBox->material->diffuse = glm::vec3(0,1.0f,0);
+            landingBox->material->diffuse = glm::vec3(0,0.0f,1.0f);
             landingBox->material->specular = glm::vec3(0.5f,0.5f,0.5f);
             landingBox->material->extra.x = 32;
 

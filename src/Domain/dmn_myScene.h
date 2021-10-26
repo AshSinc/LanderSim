@@ -15,7 +15,8 @@ class MyScene: public IScene{
         void setSceneData(SceneData sceneData);
         void setRendererMeshVars(std::string name, RenderObject* renderObj);
         LandingSiteObj* getLandingSiteObject(){return landingSite.get();};
-
+        LanderObj* getLanderObject(){return lander.get();};
+        
         private:
         void initLights();
         void initObjects();
@@ -26,7 +27,8 @@ class MyScene: public IScene{
         glm::mat4 rotation_from_euler(double roll, double pitch, double yaw);
         Mediator& r_mediator;
 
-        std::shared_ptr<LandingSiteObj> landingSite;
+        std::shared_ptr<LandingSiteObj> landingSite; //pointers passed by mediator for ease so we store them in scene
+        std::shared_ptr<LanderObj> lander; //pointers passed by mediator for ease so we store them in scene
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {
