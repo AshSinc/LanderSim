@@ -57,11 +57,13 @@ void UiInput::processKeyGroupMovement(int key, bool repeatKeypress){
             torque = true;
         }
     }
-    
-    if(landingSiteInput)
-            r_mediator.physics_moveLandingSite(x, y, z, torque);
-        else
-            r_mediator.physics_addImpulseToLanderQueue(duration, x, y, z, torque);
+
+    //if there is a valid input direction
+    if(x != 0 && y != 0 && z != 0)
+        if(landingSiteInput)
+                r_mediator.physics_moveLandingSite(x, y, z, torque);
+            else
+                r_mediator.physics_addImpulseToLanderQueue(duration, x, y, z, torque);
 }
 void UiInput::processKey(int key, bool repeatKeypress){
     processKeyGroupMovement(key, repeatKeypress);

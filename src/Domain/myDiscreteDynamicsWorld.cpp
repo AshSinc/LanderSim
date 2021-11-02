@@ -14,15 +14,16 @@ void MyDynamicsWorld::applyGravity(){
 		btRigidBody* body = m_nonStaticRigidBodies[i];
 		if (body->isActive()){
 			//Hacky,  i == 1 is our lander collision object
-			if(i == 1){
+			//if(i == 1){
 				//but by using this to apply our own gravity within a child of DynamicsWorld, 
 				//we can hopefully fix gravity problems when timestep is high 
-				btVector3 direction = -btVector3(p_lander->pos.x, p_lander->pos.y, p_lander->pos.z); //asteroid is always at origin so dir of gravity is always towards 0
-				float gravitationalForce = p_lander->asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
-				body->applyCentralForce(direction.normalize()*gravitationalForce);
-			}
-			else
-				body->applyGravity();
+			//	btVector3 direction = -btVector3(p_lander->pos.x, p_lander->pos.y, p_lander->pos.z); //asteroid is always at origin so dir of gravity is always towards 0
+			//	float gravitationalForce = p_lander->asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
+			//	body->applyCentralForce(direction.normalize()*gravitationalForce);
+			//}
+			//else
+				//body->applyGravity();
+				//std::cout <<" testing \n";
 		}
 	}
 }

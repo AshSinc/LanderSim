@@ -86,7 +86,6 @@ void MyScene::initObjects(){
     objects.push_back(starSphere);
     renderableObjects.push_back(starSphere);
 
-    //std::shared_ptr<LanderObj> lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
     if(sceneData.RANDOMIZE_START){ //best to update this now
@@ -106,8 +105,7 @@ void MyScene::initObjects(){
 
     lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
     lander->randomStartPositions = sceneData.RANDOMIZE_START;
-    //lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER/sceneData.ASTEROID_SCALE;
-    lander->asteroidGravForceMultiplier = sceneData.ASTEROID_SCALE/2;
+    lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER;
     lander->startDistance = sceneData.LANDER_START_DISTANCE;
     lander->passDistance = sceneData.LANDER_PASS_DISTANCE;
     lander->initialSpeed = sceneData.INITIAL_LANDER_SPEED;
@@ -116,7 +114,6 @@ void MyScene::initObjects(){
     renderableObjects.push_back(lander);
     collisionObjects.push_back(lander);
     focusableObjects["Lander"] = lander;
-    
 
     std::shared_ptr<AsteroidObj> asteroid = std::shared_ptr<AsteroidObj>(new AsteroidObj());
     asteroid->id = id++;
@@ -126,9 +123,7 @@ void MyScene::initObjects(){
     asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
     asteroid->material->extra.x = 2048;
     asteroid->mass = 100000;
-    //asteroid.material->extra.x = 32;
     asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
-    //asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
     asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
     std::cout << asteroid->maxRotationVelocity << " max rotational velocity\n";
 
@@ -137,7 +132,6 @@ void MyScene::initObjects(){
     collisionObjects.push_back(asteroid);
     focusableObjects["Asteroid"] = asteroid;
 
-    //std::shared_ptr<LandingSiteObj> 
     landingSite = std::shared_ptr<LandingSiteObj>(new LandingSiteObj(&r_mediator));
     landingSite.get()->constructLandingSite(sceneData, &objects, &renderableObjects, this);
     focusableObjects["Landing_Site"] = landingSite;

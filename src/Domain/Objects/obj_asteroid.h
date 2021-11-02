@@ -5,8 +5,7 @@
 #include "mediator.h"
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
-
-//#include "../Service/BulletExtras/BulletWorldImporter/btBulletWorldImporter.h"
+#include <glm/gtx/string_cast.hpp>
 
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.025f;
@@ -18,18 +17,6 @@ struct AsteroidObj : virtual CollisionRenderObj{
     
         btGImpactMeshShape* collisionShape;
 
-        //ISSUE
-        //Attempting to read collisionshape from .bullet file
-        //fails as numShape always == 0
-        //SOLUTION
-        //Either accept longer loading times, find a fix, or find another way
-        try{
-            collisionShape = readBtShape();
-        }
-        catch(std::invalid_argument e){
-            std::cout << e.what() << "\n";
-            collisionShape = NULL;
-        }
         if(!collisionShape){
             btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
 
@@ -39,35 +26,10 @@ struct AsteroidObj : virtual CollisionRenderObj{
                 btVector3 v2(allV[allI[i+1]].pos.x, allV[allI[i+1]].pos.y, allV[allI[i+1]].pos.z);
                 btVector3 v3(allV[allI[i+2]].pos.x, allV[allI[i+2]].pos.y, allV[allI[i+2]].pos.z);
                 mTriMesh->addTriangle(v1, v2, v3, true);
-                //mTriMesh->
-                //btTriangleIndexVertexArray 
             }
-            
-            //btTriangleIndexVertexArray m_indexVertexArrays = btTriangleIndexVertexArray(numTris,&triIndex[0][0],3*sizeof(int), numVerts, allV, sizeof(allV));
             collisionShape = new btGImpactMeshShape(mTriMesh);
-            //collisionShape->getMeshInterface();
-
-            //serialiseBtShape(collisionShape); // <-- doesnt work anyway
         }
 
-        /*btTriangleIndexVertexArray* m_indexVertexArrays = new btTriangleIndexVertexArray
-		(numTris,
-		&triIndex[0][0],
-		3*sizeof(int),
-		numVerts,
-		(btScalar*) vertValues,
-		sizeof(btScalar)*3);*/
-
-        /*btTriangleMesh *mTriMesh = new btTriangleMesh(true, false);
-
-        //create a trimesh by stepping through allVertices using allIndices to select the correct vertices
-        for (int i = indexBase; i < indexBase+indexCount; i+=3) {
-            btVector3 v1(allV[allI[i]].pos.x, allV[allI[i]].pos.y, allV[allI[i]].pos.z);
-            btVector3 v2(allV[allI[i+1]].pos.x, allV[allI[i+1]].pos.y, allV[allI[i+1]].pos.z);
-            btVector3 v3(allV[allI[i+2]].pos.x, allV[allI[i+2]].pos.y, allV[allI[i+2]].pos.z);
-            mTriMesh->addTriangle(v1, v2, v3, true);
-        }
-        btGImpactMeshShape *collisionShape = new btGImpactMeshShape(mTriMesh);*/
         //asteroidCollisionShape->setMargin(0.05);
         collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
         collisionShape->updateBound();// Call this method once before doing collisions 
@@ -88,60 +50,20 @@ struct AsteroidObj : virtual CollisionRenderObj{
         //using motionstate is optional, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(transform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 1.0f;
+        rbInfo.m_friction = 10.0f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
         rigidbody->setActivationState(DISABLE_DEACTIVATION); //stop body from disabling collision, bullet threshholds are pretty loose
 
         initRigidBody(&transform, rigidbody);
 
         dynamicsWorld->addRigidBody(rigidbody);//add the body to the dynamics world
-
-        //we also want to store landing site world obj, so we can update it in timestep
-        //landingSiteObject = &r_mediator.scene_getFocusableObject("Landing_Site");
     }
 
-    void timestepBehaviour(btRigidBody* body){
-        //body->
-        //landingSiteObject->
+    void timestepBehaviour(btRigidBody* body, float timeStep){
+        //we are clearing forces on timestep because while lander is in contact bullet will sometimes apply a small force on the asteroid, despite mass difference
+        body->clearForces();
+        body->setLinearVelocity(btVector3(0,0,0));
     }
-
-    /*void serialiseBtShape(btGImpactMeshShape* meshShape){
-        int maxSerializeBufferSize = 1024*1024*5;
-        btDefaultSerializer* serializer = new btDefaultSerializer(maxSerializeBufferSize);
-        serializer->setSerializationFlags(BT_SERIALIZE_NO_BVH);
-        serializer->startSerialization();
-        meshShape->serializeSingleShape(serializer);
-        serializer->finishSerialization();
-        FILE* f2 = fopen("asteroidshape.bullet","wb");
-        fwrite(serializer->getBufferPointer(),serializer->getCurrentBufferSize(),1,f2);
-        fclose(f2);
-    }*/
-
-    btGImpactMeshShape* readBtShape(){
-        /*btBulletWorldImporter import(0);//don't store info into the world
-        if (import.loadFile("asteroidshape.bullet")){
-            int numShape = import.getNumCollisionShapes();
-            if (numShape)
-                return (btGImpactMeshShape*)import.getCollisionShapeByIndex(0);
-            else
-                throw std::invalid_argument("Invalid Bullet Collision Shape");
-        }
-        else*/
-            throw std::invalid_argument( "Can't Find bullet asteroid shape file" );
-    }
-
-    /*btGImpactMeshShape* readBtShape(){
-        btBulletWorldImporter import(0);//don't store info into the world
-        if (import.loadFile("asteroidshape.bullet")){
-            int numShape = import.getNumCollisionShapes();
-            if (numShape)
-                return (btGImpactMeshShape*)import.getCollisionShapeByIndex(0);
-            else
-                throw std::invalid_argument("Invalid Bullet Collision Shape");
-        }
-        else
-            throw std::invalid_argument( "Can't Find bullet asteroid shape file" );
-    }*/
 
     void initTransform(btTransform* transform){
         transform->setOrigin(btVector3(pos.x, pos.y, pos.z)); //astoid always at zero

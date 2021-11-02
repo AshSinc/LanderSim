@@ -13,7 +13,7 @@
 #include <deque>
 #include <mutex>
 #include "myDiscreteDynamicsWorld.h"
-//#include "obj_lander.h"
+#include <limits> //get float max value for infinite raycast default
 
 namespace Vk{
     class Renderer; //forward reference, because we reference this before defining it
@@ -22,13 +22,6 @@ namespace Vk{
 class Mesh; //forward reference, because we reference this before defining it
 class WorldInput;
 class Mediator;
-
-//holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
-/*struct LanderBoostCommand{
-    float duration;
-    glm::vec3 vector;
-    bool torque; //true if rotation
-};*/
 
 class WorldPhysics{
 public:
@@ -55,6 +48,9 @@ public:
     void reset();
 
     void initDynamicsWorld();
+    static void stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep);
+    static void stepPostTickCallback(btDynamicsWorld *world, btScalar timeStep);
+    glm::vec3 performRayCast(glm::vec3 from, glm::vec3 dir, float range = std::numeric_limits<float>::max());
 
 private:
    
@@ -65,7 +61,7 @@ private:
     //Bullet vars
     Mediator& r_mediator;
     //btDiscreteDynamicsWorld* dynamicsWorld;
-    MyDynamicsWorld* dynamicsWorld;
+    MyDynamicsWorld* p_dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     btSequentialImpulseConstraintSolver* solver;

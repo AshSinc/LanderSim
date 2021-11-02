@@ -88,7 +88,7 @@ struct LandingSiteObj : virtual WorldObject{
         glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(initialPos, 1);
         pos = rotated_point;
         rot = asteroidRenderObject.rot*initialRot;
-
+        
         for(int x = 0; x < 4; x++){
             WorldObject& box = p_mediator->scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
             glm::vec3 directionToOrigin = glm::normalize(-initialPos);

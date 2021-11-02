@@ -19,14 +19,12 @@ void LanderAi::init(Mediator* mediator, LanderObj* lander){
     p_mediator = mediator;
     p_lander = lander;
     p_landingSite = p_mediator->scene_getLandingSiteObject();
-    scaledApproachDistance = APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
+    approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
+    minRange = approachDistance - 5;
+    maxRange = approachDistance + 5;
 }
 
 void LanderAi::landerSimulationTick(btRigidBody* body, float timeStep){
-    //setRotation();
-    //glm::mat4 bulletHoleRotationMatrix = glm::lookAt(p_lander->pos, p_landingSite->up+p_landingSite->pos, glm::vec3(0.0f, 1.0f, 0.0f));
-    //p_lander->rot = bulletHoleRotationMatrix;
-
     //setting to landing site rotation isnt right, 
     //need to construct new matrix that faces the landing site,
 
@@ -44,7 +42,7 @@ void LanderAi::landerSimulationTick(btRigidBody* body, float timeStep){
         body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
     }
 
-    if(touchdownBoost){
+    /*if(touchdownBoost){
         //raycast the ground below
         //for now we cheat and just calculate to landing site, wont be as good but might indicate viability
         //
@@ -59,12 +57,8 @@ void LanderAi::landerSimulationTick(btRigidBody* body, float timeStep){
             autopilot = false;
         }
             
-    }
+    }*/
     
-
-
-
-
     if(imagingActive)
         imagingTimer(timeStep);
 }
@@ -72,13 +66,15 @@ void LanderAi::landerSimulationTick(btRigidBody* body, float timeStep){
 //this should be renamed, its more than an image timer
 void LanderAi::imagingTimer(float timeStep){
     imagingTime += timeStep;
+    //std::cout << imagingTime << " Image time\n";
     if(imagingTime > IMAGING_TIMER_SECONDS){
+        //float remainder = imagingTime-IMAGING_TIMER_SECONDS;
         std::cout << "Image Requested\n";
         imagingTime = 0;
         //p_mediator->renderer_setShouldDrawOffscreen(true);
 
         if(autopilot){
-            calculateMovement();
+            calculateMovement(timeStep);
             //calculateRotation();
         }
     }
@@ -128,60 +124,46 @@ void LanderAi::calculateRotation(){
     p_lander->landerTransform.setBasis(Service::glmToBullet(p_landingSite->rot));*/
 }
 
-void LanderAi::calculateMovement(){
-    //these can be in init
-    float speedCap = LANDER_SPEED_CAP;
-    float approachDistance = scaledApproachDistance;
-    float minRange = scaledApproachDistance - 5;
-    float maxRange = scaledApproachDistance + 5;
+//TODO : split function into smaller functions, make it more readable 
+void LanderAi::calculateMovement(float timeStep){
+    //we are going to get the actual ground directly under the landing site object
+    glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up)
+    float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
 
-    float distanceToLandingSite = glm::length(p_landingSite->pos - p_lander->pos);
-    //std::cout << distanceToLandingSite << " distance to site\n";
+    float angleFromUpVector = glm::angle(p_landingSite->up, glm::normalize(p_lander->pos - p_landingSite->pos));
 
-    float angleFromUpVector = glm::angle(p_landingSite->up, glm::normalize( p_lander->pos- p_landingSite->pos));
-    //std::cout << angleFromUpVector << " angleFromUpVector\n";
     if(angleFromUpVector < 0.1f)
         if(distanceToLandingSite > minRange && distanceToLandingSite < maxRange){
             descentTicker+=1;
             if(descentTicker > DESCENT_TICKER){
                 shouldDescend = true;
-                //speedCap = 0.1f; //<---- no this should be vertical speed cap, need to seperate out the components
             }
         }
    
+    //if we are descending we either get closer to landing site by APPROACH_DISTANCE_REDUCTION or FINAL_APPROACH_DISTANCE_REDUCTION
     if(shouldDescend){
-        //float distReduction = FINAL_APPROACH_DISTANCE_REDUCTION
-        approachDistance = distanceToLandingSite-FINAL_APPROACH_DISTANCE_REDUCTION;
-        
-        //std::cout << approachDistance << " fastSqrt distance to site\n";
+        if(distanceToLandingSite > FINAL_APPROACH_DISTANCE)
+            approachDistance = distanceToLandingSite-APPROACH_DISTANCE_REDUCTION;
+        else
+            approachDistance = distanceToLandingSite-FINAL_APPROACH_DISTANCE_REDUCTION;
     }
 
     glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance); //set an initial approach distance, once stable here then we can start descent
-    //glm::vec3 desiredDistance(distanceToLandingSite, distanceToLandingSite, distanceToLandingSite); //set an initial approach distance, once stable here then we can start descent
-    glm::vec3 desiredPosition = p_landingSite->pos+(p_landingSite->up*desiredDistance);
+    glm::vec3 desiredPosition = landingSitePos+(p_landingSite->up*desiredDistance);
     glm::vec3 movementDirection = desiredPosition - p_lander->pos;
     
-    //if(glm::length(movementDirection) > 0.5f){
-        //float logLength = log10(glm::length(movementDirection));
-        //movementDirection = glm::normalize(movementDirection)*logLength;
-    //}
-
-    //actually this is pretty good with apply Force rather than Impulse
-    if(glm::length(movementDirection) > speedCap)
-        movementDirection = glm::normalize(movementDirection) * speedCap;   
-
+    if(glm::length(movementDirection) > LANDER_SPEED_CAP)
+        movementDirection = glm::normalize(movementDirection) * LANDER_SPEED_CAP;   
+    
     //calculate the force needed to achieve movementDirection vector by subtracting landerVelocityVector
     glm::vec3 difference = movementDirection - p_lander->landerVelocityVector;
-
-    //std::cout << glm::length(difference) <<  " difference length\n";
 
     //adjust this vector to be relative to lander orientation
     //to do so we take the inverse of the transformation matrix and apply to the desired movement vector to 
     //rotate it to the relative orientation
     glm::mat4 inv_transform = glm::inverse(p_lander->transformMatrix);
     difference = inv_transform * glm::vec4(difference, 0.0f);
-    //std::cout << glm::to_string(inv_transform) << "\n";
-
+    
     p_lander->addImpulseToLanderQueue(1.0f, difference.x, difference.y, difference.z, false);
 
     //if(outputActionToFile)
@@ -189,4 +171,8 @@ void LanderAi::calculateMovement(){
 
 void LanderAi::setAutopilot(bool b){
     autopilot = b;
+}
+
+void LanderAi::setImaging(bool b){
+    imagingActive = b;
 }

@@ -10,6 +10,8 @@
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 #include <glm/gtx/string_cast.hpp>
 #include "obj_landingSite.h"
+#include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
+#include "sv_randoms.h"
 
 void WorldPhysics::updateDeltaTime(){
     auto now = std::chrono::high_resolution_clock::now();
@@ -24,24 +26,10 @@ void WorldPhysics::setSimSpeedMultiplier(float multiplier){
 
 void WorldPhysics::worldTick(){
     if(worldStats.timeStepMultiplier != 0){ //if we are not paused
-        //ISSUE
-        //timesteps and maxsubsteps are likely not accurate
-        //SOLUTION
-        //understand how bullet handles this first, and find examples
-        float fixedTimeStep = 0.01666666754F;
-        float timeStep = deltaTime*worldStats.timeStepMultiplier;
-        int maxSubSteps = timeStep/fixedTimeStep;// + SUBSTEP_SAFETY_MARGIN;
-        std::cout << deltaTime << "deltatime\n";
-        std::cout << "Timestep: "<< timeStep << "\n";
-        std::cout << "Max substeps: "<< maxSubSteps << "\n";
-        dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep);
-        updateCollisionObjects(timeStep);
-        //temporary, should have bindable WorldObject property in WorldObject, so u can bind its movement to another object 
-        //then check for a binding on movement
-        r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
-        //updateLandingSiteObjects(); 
-
-        checkCollisions();
+        float fixedTimeStep = 0.01666666754F/2;
+        btScalar timeStep = deltaTime*worldStats.timeStepMultiplier;
+        int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN; //make sure timestep is always less than maxSubSteps
+        p_dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep); //step world
     }
 }
 
@@ -70,9 +58,9 @@ void WorldPhysics::updateCollisionObjects(float timeStep){
 void WorldPhysics::checkCollisions(){
     //check for collisions active and do something (start a timer, compare velocities over time, if minimal motion then end sim state)
     //get number of overlapping manifolds and iterate over them
-    int numManifolds = dynamicsWorld->getDispatcher()->getNumManifolds();
+    int numManifolds = p_dynamicsWorld->getDispatcher()->getNumManifolds();
     for (int i = 0; i < numManifolds; i++){
-        btPersistentManifold * contactManifold = dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
+        btPersistentManifold * contactManifold = p_dynamicsWorld->getDispatcher()->getManifoldByIndexInternal(i);
         //get number of contact points and iterate over them
         int numContacts = contactManifold->getNumContacts();
         if (numContacts > 0){
@@ -106,6 +94,28 @@ void WorldPhysics::checkCollisions(){
     }
 }   
 
+//based on Sasha Willems Raycast example
+glm::vec3 WorldPhysics::performRayCast(glm::vec3 from, glm::vec3 dir, float range){
+    btVector3 bfrom = Service::glm2bt(from);
+    btVector3 bto = bfrom + (Service::glm2bt(dir*range));
+
+    btCollisionWorld::ClosestRayResultCallback closestResults(bfrom, bto);
+    closestResults.m_flags |= btTriangleRaycastCallback::kF_FilterBackfaces;
+
+    p_dynamicsWorld->rayTest(bfrom, bto, closestResults);
+
+    glm::vec3 hitpoint = glm::vec3(0);
+
+    if (closestResults.hasHit())
+    {
+        hitpoint = Service::bt2glm(bfrom.lerp(bto, closestResults.m_closestHitFraction));
+        //p_dynamicsWorld->getDebugDrawer()->drawSphere(p, 0.1, blue);
+        //p_dynamicsWorld->getDebugDrawer()->drawLine(p, p + closestResults.m_hitNormalWorld, blue);
+    }
+
+    return hitpoint;
+}
+
 //needs a semaphore or sync protection
 WorldStats& WorldPhysics::getWorldStats(){
     return worldStats;
@@ -114,6 +124,19 @@ WorldStats& WorldPhysics::getWorldStats(){
 void WorldPhysics::mainLoop(){
     updateDeltaTime();
     worldTick();
+}
+
+//callback method for pre simulation step
+void WorldPhysics::stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep){
+    WorldPhysics* p_physics = (WorldPhysics*)world->getWorldUserInfo();
+    p_physics->updateCollisionObjects(timeStep);
+    p_physics->r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
+}
+
+//callback method for post simulation step
+void WorldPhysics::stepPostTickCallback(btDynamicsWorld *world, btScalar timeStep){
+    WorldPhysics* p_physics = (WorldPhysics*)world->getWorldUserInfo();
+    p_physics->checkCollisions();
 }
 
 //initialize bullet physics engine
@@ -128,12 +151,14 @@ void WorldPhysics::initBullet(){
     solver = new btSequentialImpulseConstraintSolver();
     //dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
-    dynamicsWorld = new MyDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
-    dynamicsWorld->setGravity(btVector3(0, 0, 0));
+    p_dynamicsWorld = new MyDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+    p_dynamicsWorld->setGravity(btVector3(0, 0, 0));
+    p_dynamicsWorld->setInternalTickCallback(stepPreTickCallback, this, true);
+    p_dynamicsWorld->setInternalTickCallback(stepPostTickCallback, this, false);
 }
 
 void WorldPhysics::initDynamicsWorld(){
-    dynamicsWorld->init(r_mediator);
+    p_dynamicsWorld->init(r_mediator);
 }
 
 void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){ 
@@ -141,8 +166,8 @@ void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRend
     collisionShapes.clear();
     int i = 0;
     for (std::shared_ptr<CollisionRenderObj> obj : *p_collisionObjects){
-        obj->init(&collisionShapes, dynamicsWorld, r_mediator);
-        obj->p_btCollisionObject = dynamicsWorld->getCollisionObjectArray()[i++];  //add the btCollisionObject pointer to the object, se we can iterate through this to better link the objects
+        obj->init(&collisionShapes, p_dynamicsWorld, r_mediator);
+        obj->p_btCollisionObject = p_dynamicsWorld->getCollisionObjectArray()[i++];  //add the btCollisionObject pointer to the object, se we can iterate through this to better link the objects
     }
 }
 
@@ -186,14 +211,14 @@ void WorldPhysics::reset(){
     //cleanup in the reverse order of creation/initialization
 	///-----cleanup_start-----
 	//remove the rigidbodies from the dynamics world and delete them
-	for (int i = dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--){
-		btCollisionObject* obj = dynamicsWorld->getCollisionObjectArray()[i];
+	for (int i = p_dynamicsWorld->getNumCollisionObjects() - 1; i >= 0; i--){
+		btCollisionObject* obj = p_dynamicsWorld->getCollisionObjectArray()[i];
 		btRigidBody* body = btRigidBody::upcast(obj);
 		if (body && body->getMotionState())
 		{
 			delete body->getMotionState();
 		}
-		dynamicsWorld->removeCollisionObject(obj);
+		p_dynamicsWorld->removeCollisionObject(obj);
 		delete obj;
 	}
 	//delete collision shapes
@@ -206,7 +231,7 @@ void WorldPhysics::reset(){
 
 void WorldPhysics::cleanupBullet(){
     reset();
-	delete dynamicsWorld;
+	delete p_dynamicsWorld;
 	delete solver;
 	//delete broadphase
 	delete overlappingPairCache;

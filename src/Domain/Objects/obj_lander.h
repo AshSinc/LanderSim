@@ -17,17 +17,19 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     Ai::LanderAi ai = Ai::LanderAi();
     bool collisionCourse = false;
     bool randomStartPositions = false;
-    double asteroidGravForceMultiplier = 0.5f;
+    double asteroidGravForceMultiplier = 0.01f;
     float startDistance = 150.0f;
     float passDistance = 70.0f;
     float initialSpeed = 1.5f;
+    
 
     float landerVelocity = 0.0f;
     glm::vec3 landerVelocityVector = glm::vec3(0.0f);
     glm::vec3 landerAngularVelocity = glm::vec3(0.0f);
     float gravitationalForce = 0.0f;
 
-    float landerBoostStrength = 1.0f;
+    const float BOOST_STRENGTH = 1.0f;
+    const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;
 
     std::mutex landerBoostQueueLock;
@@ -94,8 +96,9 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     void timestepBehaviour(btRigidBody* body, float timeStep){
         //set the gravity for the lander towards the asteroid
         btVector3 direction = -btVector3(pos.x , pos.y, pos.z); //asteroid is always at origin so dir of gravity is aways towards 0
-        gravitationalForce = asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));;
-        body->setGravity(direction.normalize()*gravitationalForce);
+        gravitationalForce = asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
+        //body->setGravity(direction.normalize()*gravitationalForce);
+        body->applyCentralForce(direction.normalize()*gravitationalForce);
         
         //store the linear velocity, 
         landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
@@ -127,18 +130,30 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     }
 
     //these functions could be combined
-    void applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){
-        btVector3 relativeForce = btVector3(boost.vector.x, boost.vector.y, boost.vector.z);
-        relativeForce *= landerBoostStrength*boost.duration; //temporarily using duration as a multiplier
-        btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
-        btVector3 correctedForce = rot * relativeForce;
-        rigidbody->applyCentralForce(correctedForce);
+    void applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){       
+        btVector3 boostVector = Service::glm2bt(boost.vector);
+        //std::cout << boostVector.length() << " boost vec\n";
+        float force = BOOST_STRENGTH * boostVector.length();
+        force = glm::clamp(force, 0.0f, LANDER_BOOST_CAP); //clamp boost force to a max value
+
+        if(force > 0.0f){
+            btVector3 boostDirection = boostVector.normalize();
+            btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
+            btVector3 correctedForce = rot * boostDirection;
+            //rigidbody->applyCentralForce(correctedForce*force);
+            rigidbody->applyCentralImpulse(correctedForce*force);
+        }
+        else{
+            std::cout << "This is strange, applyImpulse is being triggered when pausing/unpause or changing time\n";
+        }
     }
+    //not working
     void applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost){
-        btVector3 relativeForce = btVector3(boost.vector.x, boost.vector.y, boost.vector.z);
-        relativeForce *= landerRotationalBoostStrength;
+        btVector3 relativeForce = Service::glm2bt(boost.vector);
+        //float force = BOOST_STRENGTH * landerRotationalBoostStrength * boostVector.le;
         btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
-        btVector3 correctedForce = rot * relativeForce;
+        //btVector3 correctedForce = rot * relativeForce;
+        btVector3 correctedForce = rot * (relativeForce);
         rigidbody->applyTorqueImpulse(correctedForce);
     }
 
@@ -178,6 +193,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     void landerCollided(){
         ai.setAutopilot(false);
+        ai.setImaging(false);
     }
 
     void landerSetAutopilot(bool b){
