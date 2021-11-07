@@ -84,9 +84,9 @@ void Mediator::physics_updateDeltaTime(){
 void Mediator::physics_landerCollided(){
     scene_getLanderObject()->landerCollided();
 }
-void Mediator::physics_initDynamicsWorld(){
-    p_physicsEngine->initDynamicsWorld();
-}
+//void Mediator::physics_initDynamicsWorld(){
+//    p_physicsEngine->initDynamicsWorld();
+//}
 glm::vec3 Mediator::physics_performRayCast(glm::vec3 from, glm::vec3 dir, float range){
     return p_physicsEngine->performRayCast(from, dir, range);
 }

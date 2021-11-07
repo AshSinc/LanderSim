@@ -65,7 +65,7 @@ class Mediator{
         void physics_moveLandingSite(float x, float y, float z, bool torque = false);
         void physics_updateDeltaTime();
         void physics_landerCollided();
-        void physics_initDynamicsWorld();
+        //void physics_initDynamicsWorld();
         glm::vec3 physics_performRayCast(glm::vec3 from, glm::vec3 dir, float range);
 
         //camera functions

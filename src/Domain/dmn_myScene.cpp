@@ -46,7 +46,7 @@ void MyScene::configureRenderEngine(){
 void MyScene::configurePhysicsEngine(){
     r_mediator.physics_reset();
     r_mediator.physics_loadCollisionMeshes(&collisionObjects);
-    r_mediator.physics_initDynamicsWorld();
+    //r_mediator.physics_initDynamicsWorld();
     r_mediator.physics_updateDeltaTime();
 }
 
@@ -156,17 +156,18 @@ void MyScene::initLights(){
     //add a spot light object
     //this will be a spotlight on the lander
     WorldSpotLightObject spotlight;
-    spotlight.pos = {4000,0,-5};
+    spotlight.pos = {0,0,0};
+    spotlight.initialPos = {0,0,-1};
     spotlight.scale = {0.05f,0.05f,0.05f};
-    spotlight.diffuse = {0,1,1};
+    spotlight.diffuse = {1,1,1};
     spotlight.specular = {1,1,1};
-    spotlight.attenuation = {1,0.07f,0.017f};
-    spotlight.direction = glm::vec3(4010,50,-5) - spotlight.pos; //temp direction
-    spotlight.cutoffAngles = glm::vec2(10.0f, 25.0f);
+    //spotlight.attenuation = {1.0f,0.07f,0.017f};
+    spotlight.attenuation = {0.1f,0.005f,0.001f};
+    spotlight.direction = glm::vec3(0,0,1);
+    spotlight.cutoffAngles = glm::vec2(0.75f, 1.2f);
     spotlight.cutoffs = {glm::cos(spotlight.cutoffAngles.x), glm::cos(spotlight.cutoffAngles.y)};
-    std::cout << spotlight.cutoffs.x << "\n";
-    std::cout << spotlight.cutoffs.y << "\n";
     spotLights.push_back(spotlight);
 
-    spotLights.push_back(spotlight);
+    lander.get()->p_spotlight = &spotLights.at(0); //hacky, our lander needs the world spotlight obj to update its pos and direction each frame
+    //however this shouldnt be controlled by lander timestep because its unnecessary to update it until we want to draw it, ie physics engine doesnt matter
 }

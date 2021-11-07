@@ -9,7 +9,8 @@
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 #include <glm/gtx/string_cast.hpp>
-#include "obj_landingSite.h"
+#include "obj_landingSite.h" //these references should be in a child class derived from WorldPhysics
+#include "obj_lander.h" //these references should be in a child class derived from WorldPhysics
 #include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
 #include "sv_randoms.h"
 
@@ -131,6 +132,7 @@ void WorldPhysics::stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep
     WorldPhysics* p_physics = (WorldPhysics*)world->getWorldUserInfo();
     p_physics->updateCollisionObjects(timeStep);
     p_physics->r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
+    p_physics->r_mediator.scene_getLanderObject()->updateSpotlight();
 }
 
 //callback method for post simulation step
@@ -151,15 +153,15 @@ void WorldPhysics::initBullet(){
     solver = new btSequentialImpulseConstraintSolver();
     //dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
-    p_dynamicsWorld = new MyDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
+    p_dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
     p_dynamicsWorld->setGravity(btVector3(0, 0, 0));
     p_dynamicsWorld->setInternalTickCallback(stepPreTickCallback, this, true);
     p_dynamicsWorld->setInternalTickCallback(stepPostTickCallback, this, false);
 }
 
-void WorldPhysics::initDynamicsWorld(){
-    p_dynamicsWorld->init(r_mediator);
-}
+//void WorldPhysics::initDynamicsWorld(){
+//    p_dynamicsWorld->init(r_mediator);
+//}
 
 void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){ 
     p_collisionObjects = collisionObjects;

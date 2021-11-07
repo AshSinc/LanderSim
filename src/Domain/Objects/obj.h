@@ -5,7 +5,7 @@
 //#define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
 #include <glm/glm.hpp>
 #include <iostream>
-
+#include <glm/gtx/string_cast.hpp>
 struct btVector3;
 
 struct WorldObject{
@@ -18,9 +18,27 @@ struct WorldObject{
     glm::vec3 up;
     glm::vec3 forward;
     uint32_t id;
+    //std::vector<WorldObject*> attachedObjects; //contains any objects that are attached, such as lights
+
+    /*void attachObject(WorldObject* obj){
+        attachedObjects.emplace_back(obj);
+    }
+
+    void updateAttachedObjects(){
+        for(WorldObject* obj : attachedObjects){
+            glm::vec3 rotated_point = rot * glm::vec4(obj->initialPos, 1);
+            obj->pos = obj->initialPos + pos;
+            obj->rot = rot*obj->initialRot; //rot isnt used for lights,
+        }
+        
+    }*/
+
     void printString(){
         std::cout << "ObjID: " << id << "\n";
         std::cout << "pos: (" << pos.x << ", " << pos.y << ", " << pos.z << ")\n";
     };
-    virtual ~WorldObject(){};
+    
+    virtual ~WorldObject(){
+        
+    };
 };

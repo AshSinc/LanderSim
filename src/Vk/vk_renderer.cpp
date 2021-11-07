@@ -247,7 +247,7 @@ void Vk::Renderer::drawFrame(){
     //once we are clear we assign this inFlightFence to imagesInFlight so we can keep it locked until this pass is done for this image
     imagesInFlight[imageIndex] = _frames[currentFrame]._renderFence;
 
-    //we have the imageIndex and are cleared for operations on it so it should be safe to rerecord the command buffer here
+    //we have the imageIndex and are cleared for operations on it so it should be safe to record the command buffer here
     recordCommandBuffer_Objects(imageIndex);
     recordCommandBuffer_GUI(imageIndex);
 
@@ -335,7 +335,7 @@ void Vk::Renderer::recordCommandBuffer_Objects(int i){
     //we we can end the render pass
     vkCmdEndRenderPass(_frames[i]._mainCommandBuffer);
 
-    //and we have finished recording, we check for errrors here
+    //and we have finished recording, we check for errors here
     if (vkEndCommandBuffer(_frames[i]._mainCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }

@@ -97,7 +97,6 @@ struct LandingSiteObj : virtual WorldObject{
             box.rot = asteroidRenderObject.rot*box.initialRot;
         }
 
-        //store the up vector (for taking images and aligning)
         glm::mat4 scaleM = glm::scale(glm::mat4{ 1.0 }, scale);
         glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, pos);
         glm::mat4 rotation = rot;

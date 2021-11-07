@@ -5,6 +5,7 @@
 #include "ai_lander.h"
 #include <deque>
 #include <mutex>
+#include "obj_spotLight.h"
 
 //holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
 struct LanderBoostCommand{
@@ -37,6 +38,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     btTransform landerTransform;
     Mediator* p_mediator;
+    WorldSpotLightObject* p_spotlight; 
+    
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         //create a dynamic rigidbody
@@ -97,8 +100,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //set the gravity for the lander towards the asteroid
         btVector3 direction = -btVector3(pos.x , pos.y, pos.z); //asteroid is always at origin so dir of gravity is aways towards 0
         gravitationalForce = asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
-        //body->setGravity(direction.normalize()*gravitationalForce);
-        body->applyCentralForce(direction.normalize()*gravitationalForce);
+        body->setGravity(direction.normalize()*gravitationalForce);
+        //body->applyCentralForce(direction.normalize()*gravitationalForce);
         
         //store the linear velocity, 
         landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
@@ -121,6 +124,16 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
             else
                 applyImpulse(body, nextBoost);
         }
+    }
+
+    //this will be called from world_physics directly from now on, little hacky, need to derive new class from WorldPhysics
+    //and seperate out this call and the update landing site calls
+    //ISSUE, when rotating thelight pos or direction is not right?
+    void updateSpotlight(){
+        //rotated pos or direction not correct
+        p_spotlight->pos = glm::vec4(pos, 1.0f) + (rot * glm::vec4(p_spotlight->initialPos, 1.0f)); //we set the light position to that of the initalPos + lander current position
+        p_spotlight->direction = rot * glm::vec4(p_spotlight->initialPos, 0.0f); //we are using initialPos of the light as a direction, * landers rotation
+        //std::cout << glm::to_string(p_spotlight->direction) << " light dir\n";
     }
 
     void updateWorldStats(WorldStats* worldStats){

@@ -16,7 +16,7 @@ namespace Ai{
 
         ///
         const float FINAL_APPROACH_DISTANCE = 15.0f;
-        const float FINAL_APPROACH_DISTANCE_REDUCTION = 0.5f;
+        const float FINAL_APPROACH_DISTANCE_REDUCTION = 0.25f;
 
         //float scaledFinalApproachDistance = 10.0f;
 
@@ -32,6 +32,12 @@ namespace Ai{
         bool shouldDescend = false;
         //bool touchdownBoost = false;
 
+        bool USE_DIST_DELTA_CORRECTION = true;
+        float previousDistance = -1.0f;
+        float averageDistToGround = -1.0f;
+        float deltaToGround [10];
+        int distancesToGround_index = 0;
+
         Mediator* p_mediator;
         LanderObj* p_lander;
         LandingSiteObj* p_landingSite;
@@ -40,6 +46,9 @@ namespace Ai{
         void calculateMovement(float timeStep);
         void calculateRotation();
         void setRotation();
+        bool checkApproachAligned(float distanceToLandingSite);
+        float getAverageDistanceReduction();
+        float getDistanceROC();
 
     public:
         void init(Mediator* mediator, LanderObj* lander);

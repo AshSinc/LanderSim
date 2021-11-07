@@ -270,7 +270,7 @@ void Vk::RendererBase::createDescriptorSetLayouts(){
     }
     _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, _lightingSetLayout, nullptr);});
 
-    //shadowmap 
+    //shadowmap //NOT USED ATM
     VkDescriptorSetLayoutBinding lightVPBufferBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     VkDescriptorSetLayoutBinding shadowmapSamplerSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
     //bindings =  {lightVPBufferBinding};

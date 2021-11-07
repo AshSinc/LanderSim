@@ -365,6 +365,7 @@ void Vk::OffscreenRenderer::drawFrame(){
         recordCommandBuffer_Offscreen();
     }
     Renderer::drawFrame(); //draw a frame
+    //Renderer::drawDebugFrame(); //draw debug frame, not implemented yet
 }
 
 void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){

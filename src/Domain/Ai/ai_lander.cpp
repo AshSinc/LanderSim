@@ -22,6 +22,9 @@ void LanderAi::init(Mediator* mediator, LanderObj* lander){
     approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
     minRange = approachDistance - 5;
     maxRange = approachDistance + 5;
+    previousDistance = FINAL_APPROACH_DISTANCE;
+    //for(int i = 0; i < 9; i++)
+    //    deltaToGround[i] = FINAL_APPROACH_DISTANCE;
 }
 
 void LanderAi::landerSimulationTick(btRigidBody* body, float timeStep){
@@ -124,48 +127,183 @@ void LanderAi::calculateRotation(){
     p_lander->landerTransform.setBasis(Service::glmToBullet(p_landingSite->rot));*/
 }
 
-//TODO : split function into smaller functions, make it more readable 
-void LanderAi::calculateMovement(float timeStep){
-    //we are going to get the actual ground directly under the landing site object
-    glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up)
-    float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
-
+//used in calculateMovement() to determine if we are above the landing site 
+//and have been there for DESCENT_TICKER ticks
+bool LanderAi::checkApproachAligned(float distanceToLandingSite){
     float angleFromUpVector = glm::angle(p_landingSite->up, glm::normalize(p_lander->pos - p_landingSite->pos));
-
     if(angleFromUpVector < 0.1f)
         if(distanceToLandingSite > minRange && distanceToLandingSite < maxRange){
             descentTicker+=1;
-            if(descentTicker > DESCENT_TICKER){
-                shouldDescend = true;
-            }
+            if(descentTicker > DESCENT_TICKER)
+                return true;
         }
-   
-    //if we are descending we either get closer to landing site by APPROACH_DISTANCE_REDUCTION or FINAL_APPROACH_DISTANCE_REDUCTION
-    if(shouldDescend){
-        if(distanceToLandingSite > FINAL_APPROACH_DISTANCE)
-            approachDistance = distanceToLandingSite-APPROACH_DISTANCE_REDUCTION;
-        else
-            approachDistance = distanceToLandingSite-FINAL_APPROACH_DISTANCE_REDUCTION;
+    return false;
+}
+
+float LanderAi::getDistanceROC(){
+    glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
+    std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
+    float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
+    std::cout << distanceToGround << " distanceToGround\n";
+    
+    float roc = (distanceToGround/previousDistance - 1);
+
+    //float distanceDelta = previousDistance - distanceToGround;
+    //std::cout << distanceDelta << " distance delta\n";
+    //distanceDelta -= FINAL_APPROACH_DISTANCE_REDUCTION;
+    //std::cout << distanceDelta << " distance delta\n";
+    previousDistance = distanceToGround;
+
+    return roc;
+}
+
+float LanderAi::getAverageDistanceReduction(){
+    //distancesToGround[]
+    glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
+    //std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
+    float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
+    //std::cout << distanceToGround << " distanceToGround\n";
+    
+
+    float distanceDelta = previousDistance - distanceToGround;
+    //std::cout << distanceDelta << " distance delta\n";
+    //distanceDelta -= FINAL_APPROACH_DISTANCE_REDUCTION;
+    //std::cout << distanceDelta << " distance delta\n";
+    previousDistance = distanceToGround;
+
+    deltaToGround[distancesToGround_index] = distanceDelta;
+
+    float total = 0;
+    for(int i = 0; i < 9; i++)
+        total += deltaToGround[i];
+
+    distancesToGround_index++;
+    if(distancesToGround_index > 9)
+        distancesToGround_index = 0;
+
+    return total/10;
+}
+
+//function uses world state to calculate movement vector to control Lander automatically
+//will form the basis of generating lots of training data rapidly
+//will need to output data to file, along with images or any other data for training
+void LanderAi::calculateMovement(float timeStep){
+    //get the actual ground directly under the landing site object by raycasting down from the placeholder (more accurate this way)
+    glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
+    float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
+
+    
+
+    //if we are not in the descent phase yet, call checkApproachAligned() 
+    //to see if we are in the right position and have waited the right amount of time
+    if(!shouldDescend)
+        shouldDescend = checkApproachAligned(distanceToLandingSite);
+    else{ 
+        //calculate current vertical speed, how fast we are approaching the ground
+        //float avgVerticalSpeed = getAverageDistanceReduction();
+
+        //std::cout << avgVerticalSpeed << " avg vertical speed\n";
+
+        
+
+
+        //TODO should adjust approachDistance by the change in distance between ticks
+        //this will allow us to catch up with an escaping ground or slow a rapidly approaching one
+        /*float distanceDelta = 0;
+        if(USE_DIST_DELTA_CORRECTION){
+
+            glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
+            std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
+            float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
+            std::cout << distanceToGround << " distanceToGround\n";
+
+            if(previousDistance < 0){
+                previousDistance = distanceToGround;
+            }
+            else{
+                distanceDelta = previousDistance - distanceToGround;
+                std::cout << distanceDelta << " distance delta\n";
+                distanceDelta -= FINAL_APPROACH_DISTANCE_REDUCTION;
+                std::cout << distanceDelta << " distance delta\n";
+                previousDistance = distanceToGround;
+            }
+        }*/
+
+        glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
+        std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
+        float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
+        std::cout << distanceToGround << " distanceToGround\n";
+
+        //if we have then we will begin to descend, we have two possible descent speeds
+        //approachDistance is basically our target distance we want to be next cycle, 
+        //starts at 50m above landing site, then we can reduce this distance each tick for controlled descent
+        //APPROACH_DISTANCE_REDUCTION and FINAL_APPROACH_DISTANCE_REDUCTION are effectively vertical speed caps
+        if(distanceToGround > FINAL_APPROACH_DISTANCE)
+            approachDistance = distanceToGround-APPROACH_DISTANCE_REDUCTION;
+        else{
+
+            //if(avgVerticalSpeed - FINAL_APPROACH_DISTANCE_REDUCTION)
+            ///float avgDistDelta = getAverageDistanceReduction();
+            //std::cout << distanceDelta << " distance delta\n";
+            //std::cout << avgDistDelta << " avg delta to ground\n";
+
+            //float avgDistDelta = 0;
+
+            //if(USE_DIST_DELTA_CORRECTION)
+            //    avgDistDelta = getDistanceROC();
+            //float avgDistDelta = getAverageDistanceReduction();
+
+            //std::cout << avgDistDelta << " avg delta to ground\n";
+
+            //glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
+            //std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
+            //float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
+            float distanceDelta = getAverageDistanceReduction();//previousDistance - distanceToGround;
+            //std::cout << distanceDelta << " distance delta\n";
+            distanceDelta -= FINAL_APPROACH_DISTANCE_REDUCTION;
+            //std::cout << distanceDelta << " distance delta\n";
+            //previousDistance = distanceToGround;
+
+            //approachDistance = distanceToGround-FINAL_APPROACH_DISTANCE_REDUCTION + (avgVerticalSpeed-FINAL_APPROACH_DISTANCE_REDUCTION);
+
+            // ISSSUE --- This still isnt working correctly
+            approachDistance = distanceToGround-FINAL_APPROACH_DISTANCE_REDUCTION + distanceDelta;
+            //if(distanceDelta < 0)
+            //    approachDistance += distanceDelta;
+        }
+
+        
     }
 
-    glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance); //set an initial approach distance, once stable here then we can start descent
+    
+
+    //set an approach distance, starts at 50m, then reduces with each tick when shouldDescend is true
+    glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance);
+
+    //get the world position based on this desiredDistance and landingSite.up and position
     glm::vec3 desiredPosition = landingSitePos+(p_landingSite->up*desiredDistance);
-    glm::vec3 movementDirection = desiredPosition - p_lander->pos;
-    
-    if(glm::length(movementDirection) > LANDER_SPEED_CAP)
-        movementDirection = glm::normalize(movementDirection) * LANDER_SPEED_CAP;   
-    
-    //calculate the force needed to achieve movementDirection vector by subtracting landerVelocityVector
-    glm::vec3 difference = movementDirection - p_lander->landerVelocityVector;
 
-    //adjust this vector to be relative to lander orientation
+    //get a movement vector from where lander is to where we want it to be
+    glm::vec3 desiredMovement = desiredPosition - p_lander->pos;
+    
+    //we can cap it by a LANDER_SPEED_CAP to keep it from gaining too much speed
+    if(glm::length(desiredMovement) > LANDER_SPEED_CAP)
+        desiredMovement = glm::normalize(desiredMovement) * LANDER_SPEED_CAP;   
+    
+    //desiredMovement is the ideal velocity vector for our next physics cycle, but we need to account for current velocity
+    //calculate the force needed to achieve desiredMovement vector by subtracting landerVelocityVector
+    glm::vec3 correctedMovement = desiredMovement - p_lander->landerVelocityVector;
+
+    //before submitting to the movement queue we will adjust this vector to be relative to lander orientation
     //to do so we take the inverse of the transformation matrix and apply to the desired movement vector to 
-    //rotate it to the relative orientation
+    //rotate it to the relative orientation, we do this just for any machine learning algorithms benefit
     glm::mat4 inv_transform = glm::inverse(p_lander->transformMatrix);
-    difference = inv_transform * glm::vec4(difference, 0.0f);
+    correctedMovement = inv_transform * glm::vec4(correctedMovement, 0.0f);
     
-    p_lander->addImpulseToLanderQueue(1.0f, difference.x, difference.y, difference.z, false);
+    //finally submit it to the queue, TODO!!! we will probably need to normalize vector and pass a strength
+    p_lander->addImpulseToLanderQueue(1.0f, correctedMovement.x, correctedMovement.y, correctedMovement.z, false);
 
+    //TODO write some output, will need to be timestamped and linked to images somehow. filename probably
     //if(outputActionToFile)
 }
 

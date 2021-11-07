@@ -12,7 +12,6 @@
 #include "world_stats.h"
 #include <deque>
 #include <mutex>
-#include "myDiscreteDynamicsWorld.h"
 #include <limits> //get float max value for infinite raycast default
 
 namespace Vk{
@@ -47,7 +46,7 @@ public:
     void changeSimSpeed(int direction, bool pause);
     void reset();
 
-    void initDynamicsWorld();
+    //void initDynamicsWorld();
     static void stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep);
     static void stepPostTickCallback(btDynamicsWorld *world, btScalar timeStep);
     glm::vec3 performRayCast(glm::vec3 from, glm::vec3 dir, float range = std::numeric_limits<float>::max());
@@ -60,8 +59,8 @@ private:
     
     //Bullet vars
     Mediator& r_mediator;
-    //btDiscreteDynamicsWorld* dynamicsWorld;
-    MyDynamicsWorld* p_dynamicsWorld;
+    btDiscreteDynamicsWorld* p_dynamicsWorld;
+    //MyDynamicsWorld* p_dynamicsWorld;
     btBroadphaseInterface* overlappingPairCache;
     ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     btSequentialImpulseConstraintSolver* solver;

@@ -3,8 +3,8 @@
 //#include <glfw/vulkan>
 class GLFWwindow;
 class Mediator;
-namespace Vk{
 
+namespace Vk{
 class OffscreenRenderer : public Renderer{
 public:
     OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator);
@@ -48,7 +48,5 @@ private:
     void recordCommandBuffer_Offscreen();
 
     void populateLanderCameraData(GPUCameraData& camData);
-
-
     };
 }
