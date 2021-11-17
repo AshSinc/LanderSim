@@ -16,6 +16,8 @@ struct LandingSiteObj : virtual WorldObject{
     const float LANDING_SCALE_REDUCTION_FACTOR = 0.015f;
     Mediator* p_mediator;
 
+    btVector3 angularVelocity; //set by asteroid obj and used by lander, basically just passing through here for convenience
+
     LandingSiteObj(Mediator* mediator): p_mediator{mediator}{}
 
     void constructLandingSite(SceneData& sceneData, 

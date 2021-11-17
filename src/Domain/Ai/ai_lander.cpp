@@ -23,6 +23,7 @@ void LanderAi::init(Mediator* mediator, LanderObj* lander){
     minRange = approachDistance - 5;
     maxRange = approachDistance + 5;
     previousDistance = FINAL_APPROACH_DISTANCE;
+    asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
     //for(int i = 0; i < 9; i++)
     //    deltaToGround[i] = FINAL_APPROACH_DISTANCE;
 }
@@ -184,15 +185,10 @@ float LanderAi::getAverageDistanceReduction(){
     return total/10;
 }
 
-//function uses world state to calculate movement vector to control Lander automatically
-//will form the basis of generating lots of training data rapidly
-//will need to output data to file, along with images or any other data for training
-void LanderAi::calculateMovement(float timeStep){
+void LanderAi::linearControl(float timeStep){
     //get the actual ground directly under the landing site object by raycasting down from the placeholder (more accurate this way)
     glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
     float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
-
-    
 
     //if we are not in the descent phase yet, call checkApproachAligned() 
     //to see if we are in the right position and have waited the right amount of time
@@ -203,9 +199,6 @@ void LanderAi::calculateMovement(float timeStep){
         //float avgVerticalSpeed = getAverageDistanceReduction();
 
         //std::cout << avgVerticalSpeed << " avg vertical speed\n";
-
-        
-
 
         //TODO should adjust approachDistance by the change in distance between ticks
         //this will allow us to catch up with an escaping ground or slow a rapidly approaching one
@@ -275,8 +268,6 @@ void LanderAi::calculateMovement(float timeStep){
         
     }
 
-    
-
     //set an approach distance, starts at 50m, then reduces with each tick when shouldDescend is true
     glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance);
 
@@ -305,6 +296,92 @@ void LanderAi::calculateMovement(float timeStep){
 
     //TODO write some output, will need to be timestamped and linked to images somehow. filename probably
     //if(outputActionToFile)
+}
+
+float tf = 1000.0f;
+float t = 0.0f;
+float tgo = 1000.0f;
+
+glm::vec3 LanderAi::getZEM(glm::vec3 rf, glm::vec3 r, glm::vec3 v){
+    std::cout << glm::to_string(rf) << " rf\n";
+    std::cout << glm::to_string(r) << " r\n";
+    float ix = 0.5 * (tgo * tgo) * p_lander->landerGravityVector.getX(); //this is not integral
+    float x = rf.x - (r.x + (tgo*v.x) + ix);
+    
+    float iy = 0.5 * (tgo * tgo) * p_lander->landerGravityVector.getY(); //this is not integral
+    float y = rf.y - (r.y + (tgo*v.y) + iy);
+
+    float iz = 0.5 * (tgo * tgo) * p_lander->landerGravityVector.getZ(); //this is not integral
+    float z = rf.z - (r.z + (tgo*v.z) + iz);
+
+    return glm::vec3(x,y,z);
+}
+
+glm::vec3 LanderAi::getZEV(glm::vec3 vf, glm::vec3 v){
+    float ix = tgo * p_lander->landerGravityVector.getX(); //this is not integral
+    float x = vf.x - (v.x + ix);
+
+    float iy = tgo * p_lander->landerGravityVector.getY(); //this is not integral
+    float y = vf.y - (v.y + iy);
+
+    float iz = tgo * p_lander->landerGravityVector.getZ(); //this is not integral
+    float z = vf.z - (v.z + iz);
+
+    return glm::vec3(x,y,z);
+}
+
+glm::vec3 LanderAi::getZEMZEVAccel(glm::vec3 zem, glm::vec3 zev){
+    float x =  (6/(tgo*tgo))*zem.x - (2/tgo*zev.x);
+    float y =  (6/(tgo*tgo))*zem.y - (2/tgo*zev.y);
+    float z =  (6/(tgo*tgo))*zem.z - (2/tgo*zev.z);
+    return glm::vec3(x,y,z);
+}
+
+glm::vec3 LanderAi::getZEMZEVa(glm::vec3 rf, glm::vec3 r, glm::vec3 v, glm::vec3 w){
+    float x =  6/(tgo*tgo)*(rf.x - r.x) + (4/tgo*v.x + 2*w.x * v.x + w.x * (w.x*r.x));
+    float y =  6/(tgo*tgo)*(rf.y - r.y) + (4/tgo*v.y + 2*w.y * v.y + w.y * (w.y*r.y));
+    float z =  6/(tgo*tgo)*(rf.z - r.z) + (4/tgo*v.z + 2*w.z * v.z + w.z * (w.z*r.z));
+
+    return glm::vec3(x,y,z);
+}
+
+void LanderAi::ZEM_ZEV_Control(float timeStep){
+    //calculate time to go
+    t+=IMAGING_TIMER_SECONDS; //cant just be timestep, must be imaging time?
+    tgo = tf - t;//this is not a true tgo value, need to actually calculate an interception based on relative speeds and positions
+    std::cout << tgo  << " time-to-go\n";
+
+    glm::vec3 rf = p_landingSite->pos;
+    //glm::vec3 rf = glm::vec3(0.0f);
+    //glm::vec3 r = p_landingSite->pos - p_lander->pos;
+    glm::vec3 r = p_lander->pos;
+    //glm::vec3 r = p_lander->pos - p_landingSite->pos ;
+    glm::vec3 zem = getZEM(rf, r, p_lander->landerVelocityVector);
+
+    //first param is landing site velocity, or is it relative velocity? for now we use 0
+    //2nd param is relative velocity, landing site vel - lander vel
+    glm::vec3 zev = getZEV(glm::vec3(0.0f), p_lander->landerVelocityVector);
+
+    //glm::vec3 acc = getZEMZEVAccel(zem,zev);
+    glm::vec3 acc = getZEMZEVa(rf,r,p_lander->landerVelocityVector, asteroidAngularVelocity);
+    std::cout << glm::to_string(acc) << " \n";
+    
+
+    glm::mat4 inv_transform = glm::inverse(p_lander->transformMatrix);
+    glm::vec3 correctedMovement = inv_transform * glm::vec4(acc, 0.0f);
+    
+    //finally submit it to the queue, TODO!!! we will probably need to normalize vector and pass a strength
+    p_lander->addImpulseToLanderQueue(1.0f, correctedMovement.x, correctedMovement.y, correctedMovement.z, false);
+
+    //p_lander->addImpulseToLanderQueue(1.0f, acc.x, acc.y, acc.z, false);
+}
+
+//function uses world state to calculate movement vector to control Lander automatically
+//will form the basis of generating lots of training data rapidly
+//will need to output data to file, along with images or any other data for training
+void LanderAi::calculateMovement(float timeStep){
+    //linearControl(timeStep);
+    ZEM_ZEV_Control(timeStep);
 }
 
 void LanderAi::setAutopilot(bool b){

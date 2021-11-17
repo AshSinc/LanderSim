@@ -21,16 +21,21 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     double asteroidGravForceMultiplier = 0.01f;
     float startDistance = 150.0f;
     float passDistance = 70.0f;
-    float initialSpeed = 1.5f;
+    float initialSpeed = 1.5f; //this var isnt actually set here, its in data_scene.h
+    btVector3 asteroidRotationalVelocity = btVector3(0,0,0); //we can cheat by assigning it in myscene.cpp
     
 
     float landerVelocity = 0.0f;
     glm::vec3 landerVelocityVector = glm::vec3(0.0f);
     glm::vec3 landerAngularVelocity = glm::vec3(0.0f);
+    
     float gravitationalForce = 0.0f;
+    btVector3 landerGravityVector = btVector3(0,0,0);
 
     const float BOOST_STRENGTH = 1.0f;
     const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
+    //const float LANDER_BOOST_CAP = 200.0f; //physical limit for an individual boost, regardless of requested boost 
+    //const float LANDER_BOOST_CAP = 1.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;
 
     std::mutex landerBoostQueueLock;
@@ -100,8 +105,13 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //set the gravity for the lander towards the asteroid
         btVector3 direction = -btVector3(pos.x , pos.y, pos.z); //asteroid is always at origin so dir of gravity is aways towards 0
         gravitationalForce = asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
-        body->setGravity(direction.normalize()*gravitationalForce);
-        //body->applyCentralForce(direction.normalize()*gravitationalForce);
+        landerGravityVector = direction.normalize()*gravitationalForce;
+        body->setGravity(landerGravityVector);
+        
+        //btVector3 direction = btVector3(0,0,-1); //
+        //gravitationalForce = 0.1f;
+        //landerGravityVector = direction.normalize()*gravitationalForce;
+        //body->setGravity(landerGravityVector);
         
         //store the linear velocity, 
         landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 

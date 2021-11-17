@@ -10,6 +10,7 @@
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.025f;
     bool randomStartRotation = false;
+    btVector3 angularVelocity;
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         std::vector<Vertex>& allV = r_mediator.renderer_getAllVertices(); //reference all loaded model vertices
@@ -63,6 +64,8 @@ struct AsteroidObj : virtual CollisionRenderObj{
         //we are clearing forces on timestep because while lander is in contact bullet will sometimes apply a small force on the asteroid, despite mass difference
         body->clearForces();
         body->setLinearVelocity(btVector3(0,0,0));
+
+        //angularVelocity = Service::bt2glm(body->getAngularVelocity());
     }
 
     void initTransform(btTransform* transform){
@@ -77,13 +80,14 @@ struct AsteroidObj : virtual CollisionRenderObj{
     
     void initRigidBody(btTransform* transform, btRigidBody* rigidbody){
         //set initial rotational velocity of asteroid
-        if(randomStartRotation){
-            float f = maxRotationVelocity;
-            rigidbody->setAngularVelocity(btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f))); //random rotation of asteroid
-        }
-        else
-            rigidbody->setAngularVelocity(btVector3(0.0f, 0.0f, 0.0f)); //initial rotation of asteroid
-            //rigidbody->setAngularVelocity(btVector3(0.005f, 0.015f, 0.01f)); //initial rotation of asteroid
+        //if(randomStartRotation){
+        //    float f = maxRotationVelocity;
+        //    angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
+            rigidbody->setAngularVelocity(angularVelocity); //random rotation of asteroid
+        //}
+        //else
+        //    angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
+        //    rigidbody->setAngularVelocity(angularVelocity); //initial rotation of asteroid
     }
 
     void applyImpulse(btRigidBody* rigidbody, btVector3 vector, float duration){};

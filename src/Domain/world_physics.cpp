@@ -85,8 +85,8 @@ void WorldPhysics::checkCollisions(){
                 if(worldStats.lastImpactForce > worldStats.largestImpactForce)
                     worldStats.largestImpactForce = worldStats.lastImpactForce;
 
-                if (totalImpact > 0.00001f){
-                    //std::cout << "Lander Contact\n";
+                if (totalImpact > 0.0000001f){
+                    std::cout << "Lander Contact\n";
                     r_mediator.physics_landerCollided();
                 }
 

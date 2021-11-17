@@ -123,9 +123,18 @@ void MyScene::initObjects(){
     asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
     asteroid->material->extra.x = 2048;
     asteroid->mass = 100000;
-    asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
-    asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
-    std::cout << asteroid->maxRotationVelocity << " max rotational velocity\n";
+
+    if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
+        float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
+        //asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
+        asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+    }
+    else{
+        asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
+    }
+    //asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
+    //asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
+    //std::cout << asteroid->maxRotationVelocity << " max rotational velocity\n";
 
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   
@@ -135,6 +144,7 @@ void MyScene::initObjects(){
     landingSite = std::shared_ptr<LandingSiteObj>(new LandingSiteObj(&r_mediator));
     landingSite.get()->constructLandingSite(sceneData, &objects, &renderableObjects, this);
     focusableObjects["Landing_Site"] = landingSite;
+    landingSite->angularVelocity = asteroid->angularVelocity; //for convenience
 }
 
 void MyScene::initLights(){

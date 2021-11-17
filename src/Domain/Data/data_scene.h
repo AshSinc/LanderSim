@@ -31,10 +31,12 @@ struct SceneData{
     bool LANDER_COLLISION_COURSE = false;
     float LANDER_START_DISTANCE = 1000.0f;
     float LANDER_PASS_DISTANCE = 750.0f;
-    float INITIAL_LANDER_SPEED = 10.0f;
+    float INITIAL_LANDER_SPEED = 1.0f;
+    //float INITIAL_LANDER_SPEED = 0.0f; //this causes black screen, for some reason, possibly issue in LanderObj::initRigidBody
     int ASTEROID_SCALE = 2;
-    float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.08f; //0.04f
-    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/1.5f;
+    //float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.08f; //0.04f
+    float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.01f; //0.04f
+    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/10.5f;
     LandingSiteData landingSite = LandingSiteData_1();
 };
 
