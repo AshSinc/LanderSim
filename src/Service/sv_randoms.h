@@ -1,8 +1,10 @@
 #pragma once
 #include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
 class btVector3;
 class btMatrix3x3;
 class btTransform;
+class btQuaternion;
 
 namespace Service{
     btVector3 getPointOnSphere(float pitch, float yaw, float radius); //helper, gets point on sphere of given radius, origin 0
@@ -17,5 +19,7 @@ namespace Service{
     glm::mat4 bulletToGlm(const btTransform &t);
 
     btTransform glmToBulletT(const glm::mat4 &m);
+
+    glm::quat bulletToGlm(const btQuaternion& q);
 
 }

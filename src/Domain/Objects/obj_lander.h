@@ -40,6 +40,10 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     //const float LANDER_BOOST_CAP = 1.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;
 
+    RenderObject* p_debugBox1;
+    RenderObject* p_debugBox2;
+    RenderObject* p_debugBox3;
+
     std::mutex landerBoostQueueLock;
     std::deque<LanderBoostCommand> landerBoostQueue;
 

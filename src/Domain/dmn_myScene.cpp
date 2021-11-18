@@ -5,6 +5,8 @@
 #include "sv_randoms.h"
 #include <glm/gtx/string_cast.hpp>
 #include "obj_landingSite.h"
+#include <glm/gtx/quaternion.hpp>
+
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
@@ -88,13 +90,6 @@ void MyScene::initObjects(){
 
     lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
-    if(sceneData.RANDOMIZE_START){ //best to update this now
-        glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
-        lander->pos = pos;
-    }
-    else
-        lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
-
     lander->scale = glm::vec3(1.0f,1.0f,1.0f); //lander aka box
     setRendererMeshVars("box", lander.get());
     lander->material = r_mediator.renderer_getMaterial("defaultmesh");
@@ -126,15 +121,32 @@ void MyScene::initObjects(){
 
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
         float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
-        asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
-        //asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+        int axis = Service::getRandFloat(0,3);
+        switch (axis)
+        {
+        case 0:
+            asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f), 0.0f, 0.0f);
+            break;
+        case 1:
+            asteroid->angularVelocity = btVector3(0.0f, Service::getRandFloat(-f,f), 0.0f);
+            break;
+        case 2:
+            asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+            break;
+        default:
+        asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+            break;
+        }
+        asteroid->initialRotation.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
+        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
+        asteroid->initialRotation.setEulerZYX(0,0,0);
+        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
     }
     else{
         asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
+        asteroid->initialRotation.setEulerZYX(0,0,0);
+        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
     }
-    //asteroid->randomStartRotation = sceneData.RANDOMIZE_START;
-    //asteroid->maxRotationVelocity = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
-    //std::cout << asteroid->maxRotationVelocity << " max rotational velocity\n";
 
     objects.push_back(asteroid);
     renderableObjects.push_back(asteroid);   
@@ -145,6 +157,59 @@ void MyScene::initObjects(){
     landingSite.get()->constructLandingSite(sceneData, &objects, &renderableObjects, this);
     focusableObjects["Landing_Site"] = landingSite;
     landingSite->angularVelocity = asteroid->angularVelocity; //for convenience
+
+    if(sceneData.RANDOMIZE_START){ //best to update lander pos now
+        //glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
+        glm::vec3 rotatedUp = landingSite->initialRot * asteroid->initialRot * glm::vec4(landingSite->up, 0.0f);
+        glm::vec3 pos = landingSite->pos+(rotatedUp * sceneData.LANDER_START_DISTANCE);
+        lander->pos = pos;
+    }
+    else
+        lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
+
+
+    std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox1->id = id++;
+    debugBox1->pos = glm::vec3(0,0,0.0f);
+    debugBox1->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox1.get());
+    debugBox1->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox1->material->diffuse = glm::vec3(1,0.5f,0.31f);
+    debugBox1->material->specular = glm::vec3(0.5f,0.5f,0.5f);
+    debugBox1->material->extra.x = 32;
+    objects.push_back(debugBox1);
+    renderableObjects.push_back(debugBox1);
+
+    lander->p_debugBox1 = debugBox1.get();
+    focusableObjects["Debug_Box"] = debugBox1;
+
+    std::shared_ptr<RenderObject> debugBox2 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox2->id = id++;
+    debugBox2->pos = glm::vec3(0,0,0.0f);
+    debugBox2->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox2.get());
+    debugBox2->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox2->material->diffuse = glm::vec3(1,1,0.5f);
+    debugBox2->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    debugBox2->material->extra.x = 32;
+    objects.push_back(debugBox2);
+    renderableObjects.push_back(debugBox2);
+
+    lander->p_debugBox2 = debugBox2.get();
+
+    std::shared_ptr<RenderObject> debugBox3 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox3->id = id++;
+    debugBox3->pos = glm::vec3(0,0,0.0f);
+    debugBox3->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox3.get());
+    debugBox3->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox3->material->diffuse = glm::vec3(1,1,0.5f);
+    debugBox3->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    debugBox3->material->extra.x = 32;
+    objects.push_back(debugBox3);
+    renderableObjects.push_back(debugBox3);
+
+    lander->p_debugBox3 = debugBox3.get();
 }
 
 void MyScene::initLights(){

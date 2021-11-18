@@ -32,12 +32,23 @@ struct LandingSiteObj : virtual WorldObject{
         glm::mat4 scale_m = glm::scale(glm::mat4(1.0f), glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE)); //scale matrix
         glm::vec3 towardsOrigin = glm::normalize(-sceneData.landingSite.pos)*scaleAmount;
         glm::vec3 landingSitePos = scale_m * glm::vec4(sceneData.landingSite.pos+towardsOrigin,1);
-        glm::mat4 landingSiteRot = sceneData.landingSite.rot;
+        //glm::mat4 landingSiteRot = sceneData.landingSite.rot;
+        glm::mat4 landingSiteRot = sceneData.landingSite.rot;// * p_mediator->scene_getFocusableObject("Asteroid").initialRot;
 
         pos = landingSitePos;
         initialPos = landingSitePos;
         rot = landingSiteRot;
         initialRot = landingSiteRot;
+
+        glm::mat4 scaleM = glm::scale(glm::mat4{ 1.0 }, scale);
+        glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, pos);
+        glm::mat4 rotation = rot;//*p_mediator->scene_getFocusableObject("Asteroid").initialRot;
+        glm::mat4 landerWorldTransform = translation * rotation * scaleM;
+        int indexUpAxis = 2;
+        up = glm::normalize(landerWorldTransform[2]);
+
+        int indexFwdAxis = 0;
+        forward = glm::normalize(landerWorldTransform[0]);   
 
         //this is only used when manually rotating the landing site
         yaw = sceneData.landingSite.yaw;

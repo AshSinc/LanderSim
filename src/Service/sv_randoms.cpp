@@ -62,7 +62,9 @@ btMatrix3x3 Service::glmToBullet(const glm::mat3 &m)
 
 //btVector3 glmToBullet(const glm::vec3& v) { return btVector3(v.x, v.y, v.z); }
 
-//glm::quat bulletToGlm(const btQuaternion& q) { return glm::quat(q.getW(), q.getX(), q.getY(), q.getZ()); }
+glm::quat Service::bulletToGlm(const btQuaternion& q){ 
+    return glm::quat(q.getW(), q.getX(), q.getY(), q.getZ()); 
+}
 
 //btQuaternion Service::glmToBullet(const glm::quat &q) { return btQuaternion(q.x, q.y, q.z, q.w); }
 

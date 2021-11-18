@@ -26,7 +26,7 @@ private:
     float fixedObjectScaleFactor = 1;        
     void updateCamera(glm::vec3 newPos, glm::vec3 front);
 
-    const std::string FOCUS_NAMES[3] {"Lander", "Asteroid", "Landing_Site"};
+    const std::string FOCUS_NAMES[4] {"Lander", "Asteroid", "Landing_Site", "Debug_Box"};
     const int FOCUS_NAMES_SIZE = sizeof(FOCUS_NAMES)/sizeof(FOCUS_NAMES[0]);
     int objectFocusIndex = 0;
     CameraData cameraData;

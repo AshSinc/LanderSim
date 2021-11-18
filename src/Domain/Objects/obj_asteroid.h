@@ -10,6 +10,7 @@
 struct AsteroidObj : virtual CollisionRenderObj{
     float maxRotationVelocity = 0.025f;
     bool randomStartRotation = false;
+    btQuaternion initialRotation;
     btVector3 angularVelocity;
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
@@ -32,7 +33,7 @@ struct AsteroidObj : virtual CollisionRenderObj{
         }
 
         //asteroidCollisionShape->setMargin(0.05);
-        collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
+        collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z));
         collisionShape->updateBound();// Call this method once before doing collisions 
         collisionShapes->push_back(collisionShape);
 
@@ -64,30 +65,21 @@ struct AsteroidObj : virtual CollisionRenderObj{
         //we are clearing forces on timestep because while lander is in contact bullet will sometimes apply a small force on the asteroid, despite mass difference
         body->clearForces();
         body->setLinearVelocity(btVector3(0,0,0));
-
         //angularVelocity = Service::bt2glm(body->getAngularVelocity());
     }
 
     void initTransform(btTransform* transform){
         transform->setOrigin(btVector3(pos.x, pos.y, pos.z)); //astoid always at zero
-        btQuaternion quat;
-        if(randomStartRotation)
-            quat.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
-        else
-            quat.setEulerZYX(0,0,0);
-        transform->setRotation(quat);
+        //btQuaternion quat;
+        //if(randomStartRotation)
+        //    quat.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
+        //else
+        //    quat.setEulerZYX(0,0,0);
+        transform->setRotation(initialRotation);
     }
     
     void initRigidBody(btTransform* transform, btRigidBody* rigidbody){
-        //set initial rotational velocity of asteroid
-        //if(randomStartRotation){
-        //    float f = maxRotationVelocity;
-        //    angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
-            rigidbody->setAngularVelocity(angularVelocity); //random rotation of asteroid
-        //}
-        //else
-        //    angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
-        //    rigidbody->setAngularVelocity(angularVelocity); //initial rotation of asteroid
+        rigidbody->setAngularVelocity(angularVelocity); //random rotation of asteroid
     }
 
     void applyImpulse(btRigidBody* rigidbody, btVector3 vector, float duration){};

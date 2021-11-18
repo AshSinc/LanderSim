@@ -411,8 +411,12 @@ void Vk::Renderer::drawObjects(int curFrame){
 
     Material* lastMaterial = nullptr;
 
-    int renderObjectIds [7] = {1,2,3,4,5,6,7}; //these are 0 = skybox,  1 = star, 2 = lander, 3 = asteroid, but skybox drawn after with different call
-
+    std::vector<int> renderObjectIds;
+    if(ENABLE_DEBUG_DRAWING)
+        renderObjectIds = std::vector{1,2,3,4,5,6,7,8,9,10}; //8 9 10 are debug boxes
+    else
+        renderObjectIds = std::vector{1,2,3,4,5,6,7};
+    
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
         RenderObject* object = p_renderables->at(i).get();
