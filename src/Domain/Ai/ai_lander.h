@@ -61,7 +61,7 @@ namespace Ai{
         glm::vec3 getZEV(glm::vec3 vf, glm::vec3 v);
         //float a(float tgo, float zem, float zev);
         glm::vec3 getZEMZEVAccel(glm::vec3 zem, glm::vec3 zev);
-        glm::vec3 getZEMZEVa(glm::vec3 rf, glm::vec3 r, glm::vec3 v, glm::vec3 w);
+        glm::vec3 getZEMZEVa(glm::vec3 rf, glm::vec3 r, glm::vec3 v, glm::vec3 w, float radius);
         void calculateRotation();
         void setRotation();
         bool checkApproachAligned(float distanceToLandingSite);

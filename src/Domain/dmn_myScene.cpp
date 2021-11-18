@@ -126,8 +126,8 @@ void MyScene::initObjects(){
 
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
         float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
-        //asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
-        asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+        asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f),Service::getRandFloat(-f,f),Service::getRandFloat(-f,f));
+        //asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
     }
     else{
         asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);

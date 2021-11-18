@@ -33,7 +33,9 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     btVector3 landerGravityVector = btVector3(0,0,0);
 
     const float BOOST_STRENGTH = 1.0f;
-    const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
+    //const float BOOST_STRENGTH = 5.0f;
+    //const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
+    const float LANDER_BOOST_CAP = 10.0f; //physical limit for an individual boost, regardless of requested boost 
     //const float LANDER_BOOST_CAP = 200.0f; //physical limit for an individual boost, regardless of requested boost 
     //const float LANDER_BOOST_CAP = 1.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;

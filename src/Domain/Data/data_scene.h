@@ -37,6 +37,7 @@ struct SceneData{
     //float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.08f; //0.04f
     float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.01f; //0.04f
     float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/10.5f;
+    //float GRAVITATIONAL_FORCE_MULTIPLIER = 0.0f;
     LandingSiteData landingSite = LandingSiteData_1();
 };
 

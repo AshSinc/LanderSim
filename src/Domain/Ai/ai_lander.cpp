@@ -271,6 +271,7 @@ void LanderAi::linearControl(float timeStep){
     //set an approach distance, starts at 50m, then reduces with each tick when shouldDescend is true
     glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance);
 
+    //float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
     //get the world position based on this desiredDistance and landingSite.up and position
     glm::vec3 desiredPosition = landingSitePos+(p_landingSite->up*desiredDistance);
 
@@ -337,21 +338,53 @@ glm::vec3 LanderAi::getZEMZEVAccel(glm::vec3 zem, glm::vec3 zev){
     return glm::vec3(x,y,z);
 }
 
-glm::vec3 LanderAi::getZEMZEVa(glm::vec3 rf, glm::vec3 r, glm::vec3 v, glm::vec3 w){
-    float x =  6/(tgo*tgo)*(rf.x - r.x) + (4/tgo*v.x + 2*w.x * v.x + w.x * (w.x*r.x));
-    float y =  6/(tgo*tgo)*(rf.y - r.y) + (4/tgo*v.y + 2*w.y * v.y + w.y * (w.y*r.y));
-    float z =  6/(tgo*tgo)*(rf.z - r.z) + (4/tgo*v.z + 2*w.z * v.z + w.z * (w.z*r.z));
+glm::vec3 LanderAi::getZEMZEVa(glm::vec3 rf, glm::vec3 r, glm::vec3 v, glm::vec3 w, float radius){
+    float x =  6/(tgo*tgo)*(rf.x - r.x) + ((4/tgo)*v.x + 2*w.x * v.x + w.x * (w.x*radius));
+    float y =  6/(tgo*tgo)*(rf.y - r.y) + ((4/tgo)*v.y + 2*w.y * v.y + w.y * (w.y*radius));
+    float z =  6/(tgo*tgo)*(rf.z - r.z) + ((4/tgo)*v.z + 2*w.z * v.z + w.z * (w.z*radius));
 
     return glm::vec3(x,y,z);
 }
 
+
 void LanderAi::ZEM_ZEV_Control(float timeStep){
+    //ISSUE need to provide some waypoint system maybe?
+    //or slide the vertical point distance by subtracting log d
+    //would need to adjust tgo as well
+    //
+
+    glm::vec3 desiredPosition;
+    glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance);
+    glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
+    
     //calculate time to go
     t+=IMAGING_TIMER_SECONDS; //cant just be timestep, must be imaging time?
+    if(!shouldDescend){
+        desiredPosition = landingSitePos+(p_landingSite->up*desiredDistance); //get the world position based on this desiredDistance and landingSite.up and position
+        float remainingTime = glm::length(desiredPosition - p_lander->pos) / p_lander->landerVelocity; //t = d/v
+        std::cout << remainingTime  << " remainingTime-to-go\n";
+        if(remainingTime < 10.0f){
+            approachDistance = 0.0f;
+            shouldDescend = true;
+            tf = 1000.0f;
+            t = 0;
+        }
+        else
+            approachDistance = 500.0f;
+    }
+    else{
+        desiredPosition = landingSitePos;
+    }
+
     tgo = tf - t;//this is not a true tgo value, need to actually calculate an interception based on relative speeds and positions
+    if(tgo < 0){
+        tgo = 1000.0f;
+        tf = 1000.0f;
+        t = 0.0f;
+    }
     std::cout << tgo  << " time-to-go\n";
 
-    glm::vec3 rf = p_landingSite->pos;
+    glm::vec3 rf = desiredPosition;
     //glm::vec3 rf = glm::vec3(0.0f);
     //glm::vec3 r = p_landingSite->pos - p_lander->pos;
     glm::vec3 r = p_lander->pos;
@@ -360,12 +393,15 @@ void LanderAi::ZEM_ZEV_Control(float timeStep){
 
     //first param is landing site velocity, or is it relative velocity? for now we use 0
     //2nd param is relative velocity, landing site vel - lander vel
-    glm::vec3 zev = getZEV(glm::vec3(0.0f), p_lander->landerVelocityVector);
+    //glm::vec3 lsVelocity = asteroidAngularVelocity;
+    glm::vec3 lsVelocity = asteroidAngularVelocity * glm::length(landingSitePos);
+    //glm::vec3 zev = getZEV(glm::vec3(0.0f), p_lander->landerVelocityVector);
+    glm::vec3 zev = getZEV(lsVelocity, p_lander->landerVelocityVector);
 
-    //glm::vec3 acc = getZEMZEVAccel(zem,zev);
-    glm::vec3 acc = getZEMZEVa(rf,r,p_lander->landerVelocityVector, asteroidAngularVelocity);
-    std::cout << glm::to_string(acc) << " \n";
-    
+    glm::vec3 acc = getZEMZEVAccel(zem,zev);
+    //glm::vec3 acc = getZEMZEVa(rf,r,p_lander->landerVelocityVector, asteroidAngularVelocity);
+    std::cout << glm::to_string(asteroidAngularVelocity) << " angular vel \n";
+    std::cout << glm::to_string(acc) << " acc \n";
 
     glm::mat4 inv_transform = glm::inverse(p_lander->transformMatrix);
     glm::vec3 correctedMovement = inv_transform * glm::vec4(acc, 0.0f);
