@@ -66,6 +66,7 @@ void MyScene::initObjects(){
     renderableObjects.clear();
     collisionObjects.clear();
     focusableObjects.clear();
+    debugObjects.clear();
     int id = 0;
 
     std::shared_ptr<RenderObject> skybox = std::shared_ptr<RenderObject>(new RenderObject());
@@ -137,8 +138,13 @@ void MyScene::initObjects(){
         asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
             break;
         }
-        asteroid->initialRotation.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
-        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
+        //ISSUE more than one axis of rotation also messes things up
+        //suspect it may just be my descent checking predictAtTf rotations, because they wont account for angular accelrations over time maybe?
+        //asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f), Service::getRandFloat(-f,f), Service::getRandFloat(-f,f));
+
+        //ISSUE randomizing starting rotation messes up descent checks in lander ai, need to account for initial rotation in there
+        //possibly in other locations too, like the zemzev gnc and maybe even landing site?
+        //asteroid->initialRotation.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
         asteroid->initialRotation.setEulerZYX(0,0,0);
         asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
     }
@@ -179,8 +185,8 @@ void MyScene::initObjects(){
     debugBox1->material->extra.x = 32;
     objects.push_back(debugBox1);
     renderableObjects.push_back(debugBox1);
-
-    lander->p_debugBox1 = debugBox1.get();
+    debugObjects.push_back(debugBox1);
+    //lander->p_debugBox1 = debugBox1.get();
     focusableObjects["Debug_Box"] = debugBox1;
 
     std::shared_ptr<RenderObject> debugBox2 = std::shared_ptr<RenderObject>(new RenderObject());
@@ -194,8 +200,9 @@ void MyScene::initObjects(){
     debugBox2->material->extra.x = 32;
     objects.push_back(debugBox2);
     renderableObjects.push_back(debugBox2);
+    debugObjects.push_back(debugBox2);
 
-    lander->p_debugBox2 = debugBox2.get();
+    //lander->p_debugBox2 = debugBox2.get();
 
     std::shared_ptr<RenderObject> debugBox3 = std::shared_ptr<RenderObject>(new RenderObject());
     debugBox3->id = id++;
@@ -208,8 +215,9 @@ void MyScene::initObjects(){
     debugBox3->material->extra.x = 32;
     objects.push_back(debugBox3);
     renderableObjects.push_back(debugBox3);
+    debugObjects.push_back(debugBox3);
 
-    lander->p_debugBox3 = debugBox3.get();
+    //lander->p_debugBox3 = debugBox3.get();
 }
 
 void MyScene::initLights(){

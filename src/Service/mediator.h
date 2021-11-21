@@ -9,8 +9,9 @@ class WorldCamera;
 class UiHandler;
 class Application;
 class WorldPhysics;
-class CollisionRenderObj;
 class RenderObject;
+class CollisionRenderObj;
+
 class GLFWwindow;
 
 namespace Vk{
@@ -30,7 +31,6 @@ struct WorldPointLightObject;
 struct WorldSpotLightObject;
 struct SceneData;
 struct WorldStats;
-struct LanderBoostCommand;
 struct LandingSiteObj;
 struct LanderObj;
 
@@ -59,8 +59,8 @@ class Mediator{
         WorldStats& physics_getWorldStats();
         void physics_loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects);
         void physics_reset();
-        bool physics_landerImpulseRequested();
-        LanderBoostCommand& physics_popLanderImpulseQueue();
+        //bool physics_landerImpulseRequested();
+        //LanderBoostCommand& physics_popLanderImpulseQueue();
         void physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque = false);
         void physics_moveLandingSite(float x, float y, float z, bool torque = false);
         void physics_updateDeltaTime();
@@ -102,6 +102,7 @@ class Mediator{
         WorldObject& scene_getFocusableObject(std::string name);
         LandingSiteObj* scene_getLandingSiteObject();
         LanderObj* scene_getLanderObject();
+        std::vector<std::shared_ptr<RenderObject>>* scene_getDebugObjects();
 
         //ui functions
         void ui_toggleEscMenu();

@@ -23,6 +23,9 @@ LanderObj* Mediator::scene_getLanderObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLanderObject();
 }
+std::vector<std::shared_ptr<RenderObject>>* Mediator::scene_getDebugObjects(){
+    return p_scene->getDebugObjects();
+}
 
 //Ui functions
 void Mediator::ui_toggleEscMenu(){
@@ -73,8 +76,9 @@ void Mediator::physics_reset(){
 }
 void Mediator::physics_addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
     LanderObj* lo = dynamic_cast<LanderObj*>(&scene_getFocusableObject("Lander"));
-    lo->addImpulseToLanderQueue(duration, x, y, z, torque);
+    lo->cpu.addImpulseToLanderQueue(duration, x, y, z, torque);
 }
+
 void Mediator::physics_moveLandingSite(float x, float y, float z, bool torque){
     scene_getLandingSiteObject()->moveLandingSite(x,y,z,torque); //taking a shortcut here
 }

@@ -4,7 +4,6 @@
 class Material;
 
 struct RenderObject : virtual WorldObject {
-    //WorldObject& rWorldObject; //pointer to the WorldObject this is rendering
 	Material* material;
 	glm::mat4 transformMatrix; //base transform, not rotations they will need to be held seperately i think, per object and then 
     uint32_t indexCount; //how many indices in this mesh (used for referencing )

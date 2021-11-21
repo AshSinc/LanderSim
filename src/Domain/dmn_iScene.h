@@ -33,6 +33,7 @@ class IScene{
         std::vector<std::shared_ptr<CollisionRenderObj>> collisionObjects;
         std::vector<std::shared_ptr<RenderObject>> renderableObjects;
         std::unordered_map<std::string, std::shared_ptr<WorldObject>> focusableObjects;
+        std::vector<std::shared_ptr<RenderObject>> debugObjects;
 
     public:
         int getNumPointLights(){return pointLights.size();}
@@ -40,5 +41,6 @@ class IScene{
         int getWorldObjectsCount(){return objects.size();}
         WorldObject& getWorldObject(int i){return *objects.at(i);}
         WorldObject& getFocusableObject(std::string name){return *focusableObjects.at(name);};
+        std::vector<std::shared_ptr<RenderObject>>* getDebugObjects(){return &debugObjects;};
         virtual void initScene(SceneData data) = 0;
 };

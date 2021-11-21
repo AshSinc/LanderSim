@@ -3,7 +3,7 @@
 #include "vk_types.h"
 #include <vector>
 #include <glm/vec3.hpp>
-#include "world_physics.h"
+//#include "world_physics.h"
 
 //this all needs cleaner up or moved into relevant classes/namespaces?
 

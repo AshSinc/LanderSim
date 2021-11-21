@@ -2,20 +2,14 @@
 #include "obj_collisionRender.h"
 #include <glm/gtx/fast_square_root.hpp>
 #include "sv_randoms.h"
-#include "ai_lander.h"
+#include "lander_cpu.h"
 #include <deque>
 #include <mutex>
 #include "obj_spotLight.h"
 
-//holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
-struct LanderBoostCommand{
-    float duration;
-    glm::vec3 vector;
-    bool torque; //true if rotation
-};
-
 struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interface for 
-    Ai::LanderAi ai = Ai::LanderAi();
+    //Ai::LanderAi ai = Ai::LanderAi();
+    Lander::CPU cpu = Lander::CPU();
     bool collisionCourse = false;
     bool randomStartPositions = false;
     double asteroidGravForceMultiplier = 0.01f;
@@ -33,19 +27,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     btVector3 landerGravityVector = btVector3(0,0,0);
 
     const float BOOST_STRENGTH = 1.0f;
-    //const float BOOST_STRENGTH = 5.0f;
-    //const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
     const float LANDER_BOOST_CAP = 10.0f; //physical limit for an individual boost, regardless of requested boost 
-    //const float LANDER_BOOST_CAP = 200.0f; //physical limit for an individual boost, regardless of requested boost 
-    //const float LANDER_BOOST_CAP = 1.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;
-
-    RenderObject* p_debugBox1;
-    RenderObject* p_debugBox2;
-    RenderObject* p_debugBox3;
-
-    std::mutex landerBoostQueueLock;
-    std::deque<LanderBoostCommand> landerBoostQueue;
 
     btTransform landerTransform;
     Mediator* p_mediator;
@@ -93,7 +76,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         p_mediator = &r_mediator;
 
         //initialise ai module
-        ai.init(p_mediator, this);
+        cpu.init(p_mediator, this);
     }
 
     void updateLanderUpForward(btRigidBody* body){
@@ -130,16 +113,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
         updateLanderUpForward(body);
 
-        ai.landerSimulationTick(body, timeStep); //let the ai have a tick
-
-        //check if we have a boost command queued
-        if(landerImpulseRequested()){
-            LanderBoostCommand& nextBoost = popLanderImpulseQueue();
-            if(nextBoost.torque)
-                applyTorque(body, nextBoost);
-            else
-                applyImpulse(body, nextBoost);
-        }
+        cpu.simulationTick(body, timeStep); //let the ai have a tick    
     }
 
     //this will be called from world_physics directly from now on, little hacky, need to derive new class from WorldPhysics
@@ -158,34 +132,6 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         worldStats->gravitationalForce = gravitationalForce;
     }
 
-    //these functions could be combined
-    void applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){       
-        btVector3 boostVector = Service::glm2bt(boost.vector);
-        //std::cout << boostVector.length() << " boost vec\n";
-        float force = BOOST_STRENGTH * boostVector.length();
-        force = glm::clamp(force, 0.0f, LANDER_BOOST_CAP); //clamp boost force to a max value
-
-        if(force > 0.0f){
-            btVector3 boostDirection = boostVector.normalize();
-            btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
-            btVector3 correctedForce = rot * boostDirection;
-            //rigidbody->applyCentralForce(correctedForce*force);
-            rigidbody->applyCentralImpulse(correctedForce*force);
-        }
-        else{
-            std::cout << "This is strange, applyImpulse is being triggered when pausing/unpause or changing time\n";
-        }
-    }
-    //not working
-    void applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost){
-        btVector3 relativeForce = Service::glm2bt(boost.vector);
-        //float force = BOOST_STRENGTH * landerRotationalBoostStrength * boostVector.le;
-        btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();
-        //btVector3 correctedForce = rot * relativeForce;
-        btVector3 correctedForce = rot * (relativeForce);
-        rigidbody->applyTorqueImpulse(correctedForce);
-    }
-
     void initRigidBody(btTransform* transform, btRigidBody* rigidbody){
         btVector3 direction;
         if(collisionCourse)
@@ -198,35 +144,13 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         rigidbody->setLinearVelocity(direction.normalize()*initialSpeed); //start box falling towards asteroid
     }
 
-
-    void addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
-        landerBoostQueueLock.lock();
-        landerBoostQueue.push_back(LanderBoostCommand{duration, glm::vec3{x,y,z}, torque});
-        landerBoostQueueLock.unlock();
-    }
-
-    bool landerImpulseRequested(){
-        landerBoostQueueLock.lock();
-        bool empty = landerBoostQueue.empty();
-        landerBoostQueueLock.unlock();
-        return !empty;
-    }
-
-    LanderBoostCommand& popLanderImpulseQueue(){
-        landerBoostQueueLock.lock();
-        LanderBoostCommand& command = landerBoostQueue.front();
-        landerBoostQueue.pop_front();
-        landerBoostQueueLock.unlock();
-        return command;
-    }
-
     void landerCollided(){
-        ai.setAutopilot(false);
-        ai.setImaging(false);
+        cpu.setAutopilot(false);
+        cpu.setImaging(false);
     }
 
     void landerSetAutopilot(bool b){
-        ai.setAutopilot(b);
+        cpu.setAutopilot(b);
     }
 
     ~LanderObj(){};
