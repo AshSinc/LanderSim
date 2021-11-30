@@ -74,11 +74,9 @@ glm::vec3 GNC::stabiliseCurrentPos(){
     glm::mat4 inv_transform = glm::inverse(p_navStruct->landerTransformMatrix);
     glm::vec3 correctedMovement = inv_transform * glm::vec4(-p_navStruct->velocityVector, 0.0f);
     return correctedMovement;
-    //p_lander->addImpulseToLanderQueue(1.0f, correctedMovement.x, correctedMovement.y, correctedMovement.z, false);
 }
 
 glm::vec3 GNC::preApproach(){
-    //this 
     //perform imaging
 
     //process waiting images
@@ -97,7 +95,7 @@ glm::vec3 GNC::preApproach(){
     if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
         shouldDescend = true;
     }
-    //stabilize current position, above code  should probably be in cpu, because we probably ened imaging calls etc
+    //stabilize current position, above code should probably be in cpu, because we probably ened imaging calls etc
     return stabiliseCurrentPos();
 }
 

@@ -91,6 +91,7 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
         specImageInfo.sampler = specularSampler;
         specImageInfo.imageView = _loadedTextures[name+"_spec"].imageView;
         specImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        //normal mapping should be included here, need normal map sampler
 
         setWrite.push_back(Vk::Structures::write_descriptorset(0, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &diffImageInfo));

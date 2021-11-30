@@ -39,7 +39,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
     }
     
     if(imagingTimer(timeStep)){
-        //p_mediator->renderer_setShouldDrawOffscreen(true);
+        p_mediator->renderer_setShouldDrawOffscreen(true);
         //camera.tick(timestep);
     }
     if(gncTimer(timeStep)){

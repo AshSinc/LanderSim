@@ -14,9 +14,17 @@ public:
     void writeOffscreenImageToDisk(); 
 
 private:
-    uint32_t OFFSCREEN_IMAGE_WIDTH = 1920;//1920;
-    uint32_t OFFSCREEN_IMAGE_HEIGHT = 1080;//1080;
-    const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
+
+    //too much work to rewrite render pipeline and everything that goes with it to output lower resolution natively, too messy, need to start from scratch but not in this project
+    //instead we render in the full window size (need to check window size this is set statically for now)
+    //then copy the image to a smaller VkImage, copy was needed anyway
+    uint32_t RENDERED_IMAGE_WIDTH = 1920; //this is full rendered resolution on GPU RAM
+    uint32_t RENDERED_IMAGE_HEIGHT = 1080; 
+    uint32_t OUTPUT_IMAGE_WIDTH = 768; //this is desired output resolution 
+    uint32_t OUTPUT_IMAGE_HEIGHT = 768;
+    uint32_t OFFSCREEN_IMAGE_WIDTH_OFFSET = (RENDERED_IMAGE_WIDTH/2) - (OUTPUT_IMAGE_WIDTH/2); //this works out offset to get center of image
+    uint32_t OFFSCREEN_IMAGE_HEIGHT_OFFSET = (RENDERED_IMAGE_HEIGHT/2) - (OUTPUT_IMAGE_HEIGHT/2);
+    const float OFFSCREEN_IMAGE_FOV = 30.0f; //degrees
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();
@@ -24,6 +32,12 @@ private:
     void createOffscreenFramebuffer();
     void createOffscreenCommandBuffer();
     void drawOffscreen(int curFrame);
+    void createOffscreenColourResources();
+    void createOffscreenDepthResources();
+    void createOffscreenCameraBuffer();
+    void createOffscreenDescriptorSet();
+
+    void initOffscreenPipelines();
 
     //void createOffscreenImageBuffer();
     //void fillOffscreenImageBuffer();
@@ -35,6 +49,14 @@ private:
     VkImage offscreenImage;
     VkImageView offscreenImageView;
 
+    VkImage offscreenColourImage;
+    VkImageView offscreenColourImageView;
+    VmaAllocation offscreenColourImageAllocation;
+
+    VkImage offscreenDepthImage;
+    VkImageView offscreenDepthImageView;
+    VmaAllocation offscreenDepthImageAllocation;
+
     //VkImage offscreenImageB;
     //VkImageView offscreenImageViewB;
     //VmaAllocation offscreenImageAllocationB;
@@ -42,6 +64,12 @@ private:
     VmaAllocation offscreenImageAllocation;
     VkCommandBuffer offscreenCommandBuffer;
     VkCommandPool offscreenCommandPool;
+
+    VkBuffer offscreenCameraBuffer;
+    VmaAllocation offscreenCameraBufferAllocation;
+
+    VkDescriptorSet offscreenDescriptorSet;
+    VkDescriptorSetLayout offscreenGlobalSetLayout;
     
     bool shouldDrawOffscreenFrame = false;
     
