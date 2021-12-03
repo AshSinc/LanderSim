@@ -37,7 +37,7 @@ void MyScene::configureRenderEngine(){
     r_mediator.renderer_setCameraDataPointer(r_mediator.camera_getCameraDataPointer());
 
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh1", "asteroid");
-    r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh2", "satellite");
+    r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh2", "lander");
     r_mediator.renderer_allocateDescriptorSetForSkybox();
 
     r_mediator.renderer_mapMaterialDataToGPU(); //important to do after textures/materials are loaded
@@ -61,7 +61,6 @@ void MyScene::setRendererMeshVars(std::string name, RenderObject* renderObj){
 }
 
 void MyScene::initObjects(){ 
-    //need to use lists instead? because they wont break pointer references when adding or removing elements
     objects.clear();
     renderableObjects.clear();
     collisionObjects.clear();
@@ -91,9 +90,9 @@ void MyScene::initObjects(){
 
     lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
-    lander->scale = glm::vec3(1.0f,1.0f,1.0f); //lander aka box
-    setRendererMeshVars("box", lander.get());
-    lander->material = r_mediator.renderer_getMaterial("defaultmesh");
+    lander->scale = glm::vec3(1.0f,1.0f,1.0f);
+    setRendererMeshVars("lander", lander.get());   //instead of box and default mesh we need to load the model
+    lander->material = r_mediator.renderer_getMaterial("texturedmesh2");
     lander->material->diffuse = glm::vec3(0,0,1);
     lander->material->specular = glm::vec3(1,0.5f,0.5f);
     lander->material->extra.x = 32;
@@ -186,7 +185,6 @@ void MyScene::initObjects(){
     objects.push_back(debugBox1);
     renderableObjects.push_back(debugBox1);
     debugObjects.push_back(debugBox1);
-    //lander->p_debugBox1 = debugBox1.get();
     focusableObjects["Debug_Box"] = debugBox1;
 
     std::shared_ptr<RenderObject> debugBox2 = std::shared_ptr<RenderObject>(new RenderObject());
@@ -202,8 +200,6 @@ void MyScene::initObjects(){
     renderableObjects.push_back(debugBox2);
     debugObjects.push_back(debugBox2);
 
-    //lander->p_debugBox2 = debugBox2.get();
-
     std::shared_ptr<RenderObject> debugBox3 = std::shared_ptr<RenderObject>(new RenderObject());
     debugBox3->id = id++;
     debugBox3->pos = glm::vec3(0,0,0.0f);
@@ -216,8 +212,6 @@ void MyScene::initObjects(){
     objects.push_back(debugBox3);
     renderableObjects.push_back(debugBox3);
     debugObjects.push_back(debugBox3);
-
-    //lander->p_debugBox3 = debugBox3.get();
 }
 
 void MyScene::initLights(){

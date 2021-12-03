@@ -34,8 +34,8 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
     //need to construct new matrix that faces the landing site,
 
     if(autopilot){
-        setRotation(); //we are cheating and locking rotation to landing s
-        body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
+        //setRotation(); //we are cheating and locking rotation to landing s
+        //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
     }
     
     if(imagingTimer(timeStep)){
@@ -116,12 +116,24 @@ bool CPU::imagingTimer(float timeStep){
 }
 
 void CPU::setRotation(){
-    p_lander->rot = p_landingSite->rot;
+    p_lander->rot = p_landingSite->rot;//we are cheating by setting the lander to rotation matrix, to the landing sites rot matrix
+    //then we construct the transform matrix from this, and set for both renderer and bullet
     glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, p_lander->scale);
     glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, p_lander->pos);
     glm::mat4 rotation = p_lander->rot;
-    p_lander->transformMatrix = translation * rotation * scale;
-    p_lander->landerTransform.setBasis(Service::glmToBullet(p_lander->rot));
+    p_lander->transformMatrix = translation * rotation * scale; //renderer transform
+    p_lander->landerTransform.setBasis(Service::glmToBullet(p_lander->rot)); //bullet transform
+
+    //ISSUE
+    //While this means the contact is always perfect at touchdown, it means there is always unnatural rotation before that point
+    //cant just set this right before landing either because the model would snap to a different rotation, would look even worse
+    //
+    //SOLUTION
+    //check 2 or 3 times on approach, and align to expected tgo up vector
+    //by calculating offset between current up vector and desired up vector and submitting a correction. 
+    //if we are using Reaction Wheels, we dont need to submit torque commands, just slerp the rotation every tick
+    //lerp or slerp towards desired rotation at touchdown time, maybe a minute before touchdown
+    //still not sure of the maths though or even how to approach this one
 }
 
 //these functions could be combined

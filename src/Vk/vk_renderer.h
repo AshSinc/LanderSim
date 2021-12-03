@@ -51,7 +51,7 @@ protected:
     std::vector<WorldPointLightObject>* p_pointLights;
     std::vector<WorldSpotLightObject>* p_spotLights;
     
-    void loadScene(); //loads scene 
+    //void loadScene(); //loads scene 
     void calculateFrameRate();
     
     bool frameBufferResized = false; //explicitly track framebuffer resizeing, most platforms/drivers report a resize, but it's not gauranteed, so we can check

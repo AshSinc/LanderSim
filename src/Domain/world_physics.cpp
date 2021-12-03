@@ -159,8 +159,9 @@ void WorldPhysics::initBullet(){
     p_dynamicsWorld->setInternalTickCallback(stepPostTickCallback, this, false);
 }
 
-//void WorldPhysics::initDynamicsWorld(){
-//    p_dynamicsWorld->init(r_mediator);
+//collision shape loading should probably be moved here from asteroid and lander objects
+//but WorldPhysics should remain polymorphic as pos
+//void WorldPhysics::loadCollisionFile(){ 
 //}
 
 void WorldPhysics::loadCollisionMeshes(std::vector<std::shared_ptr<CollisionRenderObj>>* collisionObjects){ 
@@ -198,7 +199,6 @@ void WorldPhysics::changeSimSpeed(int direction, bool pause){
 //adds default objects to scene
 WorldPhysics::WorldPhysics(Mediator& mediator): r_mediator{mediator}{
     initBullet();
-    //updateDeltaTime();
 }
 
 WorldPhysics::~WorldPhysics(){

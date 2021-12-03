@@ -25,9 +25,36 @@ void Vk::OffscreenRenderer::init(){
     createOffscreenRenderPass();
     createOffscreenFramebuffer();
     createOffscreenCommandBuffer();
+    createOffscreenSyncObjects();
     
     //createOffscreenImageBuffer();
 }
+
+//fences are used to synchronise cpu with gpu operations,
+//semaphores are used to sync gpu operations with other gpu operations
+//so here we need fences to sync rendering offscreen images with cpu writing to file
+void Vk::OffscreenRenderer::createOffscreenSyncObjects(){
+
+    //offscreenRenderFence will allow access when offscreen image can be renderer to by gpu
+    /*VkFenceCreateInfo fenceCreateInfo{};
+    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //with a fence we must start it as signalled complete, otherwise it appears locked unless it can be reset
+    if(vkCreateFence(device, &fenceCreateInfo, nullptr, &offscreenRenderFence) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create fence");
+    }
+    _mainDeletionQueue.push_function([=](){vkDestroyFence(device, offscreenRenderFence, nullptr);});*/
+
+    //offscreenCopyFence will signal once rendering is complete and we can copy to file
+    //additionally rendering wont start unless offscreenCopyFence is signalled complete by the previous render pass
+    VkFenceCreateInfo uploadFenceCreateInfo{};
+    uploadFenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    uploadFenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //with this fence we wont set signal complete because we dont want to wait on it before submit
+    if(vkCreateFence(device, &uploadFenceCreateInfo, nullptr, &offscreenCopyFence) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create upload Fence");
+    }		
+    _mainDeletionQueue.push_function([=](){vkDestroyFence(device, offscreenCopyFence, nullptr);});
+}
+
 void Vk::OffscreenRenderer::createOffscreenCameraBuffer(){
     //create a uniform buffer to hold lander camera buffer information
     createBuffer(sizeof(UniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
@@ -35,6 +62,7 @@ void Vk::OffscreenRenderer::createOffscreenCameraBuffer(){
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenCameraBuffer, offscreenCameraBufferAllocation);});
 }
 
+//to get around sharing issues we use a different descripter set, substituting globalset of the base renderer with offscreenDescriptorSet that has its own camBufferBinding
 void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     //Create Descriptor Set layout describing the _globalSetLayout containing global scene and camera data
     //Cam is set 0 binding 0 because its first in this binding set
@@ -55,8 +83,6 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
         throw std::runtime_error("Failed to allocate memory for offscreen descriptor set");
     }
 
-
-    //VkWriteDescriptorSet setWrite;
     std::array<VkWriteDescriptorSet, 2> setWrite{};
     //information about the buffer we want to point at in the descriptor
     VkDescriptorBufferInfo cameraInfo;
@@ -75,7 +101,6 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     //binding scene uniform buffer to 1, we are using dynamic offsets so set the flag
     setWrite[1] = Vk::Structures::write_descriptorset(1, offscreenDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
 
-    //vkUpdateDescriptorSets(device, 1, &setWrite, 0, nullptr);  
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
 }
 
@@ -92,8 +117,25 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenImageBuffer, offscreenImageBufferAlloc);});
 }*/
 
+//void Vk::OffscreenRenderer::fillOffscreenImageBuffer(){
+ //   imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
+    //vkCmdCopyImageToBuffer(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageBuffer, 1, &region);
+
+    /*VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
+    imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
+    imageCopyRegion.extent.depth = 1;
+
+    vkCmdCopyImage(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopyRegion);
+
+    imageHelper->transitionImageLayout(offscreenImageB, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);*/
+//}
+
 //we will create colour resources here, this is used for MSAA and creates a single colour image that can be drawn to for calculating msaa 
-//samples
 void Vk::OffscreenRenderer::createOffscreenColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
 
@@ -160,6 +202,10 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
 
     offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
+
+    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, VMA_MEMORY_USAGE_CPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
 }
 
 void Vk::OffscreenRenderer::createOffscreenRenderPass(){
@@ -234,6 +280,9 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
 	// Note: This requires the swapchain images to be created with the VK_IMAGE_USAGE_TRANSFER_SRC_BIT flag (see VulkanSwapChain::create)
 //adapted from Sascha Willems example screenshot example
 void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
+
+    std::scoped_lock<std::mutex> lock(copyLock);
+
     bool supportsBlit = true;
 
     // Check blit support for source and destination
@@ -254,12 +303,6 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
     }
 
     VkImage srcImage = offscreenImage;
-
-    VkImage dstImage;
-    VmaAllocation dstImageAllocation;
-
-    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
-                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, VMA_MEMORY_USAGE_CPU_ONLY);
 
     VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
     cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -358,14 +401,22 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
 
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);
 
+    //dstImage now holds BGR unsigned normalized data
+    //we should probably store these in a vector or queue, deque is probably best?
+    //if we store these in a queue we could then potentially run through each item in queue in ImGui and render to screen?
+
+    //from here we write to file, the idea being that we then read from file and load into OpenCV
+    //but OpenCV can read from buffers, so maybe we only need to store the image in queue as above
+    //then maybe we can just map the memory and pass to OpenCV as a buffer? dunno if that would work
+
+    //what i need to do is get OpenCV working first, then test how loading from a buffer works
+
+    //if we DO have to write to file, then we still need some sort of queue where we can point to files conserving order
+
     // Get layout of the image (including row pitch)
     VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
     VkSubresourceLayout subResourceLayout;
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
-
-    const char* mappedData;
-    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
-    mappedData += subResourceLayout.offset;
 
     // If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
     bool colorSwizzle = false;
@@ -377,13 +428,16 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
         colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChainImageFormat) != formatsBGR.end());
     }
 
-    //std::thread thread(&Vk::Renderer::writeMappedImageToFile, this, std::ref(mappedData), subResourceLayout.rowPitch, colorSwizzle); //run on another thread
-    //this should be happening in another thread
+    const char* mappedData;
+    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
+    mappedData += subResourceLayout.offset;
+
+    //maybe instead of writting to file we create 
+
     std::ofstream file("filename.ppm", std::ios::out | std::ios::binary);
 
     // ppm header
     file << "P6\n" << OUTPUT_IMAGE_WIDTH << "\n" << OUTPUT_IMAGE_WIDTH << "\n" << 255 << "\n";
-
     // ppm binary pixel data
     for (uint32_t y = 0; y < OUTPUT_IMAGE_WIDTH; y++){
         unsigned int *row = (unsigned int*)mappedData;
@@ -401,21 +455,13 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
         mappedData += subResourceLayout.rowPitch;
     }
     file.close();
-
-    std::cout << "Screenshot saved to disk" << std::endl;
-    
-    vmaUnmapMemory(allocator, dstImageAllocation);
-    vkDestroyImage(device, dstImage, nullptr);
 }
 
-
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
-    //this bool should be atomic, as a timer will trigger from another thread
     shouldDrawOffscreenFrame = b;
 }
 
 void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
-    //LanderObj* lander = p_renderables->at(2).get(); //lander is obj 2
     RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
     glm::vec3 camPos = lander->pos;
     glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
@@ -431,34 +477,31 @@ void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
 	camData.viewproj = proj * view;
 }
 
-//void Vk::OffscreenRenderer::fillOffscreenImageBuffer(){
- //   imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
-    //vkCmdCopyImageToBuffer(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageBuffer, 1, &region);
-
-    /*VkImageCopy imageCopyRegion{};
-    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.srcSubresource.layerCount = 1;
-    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.dstSubresource.layerCount = 1;
-    imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
-    imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
-    imageCopyRegion.extent.depth = 1;
-
-    vkCmdCopyImage(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopyRegion);
-
-    imageHelper->transitionImageLayout(offscreenImageB, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);*/
-//}
-
 void Vk::OffscreenRenderer::drawFrame(){
     if (shouldDrawOffscreenFrame){
+        std::scoped_lock<std::mutex> lock(copyLock); //must wait for any in progress copy operation
         shouldDrawOffscreenFrame = false;
         recordCommandBuffer_Offscreen();
+        renderSubmitted = true;
     }
+
+    if(renderSubmitted){//this just stops us checking for fence if we know a new render wasnt submitted sincle the last one
+        if(vkGetFenceStatus(device, offscreenCopyFence) == VK_SUCCESS){ //if offscreen render fence has been signalled then
+            std::thread thread(&Vk::OffscreenRenderer::writeOffscreenImageToDisk, this);
+            thread.detach();   
+            renderSubmitted = false;
+        }
+    }
+
     Renderer::drawFrame(); //draw a frame
     //Renderer::drawDebugFrame(); //draw debug frame, not implemented yet
 }
 
 void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
+    //wait for any rendering to complete here
+    vkWaitForFences(device, 1, &offscreenCopyFence, VK_TRUE, UINT64_MAX); //wait for fence to be signalled
+    vkResetFences(device, 1, &offscreenCopyFence); //set to unsignalled
+
     vkResetCommandBuffer(offscreenCommandBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT); 
 
     VkCommandBufferBeginInfo beginInfo = Vk::Structures::command_buffer_begin_info(0);
@@ -497,12 +540,10 @@ void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
     submitInfo.pCommandBuffers = &offscreenCommandBuffer;
 
     //submit the queue
-    queueSubmitMutex.lock();
-    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS) { //then fails here after texture flush
+    std::scoped_lock<std::mutex> lock(queueSubmitMutex); //wait for any other queue submissions, should use scoped_lock elsewhere too. c++17 recommended practice
+    if(vkQueueSubmit(graphicsQueue, 1 , &submitInfo, offscreenCopyFence) != VK_SUCCESS) { //signal fence on completion
         throw std::runtime_error("Failed to submit draw command buffer");
     }
-
-    queueSubmitMutex.unlock();
 }
 
 void Vk::OffscreenRenderer::drawOffscreen(int curFrame){

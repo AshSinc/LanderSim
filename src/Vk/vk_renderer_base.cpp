@@ -431,13 +431,13 @@ void Vk::RendererBase::createSamplers(){
     //create a sampler for texture
 	VkSamplerCreateInfo difSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
-        static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
+        static_cast<float>(_loadedTextures["lander_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &difSamplerInfo, nullptr, &diffuseSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, diffuseSampler, nullptr);});
 
     VkSamplerCreateInfo specSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_TRUE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 
-        static_cast<float>(_loadedTextures["satellite_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
+        static_cast<float>(_loadedTextures["lander_diff"].mipLevels)); //this shouldnt be tied to the mip level of one texture, rather it should be all texture mip levels?
 	vkCreateSampler(device, &specSamplerInfo, nullptr, &specularSampler);
     _mainDeletionQueue.push_function([=](){vkDestroySampler(device, specularSampler, nullptr);});
 

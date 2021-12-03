@@ -7,6 +7,8 @@
 #include <mutex>
 #include "obj_spotLight.h"
 
+#include <tiny_obj_loader.h> //once collision obj loading code is removed this can be too
+
 struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interface for 
     //Ai::LanderAi ai = Ai::LanderAi();
     Lander::CPU cpu = Lander::CPU();
@@ -36,17 +38,42 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     
 
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
-        //create a dynamic rigidbody
-        btCollisionShape* collisionShape = new btBoxShape(btVector3(1,1,1));
         //colShape->setMargin(0.05);
-        collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
-        collisionShapes->push_back(collisionShape);
+        //collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
+        //collisionShapes->push_back(collisionShape);
+
+        //we will make a compound shape, to keep it simple a box for each foot, and a cylinder for the body
+        btCompoundShape* compoundShape = new btCompoundShape();
+
+        float bodyRadius = 1;
+        float bodyHeight = 0.4f;
+
+        // create two shapes for the rod and the load
+        btCollisionShape* body = new btCylinderShapeZ(btVector3(bodyRadius, bodyRadius, bodyHeight/2)); //havent really tested these values
+        btCollisionShape* foot = new btBoxShape(btVector3(0.1f, 0.1f, 0.1f));
+        // create a transform we'll use to set each object's position 
+        btTransform transform;
+        transform.setIdentity();
+        
+        // add the body
+        compoundShape->addChildShape(transform, body);
+        //set first foot offset position
+        transform.setOrigin(btVector3(-1.1, -0.63f, -0.53f));
+        //add foot 1
+        compoundShape->addChildShape(transform, foot);
+        //set second foot offset position
+        transform.setOrigin(btVector3(0.005, 1.26, -0.53f));
+        //add foot 2
+        compoundShape->addChildShape(transform, foot);
+        //set third foot offset position
+        transform.setOrigin(btVector3(1.09, -0.63, -0.53f));
+        //add foot 3
+        compoundShape->addChildShape(transform, foot);
 
         //create lander transform
         //btTransform transform;
         landerTransform.setIdentity();
 
-        //initTransform(&transform);
         landerTransform.setOrigin(btVector3(pos.x, pos.y, pos.z));
         btQuaternion quat;
         quat.setEulerZYX(0,0,0);
@@ -58,12 +85,12 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         bool isDynamic = (btMass != 0.f);
         btVector3 localInertia(0, 0, 0);
         if (isDynamic)
-            collisionShape->calculateLocalInertia(btMass, localInertia);
+            compoundShape->calculateLocalInertia(btMass, localInertia);
 
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(landerTransform);
-        btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, collisionShape, localInertia);
-        rbInfo.m_friction = 1.0f;
+        btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, compoundShape, localInertia);
+        rbInfo.m_friction = 2.0f;
         rbInfo.m_spinningFriction  = 0.1f;
         //rbInfo.m_rollingFriction = 0.5f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
@@ -92,7 +119,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     void timestepBehaviour(btRigidBody* body, float timeStep){
         //set the gravity for the lander towards the asteroid
-        btVector3 direction = -btVector3(pos.x , pos.y, pos.z); //asteroid is always at origin so dir of gravity is aways towards 0
+        btVector3 direction = -btVector3(pos.x, pos.y, pos.z); //asteroid is always at origin so dir of gravity is aways towards 0
         gravitationalForce = asteroidGravForceMultiplier*glm::fastInverseSqrt(direction.distance(btVector3(0,0,0)));
         landerGravityVector = direction.normalize()*gravitationalForce;
         body->setGravity(landerGravityVector);

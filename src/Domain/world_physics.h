@@ -54,7 +54,7 @@ public:
 private:
    
     int selectedSimSpeedIndex = 2;
-    float SIM_SPEEDS[10] {0.25f,0.5f,1,2,4,8,16,32,64,128};
+    float SIM_SPEEDS[9] {0.25f,0.5f,1,2,4,8,16,32,64};
     int SPEED_ARRAY_SIZE = *(&SIM_SPEEDS + 1) - SIM_SPEEDS - 1; //get length of array (-1 because we want the last element) (https://www.educative.io/edpresso/how-to-find-the-length-of-an-array-in-cpp)
     
     //Bullet vars

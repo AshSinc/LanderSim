@@ -20,11 +20,11 @@ private:
     //then copy the image to a smaller VkImage, copy was needed anyway
     uint32_t RENDERED_IMAGE_WIDTH = 1920; //this is full rendered resolution on GPU RAM
     uint32_t RENDERED_IMAGE_HEIGHT = 1080; 
-    uint32_t OUTPUT_IMAGE_WIDTH = 768; //this is desired output resolution 
-    uint32_t OUTPUT_IMAGE_HEIGHT = 768;
+    uint32_t OUTPUT_IMAGE_WIDTH = 512; //this is desired output resolution 
+    uint32_t OUTPUT_IMAGE_HEIGHT = 512;
     uint32_t OFFSCREEN_IMAGE_WIDTH_OFFSET = (RENDERED_IMAGE_WIDTH/2) - (OUTPUT_IMAGE_WIDTH/2); //this works out offset to get center of image
     uint32_t OFFSCREEN_IMAGE_HEIGHT_OFFSET = (RENDERED_IMAGE_HEIGHT/2) - (OUTPUT_IMAGE_HEIGHT/2);
-    const float OFFSCREEN_IMAGE_FOV = 30.0f; //degrees
+    const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();
@@ -36,13 +36,17 @@ private:
     void createOffscreenDepthResources();
     void createOffscreenCameraBuffer();
     void createOffscreenDescriptorSet();
+    void createOffscreenSyncObjects();
 
-    void initOffscreenPipelines();
+    //VkFence offscreenRenderFence;
+    VkFence offscreenCopyFence;
 
     //void createOffscreenImageBuffer();
     //void fillOffscreenImageBuffer();
     //VkBuffer offscreenImageBuffer;
     //VmaAllocation offscreenImageBufferAlloc;
+
+    std::mutex copyLock;
 
     VkFramebuffer offscreenFramebuffer;
     VkRenderPass offscreenRenderPass;
@@ -57,9 +61,8 @@ private:
     VkImageView offscreenDepthImageView;
     VmaAllocation offscreenDepthImageAllocation;
 
-    //VkImage offscreenImageB;
-    //VkImageView offscreenImageViewB;
-    //VmaAllocation offscreenImageAllocationB;
+    VkImage dstImage;
+    VmaAllocation dstImageAllocation;
 
     VmaAllocation offscreenImageAllocation;
     VkCommandBuffer offscreenCommandBuffer;
@@ -72,6 +75,7 @@ private:
     VkDescriptorSetLayout offscreenGlobalSetLayout;
     
     bool shouldDrawOffscreenFrame = false;
+    bool renderSubmitted = false;
     
     void recordCommandBuffer_Offscreen();
 

@@ -559,7 +559,7 @@ void Vk::Renderer::createTextureImages(const std::vector<TextureInfo>& TEXTURE_I
 //this is where we will load the model data into vertices and indices member variables
 void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
     //because we are using an unnordered_map with a custom type, we need to define equality and hash functons in Vertex
-    std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating verticesto push index
+    std::unordered_map<Vertex, uint32_t> uniqueVertices{}; //store unique vertices in here, and check for repeating vertices to push index
     allIndices.clear();
     allVertices.clear();
 
