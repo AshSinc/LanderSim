@@ -7,10 +7,7 @@
 #include <mutex>
 #include "obj_spotLight.h"
 
-#include <tiny_obj_loader.h> //once collision obj loading code is removed this can be too
-
 struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interface for 
-    //Ai::LanderAi ai = Ai::LanderAi();
     Lander::CPU cpu = Lander::CPU();
     bool collisionCourse = false;
     bool randomStartPositions = false;
@@ -36,7 +33,6 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     Mediator* p_mediator;
     WorldSpotLightObject* p_spotlight; 
     
-
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         //colShape->setMargin(0.05);
         //collisionShape->setLocalScaling(btVector3(scale.x, scale.y, scale.z)); //may not be 1:1 scale between bullet and vulkan
@@ -45,15 +41,19 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //we will make a compound shape, to keep it simple a box for each foot, and a cylinder for the body
         btCompoundShape* compoundShape = new btCompoundShape();
 
+        collisionShapes->push_back(compoundShape); //we are tracking cllisions shapes to delete them on close
+
         float bodyRadius = 1;
-        float bodyHeight = 0.4f;
+        float bodyHeight = 0.3f;
 
         // create two shapes for the rod and the load
         btCollisionShape* body = new btCylinderShapeZ(btVector3(bodyRadius, bodyRadius, bodyHeight/2)); //havent really tested these values
         btCollisionShape* foot = new btBoxShape(btVector3(0.1f, 0.1f, 0.1f));
         // create a transform we'll use to set each object's position 
         btTransform transform;
+
         transform.setIdentity();
+        transform.setOrigin(btVector3(0, 0, 0.2f)); //offset the body up, not tested
         
         // add the body
         compoundShape->addChildShape(transform, body);
@@ -145,12 +145,9 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     //this will be called from world_physics directly from now on, little hacky, need to derive new class from WorldPhysics
     //and seperate out this call and the update landing site calls
-    //ISSUE, when rotating thelight pos or direction is not right?
     void updateSpotlight(){
-        //rotated pos or direction not correct
         p_spotlight->pos = glm::vec4(pos, 1.0f) + (rot * glm::vec4(p_spotlight->initialPos, 1.0f)); //we set the light position to that of the initalPos + lander current position
         p_spotlight->direction = rot * glm::vec4(p_spotlight->initialPos, 0.0f); //we are using initialPos of the light as a direction, * landers rotation
-        //std::cout << glm::to_string(p_spotlight->direction) << " light dir\n";
     }
 
     void updateWorldStats(WorldStats* worldStats){

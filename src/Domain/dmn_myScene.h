@@ -4,7 +4,6 @@
 #include <string>
 #include "data_scene.h"
 
-
 class MyScene: public IScene{
         public:
         MyScene(Mediator& mediator);
@@ -32,10 +31,7 @@ class MyScene: public IScene{
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {
-            //{"lander", "resources/models/Satellite.obj"},
-            //{"lander", "resources/models/Bluemoon.obj"},
             {"lander", "resources/models/InSight.obj"},
-            //{"asteroid", "resources/models/asteroid.obj"},
             {"asteroid", "resources/models/asteroidscaled.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
@@ -44,10 +40,6 @@ class MyScene: public IScene{
 
         //texture identifier and path pairs, used in loading and assigning to map
         const std::vector<TextureInfo> TEXTURE_INFOS = {
-            //{"lander_diff", "resources/textures/Satellite.jpg"},
-            //{"lander_spec", "resources/textures/Satellite_Specular.jpg"},
-            //{"lander_diff", "resources/textures/bluemoon.jpg"},
-            //{"lander_spec", "resources/textures/bluemoon.jpg"}, //need a specular forthis? maybe just a white texture
             {"lander_diff", "resources/textures/InSIGHT_tex_01.jpg"},
             {"lander_spec", "resources/textures/InSIGHT_tex_01ref.jpg"}, //need a specular forthis? maybe just a white texture
             {"asteroid_diff", "resources/textures/ASTEROID_COLOR.jpg"},

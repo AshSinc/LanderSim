@@ -16,8 +16,7 @@
 using namespace Lander;
 
 void GNC::init(Mediator* mediator, NavigationStruct* gncVars){
-    //dont need mediator or cpu
-    p_mediator = mediator;
+    p_mediator = mediator; //mediator only used for debug drawing
     p_navStruct = gncVars;
 }
 
@@ -76,26 +75,18 @@ glm::vec3 GNC::stabiliseCurrentPos(){
     return correctedMovement;
 }
 
+//preApproach routine
+//holds the lander steady and checks for a good time to start descent
 glm::vec3 GNC::preApproach(){
-    //perform imaging
-
-    //process waiting images
-
-    //once processed only then should we do the next part, maybe move to another method   
-
-    //if we are not on the right axis alignment, we should probably move into it somehow
-    //maybe wait a perioid of time and then move?
-
-    //or.. calculate if we are on the axis of travel of landing site first, 
-    //then move to position
-    //then check for the next descent part
-
+    //work out where the landing site is and which was is up at the maximum time for approach
     calculateVectorsAtTime(TF_TIME);
 
+    //then check if we are above that point, within 15 degrees
     if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
         shouldDescend = true;
     }
-    //stabilize current position, above code should probably be in cpu, because we probably ened imaging calls etc
+
+    //return a vector that will stabilize movement to 0
     return stabiliseCurrentPos();
 }
 
@@ -140,18 +131,13 @@ void GNC::calculateVectorsAtTime(float time){
 }
 
 glm::vec3 GNC::ZEM_ZEV_Control(float timeStep){
-    //ISSUE need to provide some waypoint system maybe?
-    //or slide the vertical point distance by subtracting log d
-    //would need to adjust tgo as well
-
     updateTgo(timeStep);
 
     //calculate projectedLandingSitePos and projectedVelocityAtTf
     calculateVectorsAtTime(tgo);
 
     glm::vec3 rf = projectedLandingSitePos;
-    glm::vec3 r = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract landing site pos from third column of transform matrix, being lazy
-    //std::cout << glm::to_string(r) << "  gnc pos \n";
+    glm::vec3 r = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract landing site pos from third column of transform matrix
 
     glm::vec3 zem = getZEM(rf, r, p_navStruct->velocityVector);
     glm::vec3 zev = getZEV(projectedVelocityAtTf, p_navStruct->velocityVector);
@@ -169,9 +155,14 @@ glm::vec3 GNC::getThrustVector(float timeStep){
         thrustVector = preApproach();
     else
         thrustVector = ZEM_ZEV_Control(timeStep); //should be called zemzev approach or something
-        //calculateRotation();
+
     return thrustVector;
 }
+
+    //initialisation
+    //minRange = approachDistance - 5;
+    //maxRange = approachDistance + 5;
+    //previousDistance = FINAL_APPROACH_DISTANCE;
 
 /*void CPU::linearControl(float timeStep){
     //get the actual ground directly under the landing site object by raycasting down from the placeholder (more accurate this way)

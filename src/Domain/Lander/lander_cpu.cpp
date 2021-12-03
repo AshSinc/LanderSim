@@ -13,7 +13,6 @@
 #include <thread>
 #include <iostream>
 
-
 using namespace Lander;
 
 void CPU::init(Mediator* mediator, LanderObj* lander){
@@ -21,11 +20,7 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     p_lander = lander;
     p_landingSite = p_mediator->scene_getLandingSiteObject();
     approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
-    //minRange = approachDistance - 5;
-    //maxRange = approachDistance + 5;
-    //previousDistance = FINAL_APPROACH_DISTANCE;
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
-    //gnc.setStateVariablesPointer(&navStruct);
     gnc.init(mediator, &navStruct);
 }
 
@@ -155,7 +150,7 @@ void CPU::applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){
     }
 }
 
-//not working
+//dont need to use this, we will simulate reaction wheel behaviour instead
 void CPU::applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost){
     btVector3 relativeForce = Service::glm2bt(boost.vector);
     btMatrix3x3& rot = rigidbody->getWorldTransform().getBasis();

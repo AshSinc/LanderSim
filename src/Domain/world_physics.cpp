@@ -20,7 +20,7 @@ void WorldPhysics::updateDeltaTime(){
     lastTime = now;
 }
 
-//need a sync object here, semaphore 
+//need a sync object here? because it's being called from UI interuption
 void WorldPhysics::setSimSpeedMultiplier(float multiplier){
     worldStats.timeStepMultiplier = multiplier;
 }
@@ -45,15 +45,12 @@ void WorldPhysics::updateCollisionObjects(float timeStep){
         btQuaternion rotation = transform.getRotation();
         glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1.0f),rotation.getAngle(),glm::vec3(rotation.getAxis().getX(), rotation.getAxis().getY(), rotation.getAxis().getZ()));
 
-        //these conversions can use Service functions
-
         collisionRenderObj->rot = rotationMatrix;
-        collisionRenderObj->pos = glm::vec3(float(origin.getX()), float(origin.getY()), float(origin.getZ()));
+        collisionRenderObj->pos = Service::bt2glm(origin);
 
         collisionRenderObj->timestepBehaviour(body, timeStep);
         collisionRenderObj->updateWorldStats(&worldStats);       
     }
-
 }
 
 void WorldPhysics::checkCollisions(){
@@ -149,7 +146,7 @@ void WorldPhysics::initBullet(){
     btGImpactCollisionAlgorithm::registerAlgorithm(dispatcher);
     overlappingPairCache = new btDbvtBroadphase();
     //overlappingPairCache = new btSimpleBroadphase();
-    ///the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
+    //the default constraint solver. For parallel processing you can use a different solver (see Extras/BulletMultiThreaded)
     solver = new btSequentialImpulseConstraintSolver();
     //dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher, overlappingPairCache, solver, collisionConfiguration);
 
@@ -196,7 +193,6 @@ void WorldPhysics::changeSimSpeed(int direction, bool pause){
 }
 
 //instanciate the world space
-//adds default objects to scene
 WorldPhysics::WorldPhysics(Mediator& mediator): r_mediator{mediator}{
     initBullet();
 }

@@ -22,13 +22,13 @@ namespace Lander{
         NavigationStruct* p_navStruct;
 
         //should be consts but, c++
-        float INITIAL_APPROACH_DISTANCE = 50.0f;
+        //float INITIAL_APPROACH_DISTANCE = 50.0f;
         float APPROACH_ANGLE = 0.15f; // radians
-        float TF_TIME = 1000.0f; //1000 seconds of flight time is roughly accurate for current starting distance
+        float TF_TIME = 900.0f; //1000 seconds of flight time is roughly accurate for current starting distance
 
-        float tf = 1000.0f;
+        float tf = TF_TIME;
         float t = 0.0f;
-        float tgo = 1000.0f;
+        float tgo = TF_TIME;
 
         bool shouldDescend = false;
 
