@@ -22,6 +22,7 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
     gnc.init(mediator, &navStruct);
+    cv.init(mediator);
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){

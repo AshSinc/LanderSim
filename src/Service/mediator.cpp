@@ -147,9 +147,6 @@ void Mediator::renderer_flushTextures(){
 void Mediator::renderer_setShouldDrawOffscreen(bool b){
     p_renderEngine->setShouldDrawOffscreen(b);
 }
-void Mediator::renderer_writeOffscreenImageToDisk(){
-    p_renderEngine->writeOffscreenImageToDisk();
-}
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

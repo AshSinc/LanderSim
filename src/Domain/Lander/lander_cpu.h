@@ -2,6 +2,7 @@
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
 #include "lander_gnc.h"
+#include "lander_vision.h"
 #include <deque>
 #include <mutex>
 
@@ -25,6 +26,8 @@ namespace Lander{
 
         GNC gnc = GNC();
         NavigationStruct navStruct = NavigationStruct();
+
+        Vision cv = Vision();
 
         const float INITIAL_APPROACH_DISTANCE = 50.0f;
         

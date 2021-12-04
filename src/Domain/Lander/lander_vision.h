@@ -2,6 +2,8 @@
 
 #include <deque>
 
+#include "mediator.h"
+
 namespace Lander{
 
     class Vision{
@@ -13,7 +15,15 @@ namespace Lander{
     //OpenCV needs either file or copied from a buffer, 
     //we can copy from vkImage to a vkBuffer, need to try and load it with OpenCV
 
+    Mediator* p_mediator;
+
     public:
+
+    //Vision::Vision(Mediator* mediator);
+
+    void init(Mediator* mediator);
+
+    void processImage();
 
     };
 }

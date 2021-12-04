@@ -94,7 +94,6 @@ class Mediator{
         void renderer_resetScene();
         void renderer_flushTextures();
         void renderer_setShouldDrawOffscreen(bool b);
-        void renderer_writeOffscreenImageToDisk();
         
         //Scene functions
         int scene_getWorldObjectsCount();

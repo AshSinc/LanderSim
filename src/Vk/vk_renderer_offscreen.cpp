@@ -1,5 +1,4 @@
 #include "vk_renderer_offscreen.h"
-//#include "vk_renderer.h"
 #include <iostream>
 #include <fstream> 
 #include "vk_structures.h"
@@ -11,6 +10,8 @@
 #include "vk_init_queries.h"
 
 #include "vk_pipeline.h"
+
+#include "opencv2/opencv.hpp"
 
 Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator)
     : Renderer(windowptr, mediator){}
@@ -151,7 +152,6 @@ void Vk::OffscreenRenderer::createOffscreenColourResources(){
 
 //create depth image
 void Vk::OffscreenRenderer::createOffscreenDepthResources(){
-    // we will go with VK_FORMAT_D32_SFLOAT but will add a findSupportedFormat() first to get something supported
     VkFormat depthFormat = Vk::Init::findDepthFormat(physicalDevice);
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, depthFormat, VK_IMAGE_TILING_OPTIMAL, 
         VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenDepthImage, offscreenDepthImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
@@ -203,8 +203,13 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
 
-    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
-                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, VMA_MEMORY_USAGE_CPU_ONLY);
+    //we should loop through and create 6? destination VkImages
+    //we would need to track which has been rendered and processed by lander
+    //need to think about this to avoid access issues, and race conditions
+
+    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
+                    VMA_MEMORY_USAGE_CPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
 }
 
@@ -274,33 +279,13 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, offscreenRenderPass, nullptr);});
 }
 
-// Take a screenshot from the current swapchain image
-	// This is done using a blit from the swapchain image to a linear image whose memory content is then saved as a ppm image
-	// Getting the image date directly from a swapchain image wouldn't work as they're usually stored in an implementation dependent optimal tiling format
-	// Note: This requires the swapchain images to be created with the VK_IMAGE_USAGE_TRANSFER_SRC_BIT flag (see VulkanSwapChain::create)
+//ISSUE - We can probably optimize this by performing the copy as a subpass of the render pass?
+//SOLUTION - Need to investigate this
+//take the last VKImage output by offscreen pass, convert it to linear format so we can read it
 //adapted from Sascha Willems example screenshot example
-void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
+void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     std::scoped_lock<std::mutex> lock(copyLock);
-
-    bool supportsBlit = true;
-
-    // Check blit support for source and destination
-    VkFormatProperties formatProps;
-
-    // Check if the device supports blitting from optimal images (the swapchain images are in optimal format)
-    vkGetPhysicalDeviceFormatProperties(physicalDevice, swapChainImageFormat, &formatProps);
-    if (!(formatProps.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT)) {
-        std::cerr << "Device does not support blitting from optimal tiled images, using copy instead of blit!" << std::endl;
-        supportsBlit = false;
-    }
-
-    // Check if the device supports blitting to linear images
-    vkGetPhysicalDeviceFormatProperties(physicalDevice, VK_FORMAT_R8G8B8A8_UNORM, &formatProps);
-    if (!(formatProps.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT)) {
-        std::cerr << "Device does not support blitting to linear tiled images, using copy instead of blit!" << std::endl;
-        supportsBlit = false;
-    }
 
     VkImage srcImage = offscreenImage;
 
@@ -316,19 +301,11 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
     VkCommandBufferBeginInfo cmdBufInfo = Vk::Structures::command_buffer_begin_info(0);
     vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
 
-    // Transition source image from present to transfer source layout
-    /*imageHelper->insertImageMemoryBarrier(
-        cmdBuffer,
-        srcImage,
-        VK_ACCESS_MEMORY_READ_BIT,
-        VK_ACCESS_TRANSFER_READ_BIT,
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });*/
+    //maybe we can transition the image and copy it as another subpass of the renderpass
+    //should work on doing it that way, would likely be faster and mean we only need to map memory at the end
 
-    // Transition destination image to transfer destination layout
+    //Transition destination image to transfer destination layout
+    //not sure why we cant just create image as VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         dstImage,
@@ -340,52 +317,24 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-    // If source and destination support blit we'll blit as this also does automatic format conversion (e.g. from BGR to RGB)
-    if (supportsBlit){
-        // Define the region to blit (we will blit the whole swapchain image)
-        VkOffset3D blitSize;
-        blitSize.x = RENDERED_IMAGE_WIDTH;
-        blitSize.y = RENDERED_IMAGE_HEIGHT;
-        blitSize.z = 1;
-        VkImageBlit imageBlitRegion{};
-        imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageBlitRegion.srcSubresource.layerCount = 1;
-        imageBlitRegion.srcOffsets[1] = blitSize;
-        imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageBlitRegion.dstSubresource.layerCount = 1;
-        imageBlitRegion.dstOffsets[1] = blitSize;
+    VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = OUTPUT_IMAGE_WH;
+    imageCopyRegion.extent.height = OUTPUT_IMAGE_WH;
+    imageCopyRegion.extent.depth = 1;
+    imageCopyRegion.srcOffset.x = OFFSCREEN_IMAGE_WIDTH_OFFSET;
+    imageCopyRegion.srcOffset.y = OFFSCREEN_IMAGE_HEIGHT_OFFSET;
 
-        // Issue the blit command
-        vkCmdBlitImage(
-            cmdBuffer,
-            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            1,
-            &imageBlitRegion,
-            VK_FILTER_NEAREST);
-    }
-    else
-    {
-        // Otherwise use image copy (requires us to manually flip components)
-        VkImageCopy imageCopyRegion{};
-        imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageCopyRegion.srcSubresource.layerCount = 1;
-        imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        imageCopyRegion.dstSubresource.layerCount = 1;
-        imageCopyRegion.extent.width = OUTPUT_IMAGE_WIDTH;
-        imageCopyRegion.extent.height = OUTPUT_IMAGE_WIDTH;
-        imageCopyRegion.extent.depth = 1;
-        imageCopyRegion.srcOffset.x = OFFSCREEN_IMAGE_WIDTH_OFFSET;
-        imageCopyRegion.srcOffset.y = OFFSCREEN_IMAGE_HEIGHT_OFFSET;
-
-        // Issue the copy command
-        vkCmdCopyImage(
-            cmdBuffer,
-            srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-            dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            1,
-            &imageCopyRegion);
-    }
+    // Issue the copy command
+    vkCmdCopyImage(
+        cmdBuffer,
+        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageCopyRegion);
 
     // Transition destination image to general layout, which is the required layout for mapping the image memory later on
     imageHelper->insertImageMemoryBarrier(
@@ -418,44 +367,15 @@ void Vk::OffscreenRenderer::writeOffscreenImageToDisk(){
     VkSubresourceLayout subResourceLayout;
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
 
-    // If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
-    bool colorSwizzle = false;
-    // Check if source is BGR
-    // Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
-
-    if (!supportsBlit){
-        std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
-        colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChainImageFormat) != formatsBGR.end());
-    }
-
     const char* mappedData;
     vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
     mappedData += subResourceLayout.offset;
+    
+    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)mappedData, subResourceLayout.rowPitch);
 
-    //maybe instead of writting to file we create 
-
-    std::ofstream file("filename.ppm", std::ios::out | std::ios::binary);
-
-    // ppm header
-    file << "P6\n" << OUTPUT_IMAGE_WIDTH << "\n" << OUTPUT_IMAGE_WIDTH << "\n" << 255 << "\n";
-    // ppm binary pixel data
-    for (uint32_t y = 0; y < OUTPUT_IMAGE_WIDTH; y++){
-        unsigned int *row = (unsigned int*)mappedData;
-        for (uint32_t x = 0; x < OUTPUT_IMAGE_WIDTH; x++){
-            if (colorSwizzle){
-                file.write((char*)row+2, 1);
-                file.write((char*)row+1, 1);
-                file.write((char*)row, 1);
-            }else
-            {
-                file.write((char*)row, 3);
-            }
-            row++;
-        }
-        mappedData += subResourceLayout.rowPitch;
-    }
-    file.close();
+    cv::imwrite("mat.jpg", wrappedMat);
 }
+
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
     shouldDrawOffscreenFrame = b;
@@ -485,10 +405,11 @@ void Vk::OffscreenRenderer::drawFrame(){
         renderSubmitted = true;
     }
 
-    if(renderSubmitted){//this just stops us checking for fence if we know a new render wasnt submitted sincle the last one
+    if(renderSubmitted){//this just stops us checking for fence if we know a new render wasnt submitted since the last one
         if(vkGetFenceStatus(device, offscreenCopyFence) == VK_SUCCESS){ //if offscreen render fence has been signalled then
-            std::thread thread(&Vk::OffscreenRenderer::writeOffscreenImageToDisk, this);
+            std::thread thread(&Vk::OffscreenRenderer::convertOffscreenImage, this); //we run the conversions in a seperate thread, reduces stuttering
             thread.detach();   
+            //convertOffscreenImage();
             renderSubmitted = false;
         }
     }

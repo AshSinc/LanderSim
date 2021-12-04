@@ -1,5 +1,7 @@
 set(BulletExtrasPaths Service/BulletExtras/BulletFileLoader Service/BulletExtras/BulletWorldImporter)
 
+#set( OpenCV_DIR "/home/ash/vcpkg/packages/opencv4_x64-linux/share/opencv" )
+
 file(GLOB SOURCES CONFIGURE_DEPENDS 
   main.cpp
   App/**.cpp
@@ -31,6 +33,7 @@ add_executable(LSApp ${SOURCES})
 
 find_package(tinyobjloader CONFIG REQUIRED)
 target_link_libraries(LSApp PRIVATE tinyobjloader::tinyobjloader)
+
 find_package(imgui CONFIG REQUIRED)
 target_link_libraries(LSApp PRIVATE imgui::imgui)
 
@@ -38,10 +41,14 @@ find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 target_link_libraries(LSApp PRIVATE unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
 
 find_path(STB_INCLUDE_DIRS "stb.h")
-target_include_directories(LSApp PRIVATE ${STB_INCLUDE_DIRS})
+#target_include_directories(LSApp PRIVATE ${STB_INCLUDE_DIRS})
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(LSApp PRIVATE Vulkan::Vulkan)
+
+find_package(OpenCV REQUIRED)
+#target_include_directories(LSApp PRIVATE ${OpenCV_INCLUDE_DIRS}) # Not needed for CMake >= 2.8.11
+target_link_libraries(LSApp PRIVATE ${OpenCV_LIBS})
 
 find_package(Bullet CONFIG REQUIRED)
 target_include_directories(LSApp PRIVATE ${BULLET_INCLUDE_DIR})
