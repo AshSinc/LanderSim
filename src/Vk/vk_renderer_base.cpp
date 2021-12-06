@@ -1120,21 +1120,18 @@ void Vk::RendererBase::createDescriptorSets(){//do we really need one per swapch
 		materialBufferInfo.buffer = _frames[i].materialBuffer;
 		materialBufferInfo.offset = 0;
 		materialBufferInfo.range = sizeof(GPUMaterialData) * MATERIALS_COUNT;
-        //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[3] = Vk::Structures::write_descriptorset(0, _frames[i].materialSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &materialBufferInfo);
 
         VkDescriptorBufferInfo pointlightsBufferInfo;
 		pointlightsBufferInfo.buffer = _frames[i].pointLightParameterBuffer;
 		pointlightsBufferInfo.offset = 0;
 		pointlightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
-        //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[4] = Vk::Structures::write_descriptorset(0, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
 
         VkDescriptorBufferInfo spotLightsBufferInfo;
 		spotLightsBufferInfo.buffer = _frames[i].spotLightParameterBuffer;
 		spotLightsBufferInfo.offset = 0;
 		spotLightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
-        //notice we bind to 0 as this is part of a seperate descriptor set
         setWrite[5] = Vk::Structures::write_descriptorset(1, _frames[i].lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
 
         //light VP buffer only holds the light view projection matrix for shadowmap creation

@@ -191,7 +191,7 @@ void Vk::Renderer::updateSceneData(GPUCameraData& camData){
     //this is used to render the scene from the lights POV to generate a shadow map
 }
 
-//point lights
+//point lights and spotlights
 void Vk::Renderer::updateLightingData(GPUCameraData& camData){
     for(int i = 0; i < p_pointLights->size(); i++){
         _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_pointLights->at(i).pos, 1));

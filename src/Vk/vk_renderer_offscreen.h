@@ -48,6 +48,8 @@ private:
     VkFence offscreenCopyFence;
 
     void createOffscreenImageBuffer();
+    void mapLightingDataToGPU();
+    void updateLightingData(GPUCameraData& camData);
     //void fillOffscreenImageBuffer();
     VkBuffer offscreenImageBuffer;
     VmaAllocation offscreenImageBufferAlloc;
@@ -81,8 +83,14 @@ private:
     VkBuffer offscreenSceneParameterBuffer;
     VmaAllocation offscreenSceneParameterBufferAlloc;
 
+    VkBuffer os_spotLightParameterBuffer;
+    VmaAllocation os_spotLightParameterBufferAlloc;
+
     VkDescriptorSet offscreenDescriptorSet;
     VkDescriptorSetLayout offscreenGlobalSetLayout;
+
+    VkDescriptorSet os_lightSet;
+    VkDescriptorSetLayout os_lightSetLayout;
     
     bool shouldDrawOffscreenFrame = false;
     bool renderSubmitted = false;

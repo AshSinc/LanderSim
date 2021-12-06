@@ -67,6 +67,10 @@ void Vk::OffscreenRenderer::createOffscreenCameraBuffer(){
     createBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
         offscreenSceneParameterBuffer, offscreenSceneParameterBufferAlloc);
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenSceneParameterBuffer, offscreenSceneParameterBufferAlloc);});
+
+    createBuffer(sizeof(GPUSpotLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        os_spotLightParameterBuffer, os_spotLightParameterBufferAlloc);
+    _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, os_spotLightParameterBuffer, os_spotLightParameterBufferAlloc);});
 }
 
 //to get around sharing issues we use a different descripter set, substituting globalset of the base renderer with offscreenDescriptorSet that has its own camBufferBinding
@@ -90,7 +94,44 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
         throw std::runtime_error("Failed to allocate memory for offscreen descriptor set");
     }
 
-    std::array<VkWriteDescriptorSet, 2> setWrite{};
+    //we will create the descriptor set layout for the lights, could maybe be combined with materials? or object?
+    //bind light storage buffer to 0 in frag
+    VkDescriptorSetLayoutBinding pointLightsBind = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    VkDescriptorSetLayoutBinding spotLightsBind = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    bindings.clear();
+    bindings = {pointLightsBind, spotLightsBind};
+	setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
+    if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &os_lightSetLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create descriptor set layout");
+    }
+    _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, os_lightSetLayout, nullptr);});
+
+    //allocate a uniform lighting descriptor
+    VkDescriptorSetAllocateInfo lightingSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &os_lightSetLayout);
+    if(vkAllocateDescriptorSets(device, &lightingSetAllocInfo, &os_lightSet) != VK_SUCCESS){
+        throw std::runtime_error("Failed to allocate memory for lighting descriptor set");
+    }
+
+    //shadowmap //NOT USED ATM
+    /*VkDescriptorSetLayoutBinding lightVPBufferBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    VkDescriptorSetLayoutBinding shadowmapSamplerSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
+    //bindings =  {lightVPBufferBinding};
+    bindings =  {lightVPBufferBinding, shadowmapSamplerSetBinding};
+    setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
+    if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &lightVPSetLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create lightVPSetLayout descriptor set layout");
+    }
+    _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, lightVPSetLayout, nullptr);});
+    //shadowmap
+    */
+
+    //allocate a uniform light VP matrix descriptor set for each frame
+    /*VkDescriptorSetAllocateInfo lightVPSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &lightVPSetLayout);
+    if(vkAllocateDescriptorSets(device, &lightVPSetAllocInfo, &_frames[i].lightVPSet) != VK_SUCCESS){
+        throw std::runtime_error("Failed to allocate memory for light VP descriptor set");
+    }*/
+
+    std::array<VkWriteDescriptorSet, 4> setWrite{};
     //information about the buffer we want to point at in the descriptor
     VkDescriptorBufferInfo cameraInfo;
     cameraInfo.buffer = offscreenCameraBuffer; //it will be the camera buffer
@@ -107,6 +148,19 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     sceneInfo.range = sizeof(GPUSceneData);
     //binding scene uniform buffer to 1, we are using dynamic offsets so set the flag
     setWrite[1] = Vk::Structures::write_descriptorset(1, offscreenDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
+
+    VkDescriptorBufferInfo pointlightsBufferInfo;
+    pointlightsBufferInfo.buffer = _frames[0].pointLightParameterBuffer;
+    pointlightsBufferInfo.offset = 0;
+    pointlightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
+    //notice we bind to 0 as this is part of a seperate descriptor set
+    setWrite[2] = Vk::Structures::write_descriptorset(0, os_lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &pointlightsBufferInfo);
+
+    VkDescriptorBufferInfo spotLightsBufferInfo;
+    spotLightsBufferInfo.buffer = os_spotLightParameterBuffer;
+    spotLightsBufferInfo.offset = 0;
+    spotLightsBufferInfo.range = sizeof(GPUSpotLightData) * MAX_LIGHTS;
+    setWrite[3] = Vk::Structures::write_descriptorset(1, os_lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
 }
@@ -567,6 +621,67 @@ void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
     //this is used to render the scene from the lights POV to generate a shadow map
 }
 
+//point lights and spotlights
+void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
+
+    for(int i = 0; i < p_pointLights->size(); i++){
+        _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_pointLights->at(i).pos, 1));
+        _pointLightParameters[i].diffuse = p_pointLights->at(i).diffuse;
+        _pointLightParameters[i].ambient = p_pointLights->at(i).ambient;
+        _pointLightParameters[i].specular = p_pointLights->at(i).specular;
+        _pointLightParameters[i].attenuation = p_pointLights->at(i).attenuation;
+        //not going to implement pointlight shadow maps.
+        //When we do want to we will need to create a shadow cube map per light instead of a 2d texture (because point lights emit in all directions)
+    }
+   
+    for(int i = 0; i < p_spotLights->size(); i++){
+        _spotLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).pos, 1));
+        _spotLightParameters[i].diffuse = p_spotLights->at(i).diffuse;
+        _spotLightParameters[i].ambient = p_spotLights->at(i).ambient;
+        _spotLightParameters[i].specular = p_spotLights->at(i).specular;
+        _spotLightParameters[i].attenuation = p_spotLights->at(i).attenuation;
+        _spotLightParameters[i].direction = glm::vec3(camData.view * glm::vec4(p_spotLights->at(i).direction, 0));
+        _spotLightParameters[i].cutoffs = p_spotLights->at(i).cutoffs;
+
+        //mvpMatrix for shadowmap, perspective projection
+        /*glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+                           0.0f,-1.0f, 0.0f, 0.0f,
+                           0.0f, 0.0f, 0.5f, 0.0f,
+                           0.0f, 0.0f, 0.5f, 1.0f);
+
+        glm::mat4 projectionMatrix = clip * glm::perspective<float>(glm::radians(p_spotLights->at(i).cutoffAngles.y), 1.0f,  p_spotLights->at(i).cutoffAngles.x, p_spotLights->at(i).cutoffAngles.y);
+        
+        glm::mat4 viewMatrix = glm::lookAt(p_spotLights->at(i).pos, p_spotLights->at(i).pos - p_spotLights->at(i).direction, glm::vec3(0,1,0));
+        glm::mat4 modelMatrix = glm::mat4(1.0);
+        
+        lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;*/
+    }
+}
+
+void Vk::OffscreenRenderer::mapLightingDataToGPU(){
+    //for(int i = 0; i < swapChainImages.size(); i++){
+        //copy current point light data array into buffer
+        //char* pointLightingData;
+        //vmaMapMemory(allocator, _frames[0].pointLightParameterBufferAlloc , (void**)&pointLightingData);
+        //memcpy(pointLightingData, &_pointLightParameters, sizeof(_pointLightParameters));
+        //vmaUnmapMemory(allocator, _frames[0].pointLightParameterBufferAlloc); 
+    //}
+    //copy current spot light data array into buffer
+    char* spotLightingData;
+    vmaMapMemory(allocator, os_spotLightParameterBufferAlloc , (void**)&spotLightingData);
+    memcpy(spotLightingData, _spotLightParameters, sizeof(_spotLightParameters));
+    vmaUnmapMemory(allocator, os_spotLightParameterBufferAlloc); 
+
+    //now for the lightVP matrix uniform buffer
+    /*for(int i = 0; i < swapChainImages.size(); i++){
+        //copy current point light data array into buffer
+        char* lightVPData;
+        vmaMapMemory(allocator, _frames[i].lightVPBufferAlloc , (void**)&lightVPData);
+        memcpy(lightVPData, &lightVPParameters, sizeof(lightVPParameters));
+        vmaUnmapMemory(allocator, _frames[i].lightVPBufferAlloc); 
+    }*/
+}
+
 void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
@@ -574,8 +689,8 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     updateSceneData(camData); //these
 
     //need our own lighting data buffer as well
-    //updateLightingData(camData);
-    //mapLightingDataToGPU(); //map to gpu
+    updateLightingData(camData);
+    mapLightingDataToGPU(); //map to gpu
     
     //and copy it to the buffer
 	void* data;
@@ -620,7 +735,7 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
             //the "firstSet" param above is 2 because in init_pipelines its described in VkDescriptorSetLayout[] in index 2!
             
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->altMaterial->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
+                object->altMaterial->pipelineLayout, 3, 1, &os_lightSet, 0, nullptr);
 
             if (object->altMaterial->_multiTextureSets.size() > 0) {
                 vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
