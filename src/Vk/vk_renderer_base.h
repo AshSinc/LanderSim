@@ -28,7 +28,7 @@ namespace Vk{
 
     const int MAX_OBJECTS = 1000; //used to set max object buffer size, could probably be 100k or higher easily but no need for now
     const int MAX_FRAMES_IN_FLIGHT = 2; //maximum concurrent frames in pipeline, i think 2 is standard according to this study by intel https://software.intel.com/content/www/us/en/develop/articles/practical-approach-to-vulkan-part-1.html
-    const int MATERIALS_COUNT = 4; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
+    const int MATERIALS_COUNT = 5; // set the count of materials, for sizing the _materialParameters array, needs to be adjusted in shaders manually
     const int MAX_LIGHTS = 10;
 
     struct RenderStats{

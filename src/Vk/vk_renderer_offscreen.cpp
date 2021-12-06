@@ -19,8 +19,10 @@ Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediat
 void Vk::OffscreenRenderer::init(){
     Vk::Renderer::init();
     createOffscreenColourResources();
+    
     createOffscreenDepthResources();
     createOffscreenImageAndView();
+    createOffscreenImageBuffer();
     createOffscreenCameraBuffer();
     createOffscreenDescriptorSet();
     createOffscreenRenderPass();
@@ -105,10 +107,10 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
 }
 
-/*void Vk::OffscreenRenderer::createOffscreenImageBuffer(){
+void Vk::OffscreenRenderer::createOffscreenImageBuffer(){
     VkBufferCreateInfo createinfo = {};
     createinfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    createinfo.size = OFFSCREEN_IMAGE_WIDTH * OFFSCREEN_IMAGE_HEIGHT * 4 * sizeof(int8_t);
+    createinfo.size = OUTPUT_IMAGE_WH * OUTPUT_IMAGE_WH * 4 * sizeof(int8_t);
     createinfo.usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     createinfo.sharingMode = VK_SHARING_MODE_CONCURRENT;
 
@@ -116,7 +118,7 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     createBuffer(createinfo.size, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU, offscreenImageBuffer, offscreenImageBufferAlloc);
 
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenImageBuffer, offscreenImageBufferAlloc);});
-}*/
+}
 
 //void Vk::OffscreenRenderer::fillOffscreenImageBuffer(){
  //   imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
@@ -139,6 +141,7 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
 //we will create colour resources here, this is used for MSAA and creates a single colour image that can be drawn to for calculating msaa 
 void Vk::OffscreenRenderer::createOffscreenColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
+    //VkFormat colorFormat = VK_FORMAT_R8_UNORM;
 
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenColourImage,
@@ -196,26 +199,45 @@ void Vk::OffscreenRenderer::createOffscreenFramebuffer(){
 }
 
 void Vk::OffscreenRenderer::createOffscreenImageAndView(){
-    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, swapChainImageFormat, VK_IMAGE_TILING_OPTIMAL, 
+    //VkFormat imageFormat = VK_FORMAT_R8_UNORM;
+    VkFormat imageFormat = swapChainImageFormat;
+
+    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, imageFormat, VK_IMAGE_TILING_OPTIMAL, 
                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, offscreenImage, offscreenImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, offscreenImage, offscreenImageAllocation);});
 
-    offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
 
     //we should loop through and create 6? destination VkImages
     //we would need to track which has been rendered and processed by lander
     //need to think about this to avoid access issues, and race conditions
-
-    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+    //VK_IMAGE_USAGE_TRANSFER_DST_BIT
+    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_LINEAR, 
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
                     VMA_MEMORY_USAGE_CPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
+
+    //mapping this one image for now, perma mapped, unmapped in cleanup
+    VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+    VkSubresourceLayout subResourceLayout;
+    vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
+    mappedData += subResourceLayout.offset;
+    rowPitch = subResourceLayout.rowPitch; //store row pitch value as well, its 2048 (512*4 channels)
+
+    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_WIDTH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyImage, greyImageAllocation, 
+                    VMA_MEMORY_USAGE_GPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, greyImage, greyImageAllocation);});
 }
 
 void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     //in our case we will need a colour buffer represented by one of the images from the swap chain
-    VkAttachmentDescription colourAttachment = Vk::Structures::attachment_description(swapChainImageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
+    //VkFormat imageFormat = VK_FORMAT_R8_UNORM;
+    VkFormat imageFormat = swapChainImageFormat;
+
+    VkAttachmentDescription colourAttachment = Vk::Structures::attachment_description(imageFormat, msaaSamples, VK_ATTACHMENT_LOAD_OP_CLEAR, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     //Subpasses and attachment references
@@ -236,7 +258,7 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     //VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
     //    VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
 
-    VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(swapChainImageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
+    VkAttachmentDescription colourAttachmentResolve = Vk::Structures::attachment_description(imageFormat, VK_SAMPLE_COUNT_1_BIT, VK_ATTACHMENT_LOAD_OP_DONT_CARE, 
         VK_ATTACHMENT_STORE_OP_STORE, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL); //CHANGED TO VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL as it is not the final layout any more, becaus ethe GUI will be drawn in another subpass later
 
     //VK_IMAGE_LAYOUT_
@@ -279,15 +301,13 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, offscreenRenderPass, nullptr);});
 }
 
-//ISSUE - We can probably optimize this by performing the copy as a subpass of the render pass?
+//ISSUE - We need to create a new renderpass that procuses greyscale, maybe we can jsut set greyscale shaders in base pipeline?
 //SOLUTION - Need to investigate this
 //take the last VKImage output by offscreen pass, convert it to linear format so we can read it
 //adapted from Sascha Willems example screenshot example
 void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     std::scoped_lock<std::mutex> lock(copyLock);
-
-    VkImage srcImage = offscreenImage;
 
     VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
     cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -301,11 +321,72 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     VkCommandBufferBeginInfo cmdBufInfo = Vk::Structures::command_buffer_begin_info(0);
     vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
 
-    //maybe we can transition the image and copy it as another subpass of the renderpass
-    //should work on doing it that way, would likely be faster and mean we only need to map memory at the end
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        greyImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-    //Transition destination image to transfer destination layout
-    //not sure why we cant just create image as VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+    // Define the region to blit (we will blit the whole swapchain image)
+    VkOffset3D blitSize;
+    blitSize.x = RENDERED_IMAGE_WIDTH;
+    blitSize.y = RENDERED_IMAGE_HEIGHT;
+    blitSize.z = 1;
+    VkImageBlit imageBlitRegion{};
+    imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBlitRegion.srcSubresource.layerCount = 1;
+    imageBlitRegion.srcOffsets[1] = blitSize;
+    imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBlitRegion.dstSubresource.layerCount = 1;
+    imageBlitRegion.dstOffsets[1] = blitSize;
+    //imageBlitRegion.srcOffsets.x = OFFSCREEN_IMAGE_WIDTH_OFFSET;
+    //imageBlitRegion.srcOffsets.y = OFFSCREEN_IMAGE_HEIGHT_OFFSET;
+
+    // Issue the blit command
+    vkCmdBlitImage(
+        cmdBuffer,
+        offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        greyImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageBlitRegion, 
+        VK_FILTER_NEAREST);
+
+    //now have have blitted offscreen offscreenImage to greyImage (greyscale)
+
+    //we need to transition greyscale layout to transfer source from destination
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        greyImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    /*imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
+    //vkCmdCopyImageToBuffer(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageBuffer, 1, &region);
+
+    VkImageCopy imageCopyRegion{};
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
+    imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
+    imageCopyRegion.extent.depth = 1;
+
+    //vkCmdCopyImage(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopyRegion);
+
+    //imageHelper->transitionImageLayout(offscreenImageB, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);
+*/
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         dstImage,
@@ -331,7 +412,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     // Issue the copy command
     vkCmdCopyImage(
         cmdBuffer,
-        srcImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        greyImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &imageCopyRegion);
@@ -348,6 +429,8 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
+    //imageHelper->transitionImageLayout(dstImage, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);
+
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);
 
     //dstImage now holds BGR unsigned normalized data
@@ -362,18 +445,13 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     //if we DO have to write to file, then we still need some sort of queue where we can point to files conserving order
 
-    // Get layout of the image (including row pitch)
-    VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
-    VkSubresourceLayout subResourceLayout;
-    vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
+    //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
+    //cv::imwrite("mat.jpg", wrappedMat);
 
-    const char* mappedData;
-    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
-    mappedData += subResourceLayout.offset;
-    
-    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)mappedData, subResourceLayout.rowPitch);
-
-    cv::imwrite("mat.jpg", wrappedMat);
+    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, rowPitch);
+    cv::Mat increaseContrast;
+    wrappedMat.convertTo(increaseContrast, -1, 2.0, 0);
+    cv::imwrite("brghtmat.jpg", increaseContrast);
 }
 
 
@@ -471,7 +549,10 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
     populateLanderCameraData(camData);
-    updateSceneData(camData); //these
+    //updateSceneData(camData); //these
+
+    updateLightingData(camData);
+    mapLightingDataToGPU(); //map to gpu
     
     //and copy it to the buffer
 	void* data;
@@ -484,48 +565,54 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     //could have a menu option to disable drawing certain things in offscreen like the asteroid for testing,
     //or in the main renderer pass show things like landing site boxes and other debugging things
     int renderObjectIds [6] = {1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
+    //int renderObjectIds [1] = {1,3}; //3 = asteroid
     
+    //here we are drawing objects using altMaterial, this is the greyscale material of each respective object set in scene init
     for(const int i : renderObjectIds){
         RenderObject* object = p_renderables->at(i).get();
         //only bind the pipeline and different descriptor sets if they don't match the already bound one
-		if (object->material != lastMaterial) {
-            if(object->material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
-			vkCmdBindPipeline(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipeline);
-			lastMaterial = object->material;
+		if (object->altMaterial != lastMaterial) {
+            if(object->altMaterial == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
+			vkCmdBindPipeline(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object->altMaterial->pipeline);
+			lastMaterial = object->altMaterial;
 
             //offset for our scene buffer
-            uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * 1;
+            uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData));
             //bind the descriptor set when changing pipeline
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->material->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
+                object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
 
 	        //object data descriptor
         	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->material->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
+                object->altMaterial->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
 
              //material descriptor, we are using a dynamic uniform buffer and referencing materials by their offset with propertiesId, which just stores the int relative to the material in _materials
         	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->material->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
+                object->altMaterial->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
             //the "firstSet" param above is 2 because in init_pipelines its described in VkDescriptorSetLayout[] in index 2!
             
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->material->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
+                object->altMaterial->pipelineLayout, 3, 1, &_frames[curFrame].lightSet, 0, nullptr);
 
-            if (object->material->_multiTextureSets.size() > 0) {
+            if (object->altMaterial->_multiTextureSets.size() > 0) {
                 vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                    object->material->pipelineLayout, 4, 1, &object->material->_multiTextureSets[0], 0, nullptr);
+                    object->altMaterial->pipelineLayout, 4, 1, &object->altMaterial->_multiTextureSets[0], 0, nullptr);
 		    }
 		}
-
         //add material property id for this object to push constant
 		PushConstants constants;
-		constants.matIndex = object->material->propertiesId;
+		constants.matIndex = object->altMaterial->propertiesId;
         constants.numPointLights = p_pointLights->size();
         constants.numSpotLights = p_spotLights->size();
 
         //upload the mesh to the GPU via pushconstants
-		vkCmdPushConstants(offscreenCommandBuffer, object->material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
+		vkCmdPushConstants(offscreenCommandBuffer, object->altMaterial->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
 
         vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
+}
+
+void Vk::OffscreenRenderer::cleanup(){
+    vmaUnmapMemory(allocator, dstImageAllocation);
+    Vk::RendererBase::cleanup();
 }

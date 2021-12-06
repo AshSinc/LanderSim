@@ -539,6 +539,10 @@ void Vk::RendererBase::initPipelines(){
     auto unlit_frag_c = Vk::Init::readFile("resources/shaders/unlit_frag.spv");
     auto textured_lit_frag_c = Vk::Init::readFile("resources/shaders/textured_lit_frag.spv");
 
+    auto greyscale_lit_frag_c = Vk::Init::readFile("resources/shaders/greyscale_lit_frag.spv");//greyscale frag versions
+    auto greyscale_unlit_frag_c = Vk::Init::readFile("resources/shaders/greyscale_unlit_frag.spv");//greyscale frag versions
+    auto greyscale_textured_lit_frag_c = Vk::Init::readFile("resources/shaders/greyscale_textured_lit_frag.spv");//greyscale frag versions
+
     auto skybox_vert_c = Vk::Init::readFile("resources/shaders/skybox_vert.spv");
     auto skybox_frag_c = Vk::Init::readFile("resources/shaders/skybox_frag.spv");
 
@@ -546,6 +550,11 @@ void Vk::RendererBase::initPipelines(){
     auto default_lit_frag_m = createShaderModule(default_lit_frag_c);
     auto unlit_frag_m = createShaderModule(unlit_frag_c);
     auto textured_lit_frag_m = createShaderModule(textured_lit_frag_c);
+
+    auto greyscale_lit_frag_m = createShaderModule(greyscale_lit_frag_c);//greyscale frag versions
+    auto greyscale_unlit_frag_m = createShaderModule(greyscale_unlit_frag_c);//greyscale frag versions
+    auto greyscale_textured_lit_frag_m = createShaderModule(greyscale_textured_lit_frag_c);//greyscale frag versions
+    
 
     auto skybox_vert_m = createShaderModule(skybox_vert_c);
     auto skybox_frag_m = createShaderModule(skybox_frag_c);
@@ -606,6 +615,19 @@ void Vk::RendererBase::initPipelines(){
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, unlitMeshPipeline, nullptr);});
 
     createMaterial(unlitMeshPipeline, meshPipelineLayout, "unlitmesh", 1);
+
+    //////////////////////////////////////////
+    //testing greyscale
+    //now we will make an unlit pipeline with no texture sampler
+    pipelineBuilder.shaderStages.clear();
+    pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, greyscale_unlit_frag_m, nullptr));
+
+    VkPipeline gsunlitMeshPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
+    _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, gsunlitMeshPipeline, nullptr);});
+
+    createMaterial(gsunlitMeshPipeline, meshPipelineLayout, "greyscale_unlitmesh", 1);
+    ////////////////////////////////////////////
     
     //create pipeline layout for the textured mesh, which has 5 descriptor sets
 	//we start from  the normal mesh layout
@@ -637,6 +659,23 @@ void Vk::RendererBase::initPipelines(){
 	createMaterial(texPipeline, texturedPipeLayout, "texturedmesh1", 2);
     createMaterial(texPipeline, texturedPipeLayout, "texturedmesh2", 3);
 
+    ///////////////////////
+    //testing some greyscale material for imaging
+    //greyscale textured pipeline
+    pipelineBuilder.shaderStages.clear();
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_VERTEX_BIT, default_lit_vert_m, nullptr));
+	pipelineBuilder.shaderStages.push_back(Vk::Structures::pipeline_shader_stage_create_info(VK_SHADER_STAGE_FRAGMENT_BIT, greyscale_textured_lit_frag_m, nullptr));
+
+    pipelineBuilder.pipelineLayout = texturedPipeLayout;
+
+	VkPipeline gtexPipeline = pipelineBuilder.build_pipeline(device, renderPass, 2);
+    _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, gtexPipeline, nullptr);});
+
+    //
+	createMaterial(gtexPipeline, texturedPipeLayout, "gstexturedmesh1", 4);
+    //createMaterial(gtexPipeline, texturedPipeLayout, "texturedmesh2", 3);
+    //////////////////////////////////////////////////////////////
+
     //Skybox
     VkDescriptorSetLayout skyboxSetLayouts[] = {_globalSetLayout, _objectSetLayout, _skyboxSetLayout};
     VkPipelineLayoutCreateInfo skybox_pipeline_layout_info = Vk::Structures::pipeline_layout_create_info(3, skyboxSetLayouts);
@@ -665,6 +704,11 @@ void Vk::RendererBase::initPipelines(){
     vkDestroyShaderModule(device, textured_lit_frag_m, nullptr);
     vkDestroyShaderModule(device, skybox_frag_m, nullptr);
     vkDestroyShaderModule(device, skybox_vert_m, nullptr);
+
+    vkDestroyShaderModule(device, greyscale_lit_frag_m, nullptr);
+    vkDestroyShaderModule(device, greyscale_unlit_frag_m, nullptr);
+    vkDestroyShaderModule(device, greyscale_textured_lit_frag_m, nullptr);
+    
 }
 
 VkShaderModule Vk::RendererBase::createShaderModule(const std::vector<char>& code){
@@ -1181,7 +1225,7 @@ void Vk::RendererBase::flushSwapChain(){
 }
 
 void Vk::RendererBase::cleanup(){
-    vkDeviceWaitIdle(device); //maske sure device is idle and not mid draw
+    vkDeviceWaitIdle(device); //make sure device is idle and not mid draw
 
     flushSceneBuffers();
     flushTextures();

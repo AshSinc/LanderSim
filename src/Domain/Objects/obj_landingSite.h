@@ -85,10 +85,13 @@ struct LandingSiteObj : virtual WorldObject{
             landingBox->scale = glm::vec3(BOX_SCALE_X,BOX_SCALE_Y,BOX_SCALE_Z);
             myScene->setRendererMeshVars("box", landingBox.get());
             landingBox->material = p_mediator->renderer_getMaterial("unlitmesh");
-            landingBox->material->extra.x = 2048;
             landingBox->material->diffuse = glm::vec3(0,0.0f,1.0f);
             landingBox->material->specular = glm::vec3(0.5f,0.5f,0.5f);
             landingBox->material->extra.x = 32;
+            landingBox->altMaterial = p_mediator->renderer_getMaterial("greyscale_unlitmesh");
+            landingBox->altMaterial->diffuse = glm::vec3(0,0.0f,1.0f);
+            landingBox->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
+            landingBox->altMaterial->extra.x = 32;
 
             objects->push_back(landingBox);
             renderableObjects->push_back(landingBox);

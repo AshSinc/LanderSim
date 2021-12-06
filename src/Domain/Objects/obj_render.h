@@ -5,6 +5,7 @@ class Material;
 
 struct RenderObject : virtual WorldObject {
 	Material* material;
+    Material* altMaterial; //alternative material can be assigned, only greyscale just now
 	glm::mat4 transformMatrix; //base transform, not rotations they will need to be held seperately i think, per object and then 
     uint32_t indexCount; //how many indices in this mesh (used for referencing )
     uint32_t indexBase; //what was the starting  index of this mesh

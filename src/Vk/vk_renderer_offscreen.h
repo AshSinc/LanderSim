@@ -11,6 +11,7 @@ public:
     void init() override;
     void drawFrame(); //draw a frame
     void setShouldDrawOffscreen(bool b);
+    void cleanup();
     
 private:
 
@@ -25,6 +26,9 @@ private:
     uint32_t OFFSCREEN_IMAGE_WIDTH_OFFSET = (RENDERED_IMAGE_WIDTH/2) - (OUTPUT_IMAGE_WH/2); //this works out offset to get center of image
     uint32_t OFFSCREEN_IMAGE_HEIGHT_OFFSET = (RENDERED_IMAGE_HEIGHT/2) - (OUTPUT_IMAGE_WH/2);
     const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
+
+    const char* mappedData;
+    uint32_t rowPitch;
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();
@@ -41,10 +45,10 @@ private:
     //VkFence offscreenRenderFence;
     VkFence offscreenCopyFence;
 
-    //void createOffscreenImageBuffer();
+    void createOffscreenImageBuffer();
     //void fillOffscreenImageBuffer();
-    //VkBuffer offscreenImageBuffer;
-    //VmaAllocation offscreenImageBufferAlloc;
+    VkBuffer offscreenImageBuffer;
+    VmaAllocation offscreenImageBufferAlloc;
 
     std::mutex copyLock;
 
@@ -63,6 +67,8 @@ private:
 
     VkImage dstImage;
     VmaAllocation dstImageAllocation;
+    VkImage greyImage;
+    VmaAllocation greyImageAllocation;
 
     VmaAllocation offscreenImageAllocation;
     VkCommandBuffer offscreenCommandBuffer;
@@ -80,5 +86,7 @@ private:
     void recordCommandBuffer_Offscreen();
 
     void populateLanderCameraData(GPUCameraData& camData);
+   
+    
     };
 }

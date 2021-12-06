@@ -7,7 +7,6 @@
 #include "obj_landingSite.h"
 #include <glm/gtx/quaternion.hpp>
 
-
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
 
 void MyScene::setSceneData(SceneData isceneData){
@@ -37,6 +36,7 @@ void MyScene::configureRenderEngine(){
     r_mediator.renderer_setCameraDataPointer(r_mediator.camera_getCameraDataPointer());
 
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh1", "asteroid");
+    r_mediator.renderer_allocateDescriptorSetForTexture("gstexturedmesh1", "asteroid");
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh2", "lander");
     r_mediator.renderer_allocateDescriptorSetForSkybox();
 
@@ -85,6 +85,10 @@ void MyScene::initObjects(){
     starSphere->material->diffuse = glm::vec3(1,0.5f,0.31f);
     starSphere->material->specular = glm::vec3(0.5f,0.5f,0.5f);
     starSphere->material->extra.x = 32;
+    starSphere->altMaterial = r_mediator.renderer_getMaterial("greyscale_unlitmesh");
+    starSphere->altMaterial->diffuse = glm::vec3(1,0.5f,0.31f);
+    starSphere->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
+    starSphere->altMaterial->extra.x = 32;
     objects.push_back(starSphere);
     renderableObjects.push_back(starSphere);
 
@@ -93,9 +97,9 @@ void MyScene::initObjects(){
     lander->scale = glm::vec3(1.0f,1.0f,1.0f);
     setRendererMeshVars("lander", lander.get());   //instead of box and default mesh we need to load the model
     lander->material = r_mediator.renderer_getMaterial("texturedmesh2");
-    lander->material->diffuse = glm::vec3(0,0,1);
-    lander->material->specular = glm::vec3(1,0.5f,0.5f);
-    lander->material->extra.x = 32;
+    //lander->material->diffuse = glm::vec3(0,0,1);
+    //lander->material->specular = glm::vec3(1,0.5f,0.5f);
+    //lander->material->extra.x = 32;
     lander->mass = 1.0f;
 
     lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
@@ -117,6 +121,8 @@ void MyScene::initObjects(){
     setRendererMeshVars("asteroid", asteroid.get());
     asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
     asteroid->material->extra.x = 2048;
+    asteroid->altMaterial = r_mediator.renderer_getMaterial("gstexturedmesh1"); //greyscale
+    asteroid->altMaterial->extra.x = 1028;
     asteroid->mass = 100000;
 
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)

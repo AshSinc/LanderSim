@@ -36,7 +36,7 @@ namespace Lander{
         //const float LANDER_SPEED_CAP = 20.0f;
 
         const float GNC_TIMER_SECONDS = 1.0f; //still not great if higher than 1s, not sure why yet
-        const float IMAGING_TIMER_SECONDS = 30.0f; 
+        const float IMAGING_TIMER_SECONDS = 45.0f; 
 
         bool lockRotation = true;
         bool autopilot = true;

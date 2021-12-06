@@ -101,7 +101,7 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
 
         queueSubmitMutex.lock();
         try{
-            vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr); // <--- seg fault here setWrite.data()
+            vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr);
         }
         catch(std::exception& e){
             std::cout << "Failed to update descriptor sets for  Texture " + name + "\n";
