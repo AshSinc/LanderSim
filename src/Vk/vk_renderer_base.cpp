@@ -555,7 +555,6 @@ void Vk::RendererBase::initPipelines(){
     auto greyscale_unlit_frag_m = createShaderModule(greyscale_unlit_frag_c);//greyscale frag versions
     auto greyscale_textured_lit_frag_m = createShaderModule(greyscale_textured_lit_frag_c);//greyscale frag versions
     
-
     auto skybox_vert_m = createShaderModule(skybox_vert_c);
     auto skybox_frag_m = createShaderModule(skybox_frag_c);
 
@@ -672,7 +671,7 @@ void Vk::RendererBase::initPipelines(){
     _swapDeletionQueue.push_function([=](){vkDestroyPipeline(device, gtexPipeline, nullptr);});
 
     //
-	createMaterial(gtexPipeline, texturedPipeLayout, "gstexturedmesh1", 4);
+	createMaterial(gtexPipeline, texturedPipeLayout, "greyscale_texturedmesh1", 4);
     //createMaterial(gtexPipeline, texturedPipeLayout, "texturedmesh2", 3);
     //////////////////////////////////////////////////////////////
 

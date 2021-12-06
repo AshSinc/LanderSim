@@ -90,8 +90,8 @@ void main() {
 	vec3 gammaCorrected = pow(result, vec3(1.0/gamma));
 	//outColor = vec4(result, 1.0);
 	//outColor = vec4(gammaCorrected, 1.0);
-	float greyscale = dot(gammaCorrected, vec3(0.299, 0.587, 0.114));
 
+	float greyscale = dot(gammaCorrected, vec3(0.299, 0.587, 0.114));
 	outColor = vec4(greyscale, greyscale, greyscale, 1.0);
 }	
 

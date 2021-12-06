@@ -1,5 +1,4 @@
-#ifndef VK_TYPES_D
-#define VK_TYPES_D
+#pragma once
 #include <vulkan/vulkan.h>
 #include <array>
 #define GLM_FORCE_RADIANS //makes sure GLM uses radians to avoid confusion
@@ -176,5 +175,3 @@ struct SwapChainSupportDetails{
 //    VkBuffer _buffer;
 //    VmaAllocation _allocation;
 //};
-
-#endif

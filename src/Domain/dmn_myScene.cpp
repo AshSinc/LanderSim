@@ -36,7 +36,7 @@ void MyScene::configureRenderEngine(){
     r_mediator.renderer_setCameraDataPointer(r_mediator.camera_getCameraDataPointer());
 
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh1", "asteroid");
-    r_mediator.renderer_allocateDescriptorSetForTexture("gstexturedmesh1", "asteroid");
+    r_mediator.renderer_allocateDescriptorSetForTexture("greyscale_texturedmesh1", "asteroid");
     r_mediator.renderer_allocateDescriptorSetForTexture("texturedmesh2", "lander");
     r_mediator.renderer_allocateDescriptorSetForSkybox();
 
@@ -99,7 +99,7 @@ void MyScene::initObjects(){
     lander->material = r_mediator.renderer_getMaterial("texturedmesh2");
     //lander->material->diffuse = glm::vec3(0,0,1);
     //lander->material->specular = glm::vec3(1,0.5f,0.5f);
-    //lander->material->extra.x = 32;
+    lander->material->extra.x = 64;
     lander->mass = 1.0f;
 
     lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
@@ -120,9 +120,9 @@ void MyScene::initObjects(){
     asteroid->scale = glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE);
     setRendererMeshVars("asteroid", asteroid.get());
     asteroid->material = r_mediator.renderer_getMaterial("texturedmesh1");
-    asteroid->material->extra.x = 2048;
-    asteroid->altMaterial = r_mediator.renderer_getMaterial("gstexturedmesh1"); //greyscale
-    asteroid->altMaterial->extra.x = 1028;
+    asteroid->material->extra.x = 32;
+    asteroid->altMaterial = r_mediator.renderer_getMaterial("greyscale_texturedmesh1"); //greyscale
+    asteroid->altMaterial->extra.x = 32;
     asteroid->mass = 100000;
 
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
@@ -224,8 +224,9 @@ void MyScene::initLights(){
     //set directional scene light values
     //this is light from the star in the background
     sceneLight.pos = glm::vec3(1,0,0);
-    sceneLight.ambient = glm::vec3(0.025f,0.025f,0.1f);
-    sceneLight.diffuse = glm::vec3(0.8f,0.8f,0.25f);
+    sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
+    sceneLight.diffuse = glm::vec3(0.75f,0.75f,0.75f);
+    sceneLight.specular = glm::vec3(1.0f,1.0f,1.0f);
 
     /*WorldPointLightObject pointLight;
     pointLight.pos = glm::vec3(4005,0,-5);
@@ -240,7 +241,7 @@ void MyScene::initLights(){
     //this will be a spotlight on the lander
     WorldSpotLightObject spotlight;
     spotlight.pos = {0,0,0};
-    spotlight.initialPos = {0,0,-1};
+    spotlight.initialPos = {0,0,-0.5};
     spotlight.scale = {0.05f,0.05f,0.05f};
     spotlight.diffuse = {1,1,1};
     spotlight.specular = {1,1,1};

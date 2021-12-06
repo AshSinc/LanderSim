@@ -28,7 +28,7 @@ private:
     const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
 
     const char* mappedData;
-    uint32_t rowPitch;
+    //uint32_t rowPitch;
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();
@@ -41,6 +41,8 @@ private:
     void createOffscreenCameraBuffer();
     void createOffscreenDescriptorSet();
     void createOffscreenSyncObjects();
+
+    void updateSceneData(GPUCameraData& camData); //temp overridden for testing optical settings
 
     //VkFence offscreenRenderFence;
     VkFence offscreenCopyFence;
@@ -76,6 +78,8 @@ private:
 
     VkBuffer offscreenCameraBuffer;
     VmaAllocation offscreenCameraBufferAllocation;
+    VkBuffer offscreenSceneParameterBuffer;
+    VmaAllocation offscreenSceneParameterBufferAlloc;
 
     VkDescriptorSet offscreenDescriptorSet;
     VkDescriptorSetLayout offscreenGlobalSetLayout;

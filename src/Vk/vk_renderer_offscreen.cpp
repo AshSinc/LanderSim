@@ -63,6 +63,10 @@ void Vk::OffscreenRenderer::createOffscreenCameraBuffer(){
     createBuffer(sizeof(UniformBufferObject), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
         offscreenCameraBuffer, offscreenCameraBufferAllocation);
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenCameraBuffer, offscreenCameraBufferAllocation);});
+
+    createBuffer(sizeof(GPUSceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        offscreenSceneParameterBuffer, offscreenSceneParameterBufferAlloc);
+    _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, offscreenSceneParameterBuffer, offscreenSceneParameterBufferAlloc);});
 }
 
 //to get around sharing issues we use a different descripter set, substituting globalset of the base renderer with offscreenDescriptorSet that has its own camBufferBinding
@@ -96,7 +100,7 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     setWrite[0] = Vk::Structures::write_descriptorset(0, offscreenDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &cameraInfo);
 
     VkDescriptorBufferInfo sceneInfo;
-    sceneInfo.buffer = _sceneParameterBuffer;
+    sceneInfo.buffer = offscreenSceneParameterBuffer;
     sceneInfo.offset = 0; //we are using dynamic uniform buffer now so we dont hardcode the offset, 
     //instead we tell it the offset when binding the descriptorset at drawFrame (when we need to rebind it) hence dynamic
     //and they will be reading from the same buffer
@@ -141,6 +145,7 @@ void Vk::OffscreenRenderer::createOffscreenImageBuffer(){
 //we will create colour resources here, this is used for MSAA and creates a single colour image that can be drawn to for calculating msaa 
 void Vk::OffscreenRenderer::createOffscreenColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
+    //VkFormat colorFormat = VK_FORMAT_B;
     //VkFormat colorFormat = VK_FORMAT_R8_UNORM;
 
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
@@ -224,7 +229,7 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
     vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
     mappedData += subResourceLayout.offset;
-    rowPitch = subResourceLayout.rowPitch; //store row pitch value as well, its 2048 (512*4 channels)
+    //rowPitch = subResourceLayout.rowPitch; //store row pitch value as well, its 2048 (512*4 channels)
 
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_WIDTH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyImage, greyImageAllocation, 
@@ -445,15 +450,14 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     //if we DO have to write to file, then we still need some sort of queue where we can point to files conserving order
 
+    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
+    cv::imwrite("mat.jpg", wrappedMat);
+
     //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
-    //cv::imwrite("mat.jpg", wrappedMat);
-
-    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, rowPitch);
-    cv::Mat increaseContrast;
-    wrappedMat.convertTo(increaseContrast, -1, 2.0, 0);
-    cv::imwrite("brghtmat.jpg", increaseContrast);
+    //cv::Mat increaseContrast;
+   // wrappedMat.convertTo(increaseContrast, -1, 2.0, 0);
+    //cv::imwrite("brghtmat.jpg", increaseContrast);
 }
-
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
     shouldDrawOffscreenFrame = b;
@@ -545,14 +549,33 @@ void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
     }
 }
 
+//ISSUE - Lighting inconsistencies
+//need our own scene data and light data structs and buffers for offscreen rendering
+
+//temp overridden for testing optical settings, actually easier to change scene lighting than camera sensitivity
+void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
+    glm::vec3 lightDir = glm::vec3(camData.view * glm::vec4(p_sceneLight->pos, 0));
+    _sceneParameters.lightDirection = glm::vec4(lightDir, 0);
+    _sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.05f,0.05f,0.05f), 1);
+    _sceneParameters.lightDiffuse = glm::vec4(glm::vec3(10.0f,10.0f,10.0f), 1);
+    _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
+    // Compute the MVP matrix from the light's point of view, ortho projection, need to adjust values
+    glm::mat4 projectionMatrix = glm::ortho<float>(-1000,1000,-1000,1000,-1000,1000);
+    glm::mat4 viewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
+    glm::mat4 modelMatrix = glm::mat4(1.0);
+    lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;
+    //this is used to render the scene from the lights POV to generate a shadow map
+}
+
 void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
     populateLanderCameraData(camData);
-    //updateSceneData(camData); //these
+    updateSceneData(camData); //these
 
-    updateLightingData(camData);
-    mapLightingDataToGPU(); //map to gpu
+    //need our own lighting data buffer as well
+    //updateLightingData(camData);
+    //mapLightingDataToGPU(); //map to gpu
     
     //and copy it to the buffer
 	void* data;
@@ -560,12 +583,17 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 	memcpy(data, &camData, sizeof(GPUCameraData));
 	vmaUnmapMemory(allocator, offscreenCameraBufferAllocation);
 
+    char* sceneData;
+    vmaMapMemory(allocator, offscreenSceneParameterBufferAlloc , (void**)&sceneData);
+	memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
+	vmaUnmapMemory(allocator, offscreenSceneParameterBufferAlloc); 
+
     Material* lastMaterial = nullptr;
 
     //could have a menu option to disable drawing certain things in offscreen like the asteroid for testing,
     //or in the main renderer pass show things like landing site boxes and other debugging things
     int renderObjectIds [6] = {1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
-    //int renderObjectIds [1] = {1,3}; //3 = asteroid
+    //int renderObjectIds [2] = {1,3}; //3 = asteroid
     
     //here we are drawing objects using altMaterial, this is the greyscale material of each respective object set in scene init
     for(const int i : renderObjectIds){
@@ -577,7 +605,7 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 			lastMaterial = object->altMaterial;
 
             //offset for our scene buffer
-            uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData));
+            uint32_t scene_uniform_offset = 0; //requires offset for dynamic offscreenDescriptorSet, because its built on renderer pipeline layout, must match
             //bind the descriptor set when changing pipeline
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
                 object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
