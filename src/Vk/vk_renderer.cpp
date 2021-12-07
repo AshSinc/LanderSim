@@ -372,8 +372,8 @@ void Vk::Renderer::recordCommandBuffer_GUI(int i){
 void Vk::Renderer::drawObjects(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
-    populateCameraData(camData);
-    updateSceneData(camData);
+    Vk::Renderer::populateCameraData(camData);
+    Vk::Renderer::updateSceneData(camData);
     
     //and copy it to the buffer
 	void* data;
@@ -381,13 +381,15 @@ void Vk::Renderer::drawObjects(int curFrame){
 	memcpy(data, &camData, sizeof(GPUCameraData));
 	vmaUnmapMemory(allocator, _frames[curFrame].cameraBufferAllocation);
 
-    //UPDATE TRANSFORM MATRICES OF ALL MODELS HERE
-    updateObjectTranslations();
-
     //fetch latest lighting data
-    updateLightingData(camData);
+    Vk::Renderer::updateLightingData(camData);
     //map it to the GPU
-    mapLightingDataToGPU();
+    Vk::Renderer::mapLightingDataToGPU();
+
+    //UPDATE TRANSFORM MATRICES OF ALL MODELS HERE
+    Vk::Renderer::updateObjectTranslations();
+    
+    //mapObjectDataToGPU();
     
     //then do the objects data into the storage buffer
     void* objectData;

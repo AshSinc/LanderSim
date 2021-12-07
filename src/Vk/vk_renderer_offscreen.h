@@ -86,8 +86,20 @@ private:
     VkBuffer os_spotLightParameterBuffer;
     VmaAllocation os_spotLightParameterBufferAlloc;
 
+    VkBuffer os_objectBuffer;
+    VmaAllocation os_objectBufferAlloc;
+
+    //GPUSceneData os_sceneParameters;
+    //GPUPointLightData os_pointLightParameters[MAX_LIGHTS]; //GPU light data array thats uploaded via uniform buffer for shader referencing via push constant
+    //GPUSpotLightData os_spotLightParameters[MAX_LIGHTS];
+    //GPULightVPData os_lightVPParameters[MAX_LIGHTS]; //GPU view projection array for rendering scene from lights perspective for generating shadowmaps
+
+
     VkDescriptorSet offscreenDescriptorSet;
     VkDescriptorSetLayout offscreenGlobalSetLayout;
+
+    VkDescriptorSet os_objectDescriptor;
+    VkDescriptorSetLayout os_objectSetLayout;
 
     VkDescriptorSet os_lightSet;
     VkDescriptorSetLayout os_lightSetLayout;

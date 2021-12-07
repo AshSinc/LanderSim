@@ -22,4 +22,6 @@ namespace Service{
 
     glm::quat bulletToGlm(const btQuaternion& q);
 
+    btQuaternion glmToBulletQ(const glm::quat &q);
+
 }

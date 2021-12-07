@@ -71,6 +71,10 @@ void Vk::OffscreenRenderer::createOffscreenCameraBuffer(){
     createBuffer(sizeof(GPUSpotLightData) * MAX_LIGHTS, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
         os_spotLightParameterBuffer, os_spotLightParameterBufferAlloc);
     _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, os_spotLightParameterBuffer, os_spotLightParameterBufferAlloc);});
+
+    createBuffer(sizeof(GPUObjectData) * MAX_OBJECTS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU, 
+        os_objectBuffer, os_objectBufferAlloc);
+    _swapDeletionQueue.push_function([=](){vmaDestroyBuffer(allocator, os_objectBuffer, os_objectBufferAlloc);});
 }
 
 //to get around sharing issues we use a different descripter set, substituting globalset of the base renderer with offscreenDescriptorSet that has its own camBufferBinding
@@ -112,6 +116,22 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
         throw std::runtime_error("Failed to allocate memory for lighting descriptor set");
     }
 
+     //bind object storage buffer to 0 in vertex
+    VkDescriptorSetLayoutBinding objectBind = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
+    bindings.clear();
+    bindings = {objectBind};
+	setinfo = Vk::Structures::descriptorset_layout_create_info(bindings);
+    if(vkCreateDescriptorSetLayout(device, &setinfo, nullptr, &os_objectSetLayout) != VK_SUCCESS){
+        throw std::runtime_error("Failed to create descriptor set layout");
+    }
+    _mainDeletionQueue.push_function([=](){vkDestroyDescriptorSetLayout(device, os_objectSetLayout, nullptr);});
+
+    //allocate a storage object descriptor set for each frame
+    VkDescriptorSetAllocateInfo objectSetAllocInfo = Vk::Structures::descriptorset_allocate_info(descriptorPool, &_objectSetLayout);
+    if(vkAllocateDescriptorSets(device, &objectSetAllocInfo, &os_objectDescriptor) != VK_SUCCESS){
+        throw std::runtime_error("Failed to allocate memory for object descriptor set");
+    }
+
     //shadowmap //NOT USED ATM
     /*VkDescriptorSetLayoutBinding lightVPBufferBinding = Vk::Structures::descriptorset_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr);
     VkDescriptorSetLayoutBinding shadowmapSamplerSetBinding = Vk::Structures::descriptorset_layout_binding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr);
@@ -131,7 +151,7 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
         throw std::runtime_error("Failed to allocate memory for light VP descriptor set");
     }*/
 
-    std::array<VkWriteDescriptorSet, 4> setWrite{};
+    std::array<VkWriteDescriptorSet, 5> setWrite{};
     //information about the buffer we want to point at in the descriptor
     VkDescriptorBufferInfo cameraInfo;
     cameraInfo.buffer = offscreenCameraBuffer; //it will be the camera buffer
@@ -150,7 +170,7 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     setWrite[1] = Vk::Structures::write_descriptorset(1, offscreenDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, &sceneInfo);
 
     VkDescriptorBufferInfo pointlightsBufferInfo;
-    pointlightsBufferInfo.buffer = _frames[0].pointLightParameterBuffer;
+    pointlightsBufferInfo.buffer = _frames[0].pointLightParameterBuffer; //os_pointLightParameterBuffer
     pointlightsBufferInfo.offset = 0;
     pointlightsBufferInfo.range = sizeof(GPUPointLightData) * MAX_LIGHTS;
     //notice we bind to 0 as this is part of a seperate descriptor set
@@ -161,6 +181,14 @@ void Vk::OffscreenRenderer::createOffscreenDescriptorSet(){
     spotLightsBufferInfo.offset = 0;
     spotLightsBufferInfo.range = sizeof(GPUSpotLightData) * MAX_LIGHTS;
     setWrite[3] = Vk::Structures::write_descriptorset(1, os_lightSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, &spotLightsBufferInfo);
+
+    //object buffer info describes the location and the size
+    VkDescriptorBufferInfo objectBufferInfo;
+	objectBufferInfo.buffer = os_objectBuffer;
+	objectBufferInfo.offset = 0;
+	objectBufferInfo.range = sizeof(GPUObjectData) * MAX_OBJECTS;
+    //notice we bind to 0 as this is part of a seperate descriptor set
+    setWrite[4] = Vk::Structures::write_descriptorset(0, os_objectDescriptor, 1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, &objectBufferInfo);
 
     vkUpdateDescriptorSets(device, static_cast<uint32_t>(setWrite.size()), setWrite.data(), 0, nullptr);    
 }
@@ -360,8 +388,8 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, offscreenRenderPass, nullptr);});
 }
 
-//ISSUE - We need to create a new renderpass that procuses greyscale, maybe we can jsut set greyscale shaders in base pipeline?
-//SOLUTION - Need to investigate this
+//ISSUE - We need to create a new renderpass that processes greyscale, maybe we can jsut set greyscale shaders in base pipeline?
+//SOLUTION - well thats exactly what we did and it works
 //take the last VKImage output by offscreen pass, convert it to linear format so we can read it
 //adapted from Sascha Willems example screenshot example
 void Vk::OffscreenRenderer::convertOffscreenImage(){
@@ -403,8 +431,6 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imageBlitRegion.dstSubresource.layerCount = 1;
     imageBlitRegion.dstOffsets[1] = blitSize;
-    //imageBlitRegion.srcOffsets.x = OFFSCREEN_IMAGE_WIDTH_OFFSET;
-    //imageBlitRegion.srcOffsets.y = OFFSCREEN_IMAGE_HEIGHT_OFFSET;
 
     // Issue the blit command
     vkCmdBlitImage(
@@ -430,22 +456,6 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-    /*imageHelper->copyImageToBuffer(offscreenImageBuffer, offscreenImage, OFFSCREEN_IMAGE_WIDTH, OFFSCREEN_IMAGE_HEIGHT, 1);
-    //vkCmdCopyImageToBuffer(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageBuffer, 1, &region);
-
-    VkImageCopy imageCopyRegion{};
-    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.srcSubresource.layerCount = 1;
-    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageCopyRegion.dstSubresource.layerCount = 1;
-    imageCopyRegion.extent.width = OFFSCREEN_IMAGE_WIDTH;
-    imageCopyRegion.extent.height = OFFSCREEN_IMAGE_HEIGHT;
-    imageCopyRegion.extent.depth = 1;
-
-    //vkCmdCopyImage(offscreenCommandBuffer, offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, offscreenImageB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &imageCopyRegion);
-
-    //imageHelper->transitionImageLayout(offscreenImageB, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);
-*/
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         dstImage,
@@ -520,11 +530,14 @@ void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
 void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
     RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
     glm::vec3 camPos = lander->pos;
-    glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
 
-    //need to rotate by landerForward?
-    glm::mat4 view = glm::lookAt(camPos, landingSitePos, lander->up); //fixing the view to landing site
-    //glm::mat4 view = glm::lookAt(camPos, camPos + lander->up, lander->forward); //setting view to look forward
+    //glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
+    //glm::vec3 landingSitePos = r_mediator.scene_getFocusableObject("Landing_Site").pos;
+    
+    //glm::mat4 view = glm::lookAt(camPos, landingSitePos, lander->up); //fixing the view to landing site
+
+    glm::mat4 view = glm::lookAt(camPos, camPos - lander->up, lander->forward); //setting view to look forward
+
 
     glm::mat4 proj = glm::perspective(glm::radians(OFFSCREEN_IMAGE_FOV), (float)RENDERED_IMAGE_WIDTH / (float)RENDERED_IMAGE_HEIGHT, 0.1f, 15000.0f);
     proj[1][1] *= -1;
@@ -609,7 +622,9 @@ void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
 //temp overridden for testing optical settings, actually easier to change scene lighting than camera sensitivity
 void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
     glm::vec3 lightDir = glm::vec3(camData.view * glm::vec4(p_sceneLight->pos, 0));
+    std::cout<< glm::to_string(lightDir) << "\n";
     _sceneParameters.lightDirection = glm::vec4(lightDir, 0);
+    //os_sceneParameters.lightDirection = glm::vec4(p_sceneLight->pos, 0);
     _sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.05f,0.05f,0.05f), 1);
     _sceneParameters.lightDiffuse = glm::vec4(glm::vec3(10.0f,10.0f,10.0f), 1);
     _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
@@ -623,6 +638,8 @@ void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
 
 //point lights and spotlights
 void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
+
+    std::cout << "here\n";
 
     for(int i = 0; i < p_pointLights->size(); i++){
         _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_pointLights->at(i).pos, 1));
@@ -703,6 +720,20 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 	memcpy(sceneData, &_sceneParameters, sizeof(GPUSceneData));
 	vmaUnmapMemory(allocator, offscreenSceneParameterBufferAlloc); 
 
+    //then do the objects data into the storage buffer
+    void* objectData;
+    vmaMapMemory(allocator, os_objectBufferAlloc, &objectData);
+    GPUObjectData* objectSSBO = (GPUObjectData*)objectData;
+    //loop through all objects in the scene, need a better container than a vector
+    for (int i = 0; i < p_renderables->size(); i++){
+        objectSSBO[i].modelMatrix = p_renderables->at(i)->transformMatrix;
+        //calculate the normal matrix, its done by inverse transpose of the model matrix * view matrix because we are working 
+        //in view space in the shader. taking only the top 3x3
+        //this is to account for rotation and scaling when using normals. should be done on cpu as its costly
+        objectSSBO[i].normalMatrix = glm::transpose(glm::inverse(camData.view * p_renderables->at(i)->transformMatrix)); 
+    }
+    vmaUnmapMemory(allocator, os_objectBufferAlloc);
+
     Material* lastMaterial = nullptr;
 
     //could have a menu option to disable drawing certain things in offscreen like the asteroid for testing,
@@ -725,9 +756,12 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
                 object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
 
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
+
 	        //object data descriptor
         	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->altMaterial->pipelineLayout, 1, 1, &_frames[curFrame].objectDescriptor, 0, nullptr);
+                object->altMaterial->pipelineLayout, 1, 1, &os_objectDescriptor, 0, nullptr);
 
              //material descriptor, we are using a dynamic uniform buffer and referencing materials by their offset with propertiesId, which just stores the int relative to the material in _materials
         	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
@@ -753,6 +787,8 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 
         vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
+    //uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * 0;
+    //vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset);
 }
 
 void Vk::OffscreenRenderer::cleanup(){

@@ -29,13 +29,15 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
     //setting to landing site rotation isnt right, 
     //need to construct new matrix that faces the landing site,
 
-    if(autopilot){
+    if(reactionWheelEnabled){
         //setRotation(); //we are cheating and locking rotation to landing s
         //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
+        //slewToLandingSiteOrientation();
     }
     
     if(imagingTimer(timeStep)){
         p_mediator->renderer_setShouldDrawOffscreen(true);
+        reactionWheelEnabled = true;
         //camera.tick(timestep);
     }
     if(gncTimer(timeStep)){
@@ -46,7 +48,6 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         navStruct.gravityVector = Service::bt2glm(p_lander->landerGravityVector);
         navStruct.landerTransformMatrix = p_lander->transformMatrix;
         navStruct.velocityVector = p_lander->landerVelocityVector;
-        //std::cout << glm::to_string(p_lander->pos) << "  cpu pos \n";
 
         glm::vec3 calculatedThrustVector = gnc.getThrustVector(GNC_TIMER_SECONDS);
         if(glm::length(calculatedThrustVector) != 0);
@@ -132,6 +133,73 @@ void CPU::setRotation(){
     //still not sure of the maths though or even how to approach this one
 }
 
+void CPU::slewToLandingSiteOrientation(){
+    glm::vec3 projectedLSUp = p_lander->cpu.gnc.getProjectedUpVector();
+
+    //glm::mat4 projectedLSRotation = p_lander->cpu.gnc.getProjectedLSRotationMatrix();
+
+
+    //glm::quat rotation = glm::quat_cast(rotMatrix);
+
+    glm::quat predictedRotation =  glm::quat_cast(p_lander->cpu.gnc.getProjectedLSRotationMatrix());
+
+    std::cout << glm::to_string(predictedRotation) << "\n";
+
+    glm::quat currentRotation = glm::lookAt(glm::vec3(0), p_lander->up, p_lander->forward);
+
+    glm::quat nextRotation = rotateTowards(currentRotation, predictedRotation, 0.01f);
+
+    glm::mat4 nextRotationMatrix = glm::toMat4(nextRotation);
+
+    p_lander->rot = nextRotationMatrix;//we are cheating by setting the lander to rotation matrix, to the landing sites rot matrix
+    //then we construct the transform matrix from this, and set for both renderer and bullet
+    glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, p_lander->scale);
+    glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, p_lander->pos);
+    glm::mat4 rotation = p_lander->rot;
+    p_lander->transformMatrix = translation * rotation * scale; //renderer transform
+    p_lander->landerTransform.setBasis(Service::glmToBullet(p_lander->rot)); //bullet transform
+
+}
+
+//http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-use-lookat-but-limit-the-rotation-at-a-certain-speed-
+//example here, a slerp catching common issues
+glm::quat CPU::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
+	if( maxAngle < 0.001f ){
+		// No rotation allowed. Prevent dividing by 0 later.
+		return q1;
+	}
+
+	float cosTheta = dot(q1, q2);
+
+	// q1 and q2 are already equal.
+	// Force q2 just to be sure
+	if(cosTheta > 0.9999f){
+		return q2;
+	}
+
+	// Avoid taking the long path around the sphere
+	if (cosTheta < 0){
+	    q1 = q1*-1.0f;
+	    cosTheta *= -1.0f;
+	}
+
+	float angle = glm::acos(cosTheta);
+
+	// If there is only a 2&deg; difference, and we are allowed 5&deg;,
+	// then we arrived.
+	if (angle < maxAngle){
+		return q2;
+	}
+
+	float fT = maxAngle / angle;
+	angle = maxAngle;
+
+	glm::quat res = (glm::sin((1.0f - fT) * angle) * q1 + glm::sin(fT * angle) * q2) / glm::sin(angle);
+	res = normalize(res);
+	return res;
+
+}
+
 //these functions could be combined
 void CPU::applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){       
     btVector3 boostVector = Service::glm2bt(boost.vector);
@@ -160,7 +228,7 @@ void CPU::applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost){
 }
 
 void CPU::setAutopilot(bool b){
-    autopilot = b;
+    reactionWheelEnabled = b;
     gncActive = b;//maybe need to move later
 }
 

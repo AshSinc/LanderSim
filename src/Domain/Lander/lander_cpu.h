@@ -5,6 +5,8 @@
 #include "lander_vision.h"
 #include <deque>
 #include <mutex>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 class Mediator;
 struct LanderObj;
@@ -39,7 +41,8 @@ namespace Lander{
         const float IMAGING_TIMER_SECONDS = 45.0f; 
 
         bool lockRotation = true;
-        bool autopilot = true;
+        bool reactionWheelEnabled = false;
+        
         bool imagingActive = true;
         bool gncActive = true;
         float imagingTime = 0.0f;
@@ -71,6 +74,8 @@ namespace Lander{
         void applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost);
         LanderBoostCommand& popLanderImpulseQueue();
         bool landerImpulseRequested();
+        void slewToLandingSiteOrientation();
+        glm::quat rotateTowards(glm::quat q1, glm::quat q2, float maxAngle);
         
     public:
         void init(Mediator* mediator, LanderObj* lander);

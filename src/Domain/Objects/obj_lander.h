@@ -32,6 +32,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     btTransform landerTransform;
     Mediator* p_mediator;
     WorldSpotLightObject* p_spotlight; 
+
+    //btQuaternion initialRotation;
     
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         //colShape->setMargin(0.05);
@@ -75,8 +77,13 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         landerTransform.setIdentity();
 
         landerTransform.setOrigin(btVector3(pos.x, pos.y, pos.z));
+        
         btQuaternion quat;
         quat.setEulerZYX(0,0,0);
+
+        //ISSUE - Need to set initial rotation pointing at asteroid
+        //glm::quat rot = glm::lookAt(pos, glm::vec3(0), glm::vec3(0,0,1));
+        //landerTransform.setRotation(Service::glmToBulletQ(rot));
         landerTransform.setRotation(quat);
 
         btScalar btMass(mass);
@@ -109,12 +116,16 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     void updateLanderUpForward(btRigidBody* body){
         //store the lander up vector (for taking images and aligning)
         btTransform landerWorldTransform = body->getWorldTransform();
-        int indexUpAxis = 2;
-        up = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexUpAxis));
+        //int indexUpAxis = 2;
+        //up = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexUpAxis));
+
+        up = Service::bt2glm(landerWorldTransform(btVector3{0,0,1}));
 
         //store the lander forward vector (for taking images and aligning)
-        int indexFwdAxis = 0; //not sure if this is actually the forward axis, need to test before using it
-        forward = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexFwdAxis));
+        //int indexFwdAxis = 0; //not sure if this is actually the forward axis, need to test before using it
+        //forward = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexFwdAxis));
+        
+        forward = Service::bt2glm(landerWorldTransform(btVector3{1,0,0}));
     }
 
     void timestepBehaviour(btRigidBody* body, float timeStep){

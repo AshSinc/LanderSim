@@ -13,6 +13,9 @@
 #include "obj_render.h"
 #include <memory>
 
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
+
 using namespace Lander;
 
 void GNC::init(Mediator* mediator, NavigationStruct* gncVars){
@@ -109,7 +112,7 @@ glm::vec3 GNC::predictFinalLandingSiteUp(glm::mat4 rotationM){
 
 void GNC::calculateVectorsAtTime(float time){
     if(glm::length(p_navStruct->angularVelocity) != 0){ //if angular vel is 0 we dont need to check
-        glm::mat4 rotationMatrixAtTf = constructRotationMatrixAtTf(time);
+        rotationMatrixAtTf = constructRotationMatrixAtTf(time);
         projectedLandingSitePos = predictFinalLandingSitePos(rotationMatrixAtTf);
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);
@@ -122,6 +125,7 @@ void GNC::calculateVectorsAtTime(float time){
         projectedLandingSiteUp = p_navStruct->landingSiteUp;
         projectedVelocityAtTf = glm::vec3(0,0,0);
     }
+
     //if debug (p_mediator->showDebugging())
     //or a #define DEBUG_DRAWING somewhere would probably be better
     std::vector<std::shared_ptr<RenderObject>>* p_debugObjects = p_mediator->scene_getDebugObjects();
@@ -158,6 +162,50 @@ glm::vec3 GNC::getThrustVector(float timeStep){
 
     return thrustVector;
 }
+
+//http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-use-lookat-but-limit-the-rotation-at-a-certain-speed-
+//example here, a slerp catching common issues
+/*glm::quat GNC::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
+	if( maxAngle < 0.001f ){
+		// No rotation allowed. Prevent dividing by 0 later.
+		return q1;
+	}
+
+	float cosTheta = dot(q1, q2);
+
+	// q1 and q2 are already equal.
+	// Force q2 just to be sure
+	if(cosTheta > 0.9999f){
+		return q2;
+	}
+
+	// Avoid taking the long path around the sphere
+	if (cosTheta < 0){
+	    q1 = q1*-1.0f;
+	    cosTheta *= -1.0f;
+	}
+
+	float angle = glm::acos(cosTheta);
+
+	// If there is only a 2&deg; difference, and we are allowed 5&deg;,
+	// then we arrived.
+	if (angle < maxAngle){
+		return q2;
+	}
+
+	float fT = maxAngle / angle;
+	angle = maxAngle;
+
+	glm::quat res = (glm::sin((1.0f - fT) * angle) * q1 + glm::sin(fT * angle) * q2) / glm::sin(angle);
+	res = normalize(res);
+	return res;
+
+}*/
+
+glm::vec3 GNC::getProjectedUpVector(){
+    return projectedLandingSiteUp;
+}
+
 
     //initialisation
     //minRange = approachDistance - 5;

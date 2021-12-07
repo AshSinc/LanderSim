@@ -53,9 +53,16 @@ namespace Lander{
         glm::vec3 predictFinalLandingSitePos(glm::mat4 rotationM);
         glm::vec3 predictFinalLandingSiteUp(glm::mat4 rotationM);
         glm::vec3 stabiliseCurrentPos();
+        glm::vec3 slewToRotation(glm::vec3 up, float time);
+        //glm::quat rotateTowards(glm::quat q1, glm::quat q2, float maxAngle);
+
+        glm::mat4 rotationMatrixAtTf;
+        
     public:
         GNC(){};
         void init(Mediator* mediator, NavigationStruct* gncVars);
         glm::vec3 getThrustVector(float timeStep);
+        glm::vec3 getProjectedUpVector();
+        glm::mat4 getProjectedLSRotationMatrix(){return rotationMatrixAtTf;};
     };
 }

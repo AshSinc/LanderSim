@@ -171,12 +171,16 @@ void MyScene::initObjects(){
 
     if(sceneData.RANDOMIZE_START){ //best to update lander pos now
         //glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
-        glm::vec3 rotatedUp = landingSite->initialRot * asteroid->initialRot * glm::vec4(landingSite->up, 0.0f);
-        glm::vec3 pos = landingSite->pos+(rotatedUp * sceneData.LANDER_START_DISTANCE);
-        lander->pos = pos;
+        //glm::vec3 rotatedUp = landingSite->initialRot * asteroid->initialRot * glm::vec4(landingSite->up, 0.0f);
+        //glm::vec3 pos = landingSite->pos+(rotatedUp * sceneData.LANDER_START_DISTANCE);
+        //lander->pos = pos;
+
+        lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
     }
     else
         lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
+        
+        //ISSUE - Need to set initial rotation of lander pointing at asteroid, origin
 
 
     std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
@@ -225,6 +229,7 @@ void MyScene::initLights(){
     //this is light from the star in the background
     sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
+    //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
     sceneLight.diffuse = glm::vec3(0.75f,0.75f,0.75f);
     sceneLight.specular = glm::vec3(1.0f,1.0f,1.0f);
 
@@ -247,8 +252,12 @@ void MyScene::initLights(){
     spotlight.specular = {1,1,1};
     //spotlight.attenuation = {1.0f,0.07f,0.017f};
     spotlight.attenuation = {0.1f,0.005f,0.001f};
+    //spotlight.attenuation = {0.1f,0.0005f,0.001f};
     spotlight.direction = glm::vec3(0,0,1);
-    spotlight.cutoffAngles = glm::vec2(0.75f, 1.2f);
+    //spotlight.cutoffAngles = glm::vec2(0.75f, 1.2f);
+    //spotlight.cutoffAngles = glm::vec2(0.75f, 3.2f);
+    //spotlight.cutoffAngles = glm::vec2(0.05f, 15.0f);
+    spotlight.cutoffAngles = glm::vec2(0.01f, 0.50f);
     spotlight.cutoffs = {glm::cos(spotlight.cutoffAngles.x), glm::cos(spotlight.cutoffAngles.y)};
     spotLights.push_back(spotlight);
 
