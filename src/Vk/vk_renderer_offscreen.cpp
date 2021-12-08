@@ -34,10 +34,10 @@ void Vk::OffscreenRenderer::init(){
 }
 
 void Vk::OffscreenRenderer::createSamplers(){
-    VkSamplerCreateInfo dstSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
+    VkSamplerCreateInfo dstSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FALSE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
-    vkCreateSampler(device, &dstSamplerInfo, nullptr, &dstImageSampler);
-    _mainDeletionQueue.push_function([=](){vkDestroySampler(device, dstImageSampler, nullptr);});
+    vkCreateSampler(device, &dstSamplerInfo, nullptr, &greyRGBImageSampler);
+    _mainDeletionQueue.push_function([=](){vkDestroySampler(device, greyRGBImageSampler, nullptr);});
 
 }
 
@@ -303,18 +303,39 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
 
     offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
+//VK_FORMAT_R8G8B8A8_UNORM
+
+    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, cropImage, cropImageAllocation, 
+                    VMA_MEMORY_USAGE_GPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, cropImage, cropImageAllocation);});
+
+
+//VK_FORMAT_R8G8B8A8_UNORM
+    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyRGBImage, greyRGBImageAllocation, 
+                    VMA_MEMORY_USAGE_GPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, greyRGBImage, greyRGBImageAllocation);});
+
+    greyRGBImageView = imageHelper->createImageView(greyRGBImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, greyRGBImageView, nullptr);});
+
+    /*imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstOptImage, dstOptImageAllocation, 
+                    VMA_MEMORY_USAGE_GPU_ONLY);
+    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstOptImage, dstOptImageAllocation);});*/
 
     //we should loop through and create 6? destination VkImages
     //we would need to track which has been rendered and processed by lander
     //need to think about this to avoid access issues, and race conditions
     //VK_IMAGE_USAGE_TRANSFER_DST_BIT
-    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_LINEAR, 
+    imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
                     VMA_MEMORY_USAGE_CPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
 
-    dstImageView = imageHelper->createImageView(dstImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
-    _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, dstImageView, nullptr);});
+    //dstImageView = imageHelper->createImageView(dstImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    //_swapDeletionQueue.push_function([=](){vkDestroyImageView(device, dstImageView, nullptr);});
 
     //mapping this one image for now, perma mapped, unmapped in cleanup
     VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
@@ -323,11 +344,6 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
     mappedData += subResourceLayout.offset;
     //rowPitch = subResourceLayout.rowPitch; //store row pitch value as well, its 2048 (512*4 channels)
-
-    imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_WIDTH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyImage, greyImageAllocation, 
-                    VMA_MEMORY_USAGE_GPU_ONLY);
-    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, greyImage, greyImageAllocation);});
 }
 
 void Vk::OffscreenRenderer::createOffscreenRenderPass(){
@@ -407,6 +423,8 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     std::scoped_lock<std::mutex> lock(copyLock);
 
+    dstImageAvailablility[0] = false;
+
     VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
     cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmdBufAllocateInfo.commandPool = offscreenCommandPool;
@@ -419,57 +437,13 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     VkCommandBufferBeginInfo cmdBufInfo = Vk::Structures::command_buffer_begin_info(0);
     vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
 
-    imageHelper->insertImageMemoryBarrier(
-        cmdBuffer,
-        greyImage,
-        0,
-        VK_ACCESS_TRANSFER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+    //VkImage transitionImage;
 
-    // Define the region to blit (we will blit the whole swapchain image)
-    VkOffset3D blitSize;
-    blitSize.x = RENDERED_IMAGE_WIDTH;
-    blitSize.y = RENDERED_IMAGE_HEIGHT;
-    blitSize.z = 1;
-    VkImageBlit imageBlitRegion{};
-    imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageBlitRegion.srcSubresource.layerCount = 1;
-    imageBlitRegion.srcOffsets[1] = blitSize;
-    imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    imageBlitRegion.dstSubresource.layerCount = 1;
-    imageBlitRegion.dstOffsets[1] = blitSize;
-
-    // Issue the blit command
-    vkCmdBlitImage(
-        cmdBuffer,
-        offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        greyImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        1,
-        &imageBlitRegion, 
-        VK_FILTER_NEAREST);
-
-    //now have have blitted offscreen offscreenImage to greyImage (greyscale)
-
-    //we need to transition greyscale layout to transfer source from destination
+    //prepare grey transition image
 
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
-        greyImage,
-        0,
-        VK_ACCESS_TRANSFER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-    imageHelper->insertImageMemoryBarrier(
-        cmdBuffer,
-        dstImage,
+        cropImage,
         0,
         VK_ACCESS_TRANSFER_WRITE_BIT,
         VK_IMAGE_LAYOUT_UNDEFINED,
@@ -492,28 +466,124 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     // Issue the copy command
     vkCmdCopyImage(
         cmdBuffer,
-        greyImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        offscreenImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        cropImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageCopyRegion);
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        cropImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    // Define the region to blit (we will blit the whole swapchain image)
+    VkOffset3D blitSize;
+    blitSize.x = OUTPUT_IMAGE_WH;
+    blitSize.y = OUTPUT_IMAGE_WH;
+    blitSize.z = 1;
+    VkImageBlit imageBlitRegion{};
+    imageBlitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBlitRegion.srcSubresource.layerCount = 1;
+    imageBlitRegion.srcOffsets[1] = blitSize;
+    imageBlitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageBlitRegion.dstSubresource.layerCount = 1;
+    imageBlitRegion.dstOffsets[1] = blitSize;
+
+    // Issue the blit command
+    vkCmdBlitImage(
+        cmdBuffer,
+        cropImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        greyRGBImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageBlitRegion, 
+        VK_FILTER_NEAREST);
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        dstImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    imageCopyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.srcSubresource.layerCount = 1;
+    imageCopyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    imageCopyRegion.dstSubresource.layerCount = 1;
+    imageCopyRegion.extent.width = OUTPUT_IMAGE_WH;
+    imageCopyRegion.extent.height = OUTPUT_IMAGE_WH;
+    imageCopyRegion.extent.depth = 1;
+    imageCopyRegion.srcOffset.x = 0;
+    imageCopyRegion.srcOffset.y = 0;
+
+    // Issue the copy command
+    vkCmdCopyImage(
+        cmdBuffer,
+        greyRGBImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &imageCopyRegion);
 
-    // Transition destination image to general layout, which is the required layout for mapping the image memory later on
+   
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         dstImage,
+        0,
         VK_ACCESS_TRANSFER_WRITE_BIT,
-        VK_ACCESS_MEMORY_READ_BIT,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-
-    //imageHelper->transitionImageLayout(dstImage, swapChainImageFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  VK_IMAGE_LAYOUT_GENERAL, 1, 1);
+        
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);
 
-    //dstImage now holds BGR unsigned normalized data
+    //dstImage now holds BGR unsigned linear data
     //we should probably store these in a vector or queue, deque is probably best?
     //if we store these in a queue we could then potentially run through each item in queue in ImGui and render to screen?
 
@@ -525,13 +595,18 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     //if we DO have to write to file, then we still need some sort of queue where we can point to files conserving order
 
-    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
+    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)mappedData, cv::Mat::AUTO_STEP);
     cv::imwrite("mat.jpg", wrappedMat);
+
+    //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
+    //cv::imwrite("mat.jpg", wrappedMat);
 
     //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
     //cv::Mat increaseContrast;
    // wrappedMat.convertTo(increaseContrast, -1, 2.0, 0);
     //cv::imwrite("brghtmat.jpg", increaseContrast);
+
+    dstImageAvailablility[0] = true;
 }
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
@@ -636,9 +711,13 @@ void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
     std::cout<< glm::to_string(lightDir) << "\n";
     _sceneParameters.lightDirection = glm::vec4(lightDir, 0);
     //os_sceneParameters.lightDirection = glm::vec4(p_sceneLight->pos, 0);
-    _sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.05f,0.05f,0.05f), 1);
-    _sceneParameters.lightDiffuse = glm::vec4(glm::vec3(10.0f,10.0f,10.0f), 1);
-    _sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
+    //_sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.05f,0.05f,0.05f), 1);
+    //_sceneParameters.lightDiffuse = glm::vec4(glm::vec3(10.0f,10.0f,10.0f), 1);
+    //_sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.01f,0.01f,0.01f), 1); //<-- this is good for in engine
+    _sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.005f,0.005f,0.005f), 1); //<-- this is good for in engine
+    _sceneParameters.lightDiffuse = glm::vec4(glm::vec3(0.5f,0.5f,0.5f), 1);
+    _sceneParameters.lightSpecular = glm::vec4(glm::vec3(5.0f,5.0f,5.0f), 1);
+    //_sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
     // Compute the MVP matrix from the light's point of view, ortho projection, need to adjust values
     glm::mat4 projectionMatrix = glm::ortho<float>(-1000,1000,-1000,1000,-1000,1000);
     glm::mat4 viewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
@@ -687,8 +766,13 @@ void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
 }
 
 ImguiTexturePacket Vk::OffscreenRenderer::getDstTexturePacket(){
-    ImguiTexturePacket packet{&dstImageSampler, &dstImageView, VK_IMAGE_LAYOUT_GENERAL};
+    ImguiTexturePacket packet{&greyRGBImageSampler, &greyRGBImageView, VK_IMAGE_LAYOUT_GENERAL}; //VK_IMAGE_LAYOUT_GENERAL};
     return packet;
+}
+
+ std::array<bool, 4> Vk::OffscreenRenderer::getDstImageAvalability(){
+    //std::scoped_lock<std::mutex> lock(copyLock);
+    return dstImageAvailablility;
 }
 
 void Vk::OffscreenRenderer::mapLightingDataToGPU(){

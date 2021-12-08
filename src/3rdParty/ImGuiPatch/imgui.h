@@ -2280,6 +2280,7 @@ struct ImDrawVert
     ImVec2  pos;
     ImVec2  uv;
     ImU32   col;
+    //ImU8   col;
 };
 #else
 // You can override the vertex format layout by defining IMGUI_OVERRIDE_DRAWVERT_STRUCT_LAYOUT in imconfig.h

@@ -6,6 +6,7 @@ class Mediator;
 //class VkImage;
 
 //#include "vk_types.h"
+#include <array>
 
 namespace Vk{
 class OffscreenRenderer : public Renderer{
@@ -16,8 +17,12 @@ public:
     void setShouldDrawOffscreen(bool b);
     void cleanup();
     ImguiTexturePacket getDstTexturePacket();
-    
+
+    std::array<bool, 4> getDstImageAvalability();
+
 private:
+
+    std::array<bool, 4> dstImageAvailablility = {false,false,false,false};
 
     void convertOffscreenImage();
 
@@ -55,7 +60,7 @@ private:
     void createOffscreenImageBuffer();
     void mapLightingDataToGPU();
     void updateLightingData(GPUCameraData& camData);
-    //void fillOffscreenImageBuffer();
+
     VkBuffer offscreenImageBuffer;
     VmaAllocation offscreenImageBufferAlloc;
 
@@ -65,8 +70,6 @@ private:
     VkRenderPass offscreenRenderPass;
     VkImage offscreenImage;
     VkImageView offscreenImageView;
-
-    //VkImageView dstImageView;
 
     VkImage offscreenColourImage;
     VkImageView offscreenColourImageView;
@@ -78,11 +81,17 @@ private:
 
     VkImage dstImage;
     VmaAllocation dstImageAllocation;
-    VkImageView dstImageView;
-    VkSampler dstImageSampler;
 
-    VkImage greyImage;
-    VmaAllocation greyImageAllocation;
+    VkImage cropImage;
+    VmaAllocation cropImageAllocation;
+
+    VkImage greyRGBImage;
+    VmaAllocation greyRGBImageAllocation;
+    VkImageView greyRGBImageView;
+    VkSampler greyRGBImageSampler;
+
+    //VkImage dstOptImage;
+   // VmaAllocation dstOptImageAllocation;
 
     VmaAllocation offscreenImageAllocation;
     VkCommandBuffer offscreenCommandBuffer;

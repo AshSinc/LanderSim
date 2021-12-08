@@ -68,6 +68,9 @@ class UiHandler{
     ImVec2 mainMenuPanelPos;
     ImVec2 escMenuPanelSize;
     ImVec2 escMenuPanelPos;
+    ImVec2 opticsWindowSize;
+    ImVec2 opticsWindowPos;
+    ImTextureID textureID;
 
     std::atomic<bool> showEscMenu = false;
     std::atomic<bool> showMainMenu = true;

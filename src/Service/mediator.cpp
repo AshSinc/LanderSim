@@ -154,6 +154,9 @@ void Mediator::renderer_setShouldDrawOffscreen(bool b){
 ImguiTexturePacket Mediator::renderer_getDstTexturePacket(){
     return p_renderEngine->getDstTexturePacket();
 }
+std::array<bool, 4> Mediator::renderer_getDstImageAvalability(){
+    return p_renderEngine->getDstImageAvalability();
+};
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

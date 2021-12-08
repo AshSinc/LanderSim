@@ -7,7 +7,7 @@
 
 #include <imgui_impl_vulkan.h> //and vulkan
 
-
+#include <array>
 
 class WorldCamera;
 class UiHandler;
@@ -104,6 +104,7 @@ class Mediator{
         void renderer_setShouldDrawOffscreen(bool b);
         //VkImageView* renderer_getDstImage();
         ImguiTexturePacket renderer_getDstTexturePacket();
+        std::array<bool, 4> renderer_getDstImageAvalability();
         
         //Scene functions
         int scene_getWorldObjectsCount();

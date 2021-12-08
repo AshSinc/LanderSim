@@ -207,6 +207,46 @@ static uint32_t __glsl_shader_frag_spv[] =
     0x00010038
 };
 
+static const char* pixelShader = "struct PS_INPUT\
+            {\
+            float4 pos : SV_POSITION;\
+            float4 col : COLOR0;\
+            float2 uv  : TEXCOORD0;\
+            };\
+            sampler sampler0;\
+            Texture2D texture0;\
+            \
+            float4 main(PS_INPUT input) : SV_Target\
+            {\
+            float4 out_col = input.col * texture0.Sample(sampler0, input.uv).rrra; \
+            return out_col; \
+            }";
+
+// Create the greyscale pixel shader
+/*{
+	static const char* pixelShader =
+	"struct PS_INPUT\
+            {\
+            float4 pos : SV_POSITION;\
+            float4 col : COLOR0;\
+            float2 uv  : TEXCOORD0;\
+            };\
+            sampler sampler0;\
+            Texture2D texture0;\
+            \
+            float4 main(PS_INPUT input) : SV_Target\
+            {\
+            float4 out_col = input.col * texture0.Sample(sampler0, input.uv).rrra; \
+            return out_col; \
+            }";
+
+	D3DCompile(pixelShader, strlen(pixelShader), NULL, NULL, NULL, "main", "ps_4_0", 0, 0, &g_pPixelShaderGreyscaleBlob, NULL);
+	if (g_pPixelShaderGreyscaleBlob == NULL)  // NB: Pass ID3D10Blob* pErrorBlob to D3DCompile() to get error showing in (const char*)pErrorBlob->GetBufferPointer(). Make sure to Release() the blob!
+		return false;
+	if (g_pd3dDevice->CreatePixelShader((DWORD*)g_pPixelShaderGreyscaleBlob->GetBufferPointer(), g_pPixelShaderGreyscaleBlob->GetBufferSize(), NULL, &g_pPixelShaderGreyscale) != S_OK)
+		return false;
+}*/
+
 //-----------------------------------------------------------------------------
 // FUNCTIONS
 //-----------------------------------------------------------------------------

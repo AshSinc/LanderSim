@@ -4,8 +4,7 @@
 #include "world_stats.h"
 #include <thread>
 #include "vk_renderer_base.h"
-//#include "imgui.h"
-//#include "imgui_impl_vulkan.h" //and vulkan
+#include <array>
 
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
@@ -15,8 +14,9 @@ void UiHandler::init(){
     p_imageView = packet.p_view;
     p_sampler = packet.p_sampler;
     imageLayout = packet.p_layout;
-   //p_sampler = r_mediator.renderer_getDstSampler();
-    //p_sampler = r_mediator.renderer_getDstSampler();
+
+    //create texture id's for imgui, for our optics images
+    textureID = ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout);
 }
 
 void UiHandler::cleanup(){
@@ -32,7 +32,7 @@ void UiHandler::drawUI(){
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
     
     if(showMainMenu)
         gui_ShowMainMenu();
@@ -61,6 +61,9 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     escMenuPanelSize =  ImVec2(width/6, height/4);
     escMenuPanelPos = ImVec2(escMenuPanelSize.x/2, escMenuPanelSize.y/2);
     statsPanelSize = ImVec2(width/8, height);
+    opticsWindowSize = ImVec2(width/6, height);
+    opticsWindowPos = ImVec2(width - opticsWindowSize.x, opticsWindowSize.y);
+
 }
 
 //toggles menu on and off, should be moved to a UI handler
@@ -77,17 +80,55 @@ void UiHandler::toggleMenu(){
 }
 
 void UiHandler::gui_ShowOptics(){
-    ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
-    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoSavedSettings;
+    ImGuiIO& io = ImGui::GetIO();
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoResize |
+     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
+    ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove;
+    
+    //ImGuiWindowFlags_NavFlattened
+    //ImGuiWindowFlags_NoScrollbar
+    //ImGuiWindowFlags_NoTitleBar
+
+    const float PAD = 5.0f;
+
+    ImVec2 imageSize{256, 256};
+
+    ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - (2*imageSize.x+(4*PAD)), 0), ImGuiCond_Always, ImVec2(0.0f,0.0f));
+    ImGui::GetStyle().WindowPadding = ImVec2(5,5);
+
+    ImGui::SetNextWindowSize(ImVec2((2*imageSize.x+(4*PAD)), io.DisplaySize.y), ImGuiCond_Always);
+
     if (ImGui::Begin("Optics", NULL, window_flags)){  
+        std::array<bool, 4> dstAvalability = r_mediator.renderer_getDstImageAvalability();
 
-        //need to check its ok to access dstImage?
+        auto wPos = ImGui::GetWindowPos();
+        auto wRegion =  ImGui::GetWindowContentRegionMin();
+        auto wSize = ImGui::GetWindowSize();
 
-        //why cant i use this :s 
-        //need to get cmake reading a copy of imgui_impl_vulkan.cpp and imgui_impl_vulkan.h
+        wPos.x += wRegion.x;
+        wPos.y += wRegion.y;
 
-        //ImGui::Image(ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout), ImVec2(512, 512));
+        for(int i = 0; i < 4; i++){
+            ImGui::GetWindowDrawList()->AddRectFilled({wPos.x, wPos.y}, { wPos.x + imageSize.x, wPos.y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRectFilled({wPos.x + imageSize.x+PAD, wPos.y}, { wPos.x+ imageSize.x+PAD + imageSize.x, wPos.y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
 
+            //should have a queue of 5, and not render the oldest, 
+            if(dstAvalability.at(i) == 1){
+                ImGui::Image(textureID, imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1)); 
+                ImGui::SameLine();
+                ImGui::Image(textureID, imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1));
+            }
+
+            ImGui::GetWindowDrawList()->AddRect({wPos.x, wPos.y}, { wPos.x + imageSize.x, wPos.y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRect({wPos.x + imageSize.x+PAD, wPos.y}, { wPos.x + imageSize.x+PAD + imageSize.x, wPos.y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+
+            wPos.y += imageSize.y+PAD;
+        }
+        
+        //for image in images
+        //if image1 available
+        
+        //if image1 not in use
     }
     ImGui::End();
 }

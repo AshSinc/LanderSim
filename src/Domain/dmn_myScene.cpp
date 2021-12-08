@@ -230,8 +230,8 @@ void MyScene::initLights(){
     sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
-    sceneLight.diffuse = glm::vec3(0.75f,0.75f,0.75f);
-    sceneLight.specular = glm::vec3(1.0f,1.0f,1.0f);
+    sceneLight.diffuse = glm::vec3(0.5f,0.5f,0.5f);
+    sceneLight.specular = glm::vec3(5.0f,5.0f,5.0f);
 
     /*WorldPointLightObject pointLight;
     pointLight.pos = glm::vec3(4005,0,-5);
