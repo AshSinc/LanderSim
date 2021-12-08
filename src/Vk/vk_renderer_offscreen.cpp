@@ -29,8 +29,16 @@ void Vk::OffscreenRenderer::init(){
     createOffscreenFramebuffer();
     createOffscreenCommandBuffer();
     createOffscreenSyncObjects();
-    
+    createSamplers();
     //createOffscreenImageBuffer();
+}
+
+void Vk::OffscreenRenderer::createSamplers(){
+    VkSamplerCreateInfo dstSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_TRUE, 16, 
+        VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
+    vkCreateSampler(device, &dstSamplerInfo, nullptr, &dstImageSampler);
+    _mainDeletionQueue.push_function([=](){vkDestroySampler(device, dstImageSampler, nullptr);});
+
 }
 
 //fences are used to synchronise cpu with gpu operations,
@@ -301,9 +309,12 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     //need to think about this to avoid access issues, and race conditions
     //VK_IMAGE_USAGE_TRANSFER_DST_BIT
     imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_R8_UNORM, VK_IMAGE_TILING_LINEAR, 
-                    VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
                     VMA_MEMORY_USAGE_CPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
+
+    dstImageView = imageHelper->createImageView(dstImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+    _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, dstImageView, nullptr);});
 
     //mapping this one image for now, perma mapped, unmapped in cleanup
     VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
@@ -673,6 +684,11 @@ void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
         
         lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;*/
     }
+}
+
+ImguiTexturePacket Vk::OffscreenRenderer::getDstTexturePacket(){
+    ImguiTexturePacket packet{&dstImageSampler, &dstImageView, VK_IMAGE_LAYOUT_GENERAL};
+    return packet;
 }
 
 void Vk::OffscreenRenderer::mapLightingDataToGPU(){

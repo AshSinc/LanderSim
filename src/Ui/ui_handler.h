@@ -1,10 +1,16 @@
 #pragma once
-#include <imgui.h> //basic gui library for drawing simple guis
-#include <imgui_impl_glfw.h> //backends for glfw
-#include <imgui_impl_vulkan.h> //and vulkan
-#include <imstb_rectpack.h>
-#include <imstb_textedit.h>
-#include <imstb_truetype.h>
+//#include <imgui.h> //basic gui library for drawing simple guis
+//#include <imgui_impl_glfw.h> //backends for glfw
+//#include <imgui_impl_vulkan.h> //and vulkan
+
+#include "imgui.h" //basic gui library for drawing simple guis
+#include "imgui_impl_vulkan.h" //and vulkan
+#include "imgui_impl_glfw.h" //backends for glfw
+
+
+#include "imstb_rectpack.h"
+#include "imstb_textedit.h"
+#include "imstb_truetype.h"
 #include <vector>
 #include <atomic>
 #include <string>
@@ -37,6 +43,10 @@ class UiHandler{
     const LandingSiteData_1 SCENARIO_1_LandingSiteData;
     const LandingSiteData_2 SCENARIO_2_LandingSiteData;
     //const ScenarioData_Scenario3 SCENARIO_3_LandingSiteData;
+
+    VkSampler* p_sampler;
+    VkImageView* p_imageView;
+    VkImageLayout imageLayout;
     
 
     void startBtnClicked();
@@ -48,6 +58,7 @@ class UiHandler{
     void gui_ShowMainMenu(); //holds configuration for main fullscreen menu
     void gui_ShowEscMenu(); //holds esc menu
     void gui_ShowLoading(); //holds configuration for main loading bar
+    void gui_ShowOptics();
     void calculateFrameRate();
     void loadDefaultSceneData();
     void scenarioBtnClicked(int i);
@@ -90,4 +101,5 @@ class UiHandler{
 
     UiHandler(GLFWwindow* window, Mediator& mediator);
     ~UiHandler();
+    void init();
 };

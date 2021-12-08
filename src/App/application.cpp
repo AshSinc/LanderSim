@@ -21,6 +21,7 @@ int Application::run(){
         mediator.setApplication(this);
 
         renderer.init(); //initialise render engine
+        uiHandler.init();
 
         //set glfw callbacks for input
         glfwSetWindowUserPointer(window, &uiInput);

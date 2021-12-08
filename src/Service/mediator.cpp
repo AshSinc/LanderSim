@@ -5,6 +5,7 @@
 #include "obj_landingSite.h"
 #include "obj_lander.h"
 
+
 //Scene Functions
 int Mediator::scene_getWorldObjectsCount(){
     return p_scene->getWorldObjectsCount();
@@ -146,6 +147,12 @@ void Mediator::renderer_flushTextures(){
 }
 void Mediator::renderer_setShouldDrawOffscreen(bool b){
     p_renderEngine->setShouldDrawOffscreen(b);
+}
+//VkImageView* Mediator::renderer_getDstImage(){
+//    return p_renderEngine->getDstImage();
+//}
+ImguiTexturePacket Mediator::renderer_getDstTexturePacket(){
+    return p_renderEngine->getDstTexturePacket();
 }
 
 //application functions

@@ -1,3 +1,5 @@
+set( IMGUI_DIR ../src/3rdParty/ImGuiPatch )
+
 file(GLOB SOURCES CONFIGURE_DEPENDS 
   ../src/App/**.cpp
   ../src/Domain/**.cpp
@@ -17,16 +19,23 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   ../src/Service/**.h
 
   **.cpp
+
+  ../src/3rdParty/ImGuiPatch/**.cpp
+  ../src/3rdParty/ImGuiPatch/**.h
 )
 
-include_directories(../src/App/ ../src/Ui ../src/Domain ../src/Domain/Objects ../src/Domain/Lander ../src/Domain/Data ../src/Vk ../src/Service)
+include_directories(../src/App/ ../src/Ui ../src/Domain ../src/Domain/Objects ../src/Domain/Lander ../src/Domain/Data ../src/Vk ../src/Service IMGUI_DIR)
 
 add_executable(UnitTestsLS ${SOURCES})
 
 find_package(tinyobjloader CONFIG REQUIRED)
 target_link_libraries(UnitTestsLS PRIVATE tinyobjloader::tinyobjloader)
-find_package(imgui CONFIG REQUIRED)
-target_link_libraries(UnitTestsLS PRIVATE imgui::imgui)
+
+#find_package(imgui CONFIG REQUIRED)
+#target_link_libraries(UnitTestsLS PRIVATE imgui::imgui)
+
+find_package(glfw3 CONFIG REQUIRED)
+target_link_libraries(UnitTestsLS PRIVATE glfw)
 
 find_package(Catch2 CONFIG REQUIRED)
 target_link_libraries(UnitTestsLS PRIVATE Catch2::Catch2)

@@ -10,6 +10,13 @@
 #include <vk_mem_alloc.h>
 #include <string>
 
+//struct for holding pointers to dst image in offscreen renderer, used by imgui for drawing optics
+struct ImguiTexturePacket{
+    VkSampler* p_sampler;
+    VkImageView* p_view;
+    VkImageLayout p_layout;
+};
+
 //struct for holding the point light data
 struct GPUPointLightData {
 	alignas(16) glm::vec3 position;

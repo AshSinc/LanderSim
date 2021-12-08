@@ -3,6 +3,9 @@
 //#include <glfw/vulkan>
 class GLFWwindow;
 class Mediator;
+//class VkImage;
+
+//#include "vk_types.h"
 
 namespace Vk{
 class OffscreenRenderer : public Renderer{
@@ -12,6 +15,7 @@ public:
     void drawFrame(); //draw a frame
     void setShouldDrawOffscreen(bool b);
     void cleanup();
+    ImguiTexturePacket getDstTexturePacket();
     
 private:
 
@@ -41,6 +45,7 @@ private:
     void createOffscreenCameraBuffer();
     void createOffscreenDescriptorSet();
     void createOffscreenSyncObjects();
+    void createSamplers();
 
     void updateSceneData(GPUCameraData& camData); //temp overridden for testing optical settings
 
@@ -61,6 +66,8 @@ private:
     VkImage offscreenImage;
     VkImageView offscreenImageView;
 
+    //VkImageView dstImageView;
+
     VkImage offscreenColourImage;
     VkImageView offscreenColourImageView;
     VmaAllocation offscreenColourImageAllocation;
@@ -71,6 +78,9 @@ private:
 
     VkImage dstImage;
     VmaAllocation dstImageAllocation;
+    VkImageView dstImageView;
+    VkSampler dstImageSampler;
+
     VkImage greyImage;
     VmaAllocation greyImageAllocation;
 

@@ -5,6 +5,10 @@
 #include <memory>
 #include <glm/vec3.hpp>
 
+#include <imgui_impl_vulkan.h> //and vulkan
+
+
+
 class WorldCamera;
 class UiHandler;
 class Application;
@@ -34,7 +38,11 @@ struct WorldStats;
 struct LandingSiteObj;
 struct LanderObj;
 
+struct ImguiTexturePacket;
+
 class IScene;
+
+//struct VkImage;
 
 class Mediator{
     private:
@@ -94,6 +102,8 @@ class Mediator{
         void renderer_resetScene();
         void renderer_flushTextures();
         void renderer_setShouldDrawOffscreen(bool b);
+        //VkImageView* renderer_getDstImage();
+        ImguiTexturePacket renderer_getDstTexturePacket();
         
         //Scene functions
         int scene_getWorldObjectsCount();

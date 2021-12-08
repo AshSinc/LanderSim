@@ -2,6 +2,8 @@ set(BulletExtrasPaths Service/BulletExtras/BulletFileLoader Service/BulletExtras
 
 #set( OpenCV_DIR "/home/ash/vcpkg/packages/opencv4_x64-linux/share/opencv" )
 
+set( IMGUI_DIR 3rdParty/ImGuiPatch )
+
 file(GLOB SOURCES CONFIGURE_DEPENDS 
   main.cpp
   App/**.cpp
@@ -14,6 +16,7 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   Service/**.cpp
   Service/BulletExtras/BulletFileLoader/**.cpp
   Service/BulletExtras/BulletWorldImporter/**.cpp
+  
 
   App/**.h
   Domain/**.h
@@ -25,17 +28,20 @@ file(GLOB SOURCES CONFIGURE_DEPENDS
   Service/**.h
   Service/BulletExtras/BulletFileLoader/**.h
   Service/BulletExtras/BulletWorldImporter/**.h
+
+  3rdParty/ImGuiPatch/**.cpp
+  3rdParty/ImGuiPatch/**.h
+
+  #/opt/imgui-vulkan/**.cpp
+  #/opt/imgui-vulkan/**.h
 )
 
-include_directories(App Ui Domain Domain/Objects Domain/Data Domain/Lander Vk Service BulletExtrasPaths)
+include_directories(App Ui Domain Domain/Objects Domain/Data Domain/Lander Vk Service BulletExtrasPaths 3rdParty/ImGuiPatch )
 
 add_executable(LSApp ${SOURCES})
 
 find_package(tinyobjloader CONFIG REQUIRED)
 target_link_libraries(LSApp PRIVATE tinyobjloader::tinyobjloader)
-
-find_package(imgui CONFIG REQUIRED)
-target_link_libraries(LSApp PRIVATE imgui::imgui)
 
 find_package(unofficial-vulkan-memory-allocator CONFIG REQUIRED)
 target_link_libraries(LSApp PRIVATE unofficial::vulkan-memory-allocator::vulkan-memory-allocator)
@@ -45,6 +51,16 @@ find_path(STB_INCLUDE_DIRS "stb.h")
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(LSApp PRIVATE Vulkan::Vulkan)
+
+#set(IMGUI_PATH  "/opt/imgui-vulkan/")
+# Compile as static library 
+#file(GLOB IMGUI_SOURCES ${IMGUI_PATH}/*.cpp) 
+#add_library("ImGui" STATIC ${IMGUI_SOURCES})
+#target_include_directories("ImGui" PRIVATE ${IMGUI_PATH})
+#target_link_libraries(LSApp PRIVATE IMGUI_DIR)
+
+find_package(glfw3 CONFIG REQUIRED)
+target_link_libraries(LSApp PRIVATE glfw)
 
 find_package(OpenCV REQUIRED)
 #target_include_directories(LSApp PRIVATE ${OpenCV_INCLUDE_DIRS}) # Not needed for CMake >= 2.8.11

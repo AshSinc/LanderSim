@@ -12,4 +12,4 @@ project(LanderS)
 add_subdirectory(src)
 
 #unit testing target
-add_subdirectory(unit_tests)
+#add_subdirectory(unit_tests)

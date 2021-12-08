@@ -4,8 +4,19 @@
 #include "world_stats.h"
 #include <thread>
 #include "vk_renderer_base.h"
+//#include "imgui.h"
+//#include "imgui_impl_vulkan.h" //and vulkan
 
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
+}
+
+void UiHandler::init(){
+    ImguiTexturePacket packet = r_mediator.renderer_getDstTexturePacket();
+    p_imageView = packet.p_view;
+    p_sampler = packet.p_sampler;
+    imageLayout = packet.p_layout;
+   //p_sampler = r_mediator.renderer_getDstSampler();
+    //p_sampler = r_mediator.renderer_getDstSampler();
 }
 
 void UiHandler::cleanup(){
@@ -21,7 +32,7 @@ void UiHandler::drawUI(){
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-   // ImGui::ShowDemoWindow();
+    ImGui::ShowDemoWindow();
     
     if(showMainMenu)
         gui_ShowMainMenu();
@@ -33,6 +44,8 @@ void UiHandler::drawUI(){
             gui_ShowOverlay();
             if(showEscMenu)
                 gui_ShowEscMenu();
+
+            gui_ShowOptics();
         }
     }
 
@@ -61,6 +74,22 @@ void UiHandler::toggleMenu(){
         showEscMenu = true;
     }
     r_mediator.physics_changeSimSpeed(0, true);
+}
+
+void UiHandler::gui_ShowOptics(){
+    ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
+    static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoSavedSettings;
+    if (ImGui::Begin("Optics", NULL, window_flags)){  
+
+        //need to check its ok to access dstImage?
+
+        //why cant i use this :s 
+        //need to get cmake reading a copy of imgui_impl_vulkan.cpp and imgui_impl_vulkan.h
+
+        //ImGui::Image(ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout), ImVec2(512, 512));
+
+    }
+    ImGui::End();
 }
 
 void UiHandler::gui_ShowOverlay(){
