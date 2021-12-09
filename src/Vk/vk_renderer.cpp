@@ -99,6 +99,9 @@ void Vk::Renderer::allocateDescriptorSetForTexture(std::string materialName, std
         setWrite.push_back(Vk::Structures::write_descriptorset(1, material->_multiTextureSets[0], 1, 
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, nullptr, &specImageInfo));
 
+        std::cout<< materialName << " mat name\n";
+         std::cout<< name << " name\n";
+
         queueSubmitMutex.lock();
         try{
             vkUpdateDescriptorSets(device,  setWrite.size(), setWrite.data(), 0, nullptr);

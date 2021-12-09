@@ -4,7 +4,7 @@
 class GLFWwindow;
 class Mediator;
 //class VkImage;
-
+#include "opencv2/opencv.hpp"
 //#include "vk_types.h"
 #include <array>
 
@@ -12,17 +12,46 @@ namespace Vk{
 class OffscreenRenderer : public Renderer{
 public:
     OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator);
+
     void init() override;
     void drawFrame(); //draw a frame
     void setShouldDrawOffscreen(bool b);
     void cleanup();
-    ImguiTexturePacket getDstTexturePacket();
+    
+    std::vector<ImguiTexturePacket>& getDstTexturePackets();
 
-    std::array<bool, 4> getDstImageAvalability();
+    std::deque<int> getImguiTextureSetIndicesQueue(){return imguiTextureSetIndicesQueue;};
+
+    std::deque<int> getImguiDetectionIndicesQueue(){return imguiDetectionIndicesQueue;};
+
+    cv::Mat popCvMatQueue(){
+        cv::Mat retMat = cvMatQueue.front();
+        cvMatQueue.pop_front(); 
+        return retMat;
+    };
+
+    bool cvMatQueueEmpty(){return cvMatQueue.empty();};
+
+    void assignMatToImageView(cv::Mat image);
 
 private:
 
-    std::array<bool, 4> dstImageAvailablility = {false,false,false,false};
+    int NUM_TEXTURE_SETS = 4; //4 sets
+    int NUM_TEXTURES_IN_SET = 2; //2 images in each set
+
+    std::vector<ImguiTexturePacket> imguiTexturePackets;
+    
+    std::deque<int> imguiTextureSetIndicesQueue;
+
+    std::deque<int> imguiDetectionIndicesQueue;
+
+    std::vector<Texture> opticsTextures;
+
+    std::vector<Texture> detectionTextures;
+
+    std::deque<cv::Mat> cvMatQueue;
+
+    int opticsFrameCounter = NUM_TEXTURE_SETS-1; //start at max, instantly go to zero at start of copying, allows syncing
 
     void convertOffscreenImage();
 
@@ -37,7 +66,7 @@ private:
     const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
 
     const char* mappedData;
-    //uint32_t rowPitch;
+    std::vector<const char*> detectionImageMappings;
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();
@@ -90,9 +119,6 @@ private:
     VkImageView greyRGBImageView;
     VkSampler greyRGBImageSampler;
 
-    //VkImage dstOptImage;
-   // VmaAllocation dstOptImageAllocation;
-
     VmaAllocation offscreenImageAllocation;
     VkCommandBuffer offscreenCommandBuffer;
     VkCommandPool offscreenCommandPool;
@@ -107,12 +133,6 @@ private:
 
     VkBuffer os_objectBuffer;
     VmaAllocation os_objectBufferAlloc;
-
-    //GPUSceneData os_sceneParameters;
-    //GPUPointLightData os_pointLightParameters[MAX_LIGHTS]; //GPU light data array thats uploaded via uniform buffer for shader referencing via push constant
-    //GPUSpotLightData os_spotLightParameters[MAX_LIGHTS];
-    //GPULightVPData os_lightVPParameters[MAX_LIGHTS]; //GPU view projection array for rendering scene from lights perspective for generating shadowmaps
-
 
     VkDescriptorSet offscreenDescriptorSet;
     VkDescriptorSetLayout offscreenGlobalSetLayout;
@@ -130,6 +150,5 @@ private:
 
     void populateLanderCameraData(GPUCameraData& camData);
    
-    
     };
 }

@@ -23,7 +23,7 @@ namespace Lander{
 
     void init(Mediator* mediator);
 
-    void processImage();
+    void processImage(cv::Mat image);
 
     };
 }

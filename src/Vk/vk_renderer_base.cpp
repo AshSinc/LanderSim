@@ -1043,9 +1043,9 @@ void Vk::RendererBase::createDescriptorPool(){
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 20},
         {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 10},
         {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 10}
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 20}
     };
-    VkDescriptorPoolCreateInfo poolInfo = Vk::Structures::descriptor_pool_create_info(poolSizes, 30);
+    VkDescriptorPoolCreateInfo poolInfo = Vk::Structures::descriptor_pool_create_info(poolSizes, 40);
     //now we can create the descriptor pool and store in the member variable descriptorPool
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &descriptorPool) != VK_SUCCESS) {
         throw std::runtime_error("failed to create descriptor pool");

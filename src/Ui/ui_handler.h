@@ -1,16 +1,12 @@
 #pragma once
-//#include <imgui.h> //basic gui library for drawing simple guis
-//#include <imgui_impl_glfw.h> //backends for glfw
-//#include <imgui_impl_vulkan.h> //and vulkan
 
 #include "imgui.h" //basic gui library for drawing simple guis
 #include "imgui_impl_vulkan.h" //and vulkan
 #include "imgui_impl_glfw.h" //backends for glfw
-
-
 #include "imstb_rectpack.h"
 #include "imstb_textedit.h"
 #include "imstb_truetype.h"
+
 #include <vector>
 #include <atomic>
 #include <string>
@@ -44,10 +40,8 @@ class UiHandler{
     const LandingSiteData_2 SCENARIO_2_LandingSiteData;
     //const ScenarioData_Scenario3 SCENARIO_3_LandingSiteData;
 
-    VkSampler* p_sampler;
-    VkImageView* p_imageView;
-    VkImageLayout imageLayout;
-    
+    std::vector<ImTextureID> opticsTextures;
+    std::vector<ImTextureID> detectionTextures;
 
     void startBtnClicked();
     void resetBtnClicked();
@@ -70,7 +64,6 @@ class UiHandler{
     ImVec2 escMenuPanelPos;
     ImVec2 opticsWindowSize;
     ImVec2 opticsWindowPos;
-    ImTextureID textureID;
 
     std::atomic<bool> showEscMenu = false;
     std::atomic<bool> showMainMenu = true;

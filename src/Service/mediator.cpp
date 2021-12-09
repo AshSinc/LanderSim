@@ -148,15 +148,26 @@ void Mediator::renderer_flushTextures(){
 void Mediator::renderer_setShouldDrawOffscreen(bool b){
     p_renderEngine->setShouldDrawOffscreen(b);
 }
-//VkImageView* Mediator::renderer_getDstImage(){
-//    return p_renderEngine->getDstImage();
-//}
-ImguiTexturePacket Mediator::renderer_getDstTexturePacket(){
-    return p_renderEngine->getDstTexturePacket();
+
+std::vector<ImguiTexturePacket>& Mediator::renderer_getDstTexturePackets(){
+    return p_renderEngine->getDstTexturePackets();
 }
-std::array<bool, 4> Mediator::renderer_getDstImageAvalability(){
-    return p_renderEngine->getDstImageAvalability();
+
+std::deque<int> Mediator::renderer_getImguiTextureSetIndicesQueue(){
+    return p_renderEngine->getImguiTextureSetIndicesQueue();
+}
+std::deque<int> Mediator::renderer_getImguiDetectionIndicesQueue(){
+    return p_renderEngine->getImguiDetectionIndicesQueue();
 };
+cv::Mat Mediator::renderer_popCvMatQueue(){
+    return p_renderEngine->popCvMatQueue();
+}
+bool Mediator::renderer_cvMatQueueEmpty(){
+    return p_renderEngine->cvMatQueueEmpty();
+}
+ void Mediator::renderer_assignMatToImageView(cv::Mat image){
+     return p_renderEngine->assignMatToImageView(image);
+ }
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

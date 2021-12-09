@@ -8,6 +8,9 @@
 #include <imgui_impl_vulkan.h> //and vulkan
 
 #include <array>
+#include <deque>
+
+#include "opencv2/opencv.hpp"
 
 class WorldCamera;
 class UiHandler;
@@ -102,9 +105,12 @@ class Mediator{
         void renderer_resetScene();
         void renderer_flushTextures();
         void renderer_setShouldDrawOffscreen(bool b);
-        //VkImageView* renderer_getDstImage();
-        ImguiTexturePacket renderer_getDstTexturePacket();
-        std::array<bool, 4> renderer_getDstImageAvalability();
+        std::vector<ImguiTexturePacket>& renderer_getDstTexturePackets();
+        std::deque<int> renderer_getImguiTextureSetIndicesQueue();
+        std::deque<int> renderer_getImguiDetectionIndicesQueue();
+        cv::Mat renderer_popCvMatQueue();
+        bool renderer_cvMatQueueEmpty();
+        void renderer_assignMatToImageView(cv::Mat image);
         
         //Scene functions
         int scene_getWorldObjectsCount();

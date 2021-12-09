@@ -10,13 +10,32 @@ UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window},
 }
 
 void UiHandler::init(){
-    ImguiTexturePacket packet = r_mediator.renderer_getDstTexturePacket();
-    p_imageView = packet.p_view;
-    p_sampler = packet.p_sampler;
-    imageLayout = packet.p_layout;
+    int NUM_TEXTURE_SETS = 4;
+    int NUM_TEXTURES_IN_SET = 2;
+
+    std::vector<ImguiTexturePacket>& texturePackets = r_mediator.renderer_getDstTexturePackets();
+
+    opticsTextures.resize(NUM_TEXTURE_SETS);
+    detectionTextures.resize(NUM_TEXTURE_SETS);
+    
+    for(int i = 0; i < NUM_TEXTURE_SETS; i++){
+        int ind = i;// * NUM_TEXTURES_IN_SET;
+        opticsTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
+        //detectionTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind+1].p_sampler, *texturePackets[ind+1].p_view, texturePackets[ind+1].p_layout);
+    }
+
+    for(int i = 0; i < NUM_TEXTURE_SETS; i++){
+        int ind = i + 4;//NUM_TEXTURES_IN_SET;
+        detectionTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
+    }
+
+    //for(ImguiTexturePacket p : texturePackets){
+    //    opticsTextures.push_back(ImGui_ImplVulkan_AddTexture(*p.p_sampler, *p.p_view, p.p_layout));
+    //}
 
     //create texture id's for imgui, for our optics images
-    textureID = ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout);
+    
+    //textureID = ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout);
 }
 
 void UiHandler::cleanup(){
@@ -63,7 +82,6 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     statsPanelSize = ImVec2(width/8, height);
     opticsWindowSize = ImVec2(width/6, height);
     opticsWindowPos = ImVec2(width - opticsWindowSize.x, opticsWindowSize.y);
-
 }
 
 //toggles menu on and off, should be moved to a UI handler
@@ -98,8 +116,10 @@ void UiHandler::gui_ShowOptics(){
 
     ImGui::SetNextWindowSize(ImVec2((2*imageSize.x+(4*PAD)), io.DisplaySize.y), ImGuiCond_Always);
 
+    std::deque<int> textureSetIndicesQueue = r_mediator.renderer_getImguiTextureSetIndicesQueue();
+    std::deque<int> detectionIndicesQueue = r_mediator.renderer_getImguiDetectionIndicesQueue();
+
     if (ImGui::Begin("Optics", NULL, window_flags)){  
-        std::array<bool, 4> dstAvalability = r_mediator.renderer_getDstImageAvalability();
 
         auto wPos = ImGui::GetWindowPos();
         auto wRegion =  ImGui::GetWindowContentRegionMin();
@@ -108,27 +128,30 @@ void UiHandler::gui_ShowOptics(){
         wPos.x += wRegion.x;
         wPos.y += wRegion.y;
 
-        for(int i = 0; i < 4; i++){
-            ImGui::GetWindowDrawList()->AddRectFilled({wPos.x, wPos.y}, { wPos.x + imageSize.x, wPos.y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
-            ImGui::GetWindowDrawList()->AddRectFilled({wPos.x + imageSize.x+PAD, wPos.y}, { wPos.x+ imageSize.x+PAD + imageSize.x, wPos.y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
+        float y = wPos.y;
+        float x = wPos.x;
 
-            //should have a queue of 5, and not render the oldest, 
-            if(dstAvalability.at(i) == 1){
-                ImGui::Image(textureID, imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1)); 
-                ImGui::SameLine();
-                ImGui::Image(textureID, imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1));
-            }
+        float secondColumnX = wPos.x + imageSize.x+PAD;
+        
+        for(int q = 0; q < textureSetIndicesQueue.size(); q++){
+            int i = textureSetIndicesQueue[q];
 
-            ImGui::GetWindowDrawList()->AddRect({wPos.x, wPos.y}, { wPos.x + imageSize.x, wPos.y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
-            ImGui::GetWindowDrawList()->AddRect({wPos.x + imageSize.x+PAD, wPos.y}, { wPos.x + imageSize.x+PAD + imageSize.x, wPos.y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            int d = -1;
+            if(q < detectionIndicesQueue.size())
+                d = detectionIndicesQueue[q];
+            
+            ImGui::GetWindowDrawList()->AddRectFilled({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
+            ImGui::Image(opticsTextures.at(i), imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1)); 
+            ImGui::SameLine();
+            ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
 
-            wPos.y += imageSize.y+PAD;
+            ImGui::GetWindowDrawList()->AddRectFilled({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
+            if(d != -1)
+                ImGui::Image(detectionTextures.at(d), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            
+            y += imageSize.y+PAD;
         }
-        
-        //for image in images
-        //if image1 available
-        
-        //if image1 not in use
     }
     ImGui::End();
 }

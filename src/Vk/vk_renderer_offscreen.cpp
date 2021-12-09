@@ -11,16 +11,29 @@
 
 #include "vk_pipeline.h"
 
-#include "opencv2/opencv.hpp"
+
 
 Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator)
     : Renderer(windowptr, mediator){}
 
 void Vk::OffscreenRenderer::init(){
     Vk::Renderer::init();
-    createOffscreenColourResources();
     
+    //resize structures holding images, pointers to mapped memory, indices for ordering and availability... complicated
+    //basically coordinates writing/reading from offscreen renderer, lander opencv component, and ImGUI
+    opticsTextures.resize(NUM_TEXTURE_SETS);
+    detectionTextures.resize(NUM_TEXTURE_SETS);
+
+    imguiTextureSetIndicesQueue.resize(0);
+    imguiDetectionIndicesQueue.resize(0);
+    cvMatQueue.resize(0);
+   
+    imguiTexturePackets.resize(NUM_TEXTURE_SETS*NUM_TEXTURES_IN_SET);
+    detectionImageMappings.resize(NUM_TEXTURE_SETS);
+
+    createOffscreenColourResources();
     createOffscreenDepthResources();
+    createSamplers();
     createOffscreenImageAndView();
     createOffscreenImageBuffer();
     createOffscreenCameraBuffer();
@@ -29,10 +42,9 @@ void Vk::OffscreenRenderer::init(){
     createOffscreenFramebuffer();
     createOffscreenCommandBuffer();
     createOffscreenSyncObjects();
-    createSamplers();
-    //createOffscreenImageBuffer();
 }
 
+//this sampler will be used by the patched version of ImGUI to draw the image
 void Vk::OffscreenRenderer::createSamplers(){
     VkSamplerCreateInfo dstSamplerInfo = Vk::Structures::sampler_create_info(VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE, VK_FALSE, 16, 
         VK_BORDER_COLOR_INT_OPAQUE_BLACK, VK_FALSE, VK_COMPARE_OP_ALWAYS, VK_SAMPLER_MIPMAP_MODE_LINEAR, 0.0f, 0.0f, 1); //just 1 for now, 
@@ -235,8 +247,6 @@ void Vk::OffscreenRenderer::createOffscreenImageBuffer(){
 //we will create colour resources here, this is used for MSAA and creates a single colour image that can be drawn to for calculating msaa 
 void Vk::OffscreenRenderer::createOffscreenColourResources(){
     VkFormat colorFormat = swapChainImageFormat;
-    //VkFormat colorFormat = VK_FORMAT_B;
-    //VkFormat colorFormat = VK_FORMAT_R8_UNORM;
 
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, msaaSamples, (VkImageCreateFlagBits)0, colorFormat, VK_IMAGE_TILING_OPTIMAL,
         VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, offscreenColourImage,
@@ -297,45 +307,77 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     //VkFormat imageFormat = VK_FORMAT_R8_UNORM;
     VkFormat imageFormat = swapChainImageFormat;
 
+    //used as target for main offscreen rendering pass
     imageHelper->createImage(RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, imageFormat, VK_IMAGE_TILING_OPTIMAL, 
                     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, offscreenImage, offscreenImageAllocation, VMA_MEMORY_USAGE_GPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, offscreenImage, offscreenImageAllocation);});
-
     offscreenImageView = imageHelper->createImageView(offscreenImage, VK_IMAGE_VIEW_TYPE_2D, imageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
     _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, offscreenImageView, nullptr);});
-//VK_FORMAT_R8G8B8A8_UNORM
 
+    //copy image used as a crop to reduce RENDERED_IMAGE_WIDTH to OUTPUT_IMAGE_WH
     imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, 
                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, cropImage, cropImageAllocation, 
                     VMA_MEMORY_USAGE_GPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, cropImage, cropImageAllocation);});
 
-
-//VK_FORMAT_R8G8B8A8_UNORM
+    //blit image from cropImage VK_FORMAT_B8G8R8A8_SRGB to this VK_FORMAT_B8G8R8A8_UNORM format
+    //this will be passed to Imgui for drawing as a texture
     imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyRGBImage, greyRGBImageAllocation, 
+                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, greyRGBImage, greyRGBImageAllocation, 
                     VMA_MEMORY_USAGE_GPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, greyRGBImage, greyRGBImageAllocation);});
 
-    greyRGBImageView = imageHelper->createImageView(greyRGBImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
-    _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, greyRGBImageView, nullptr);});
-
-    /*imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
-                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstOptImage, dstOptImageAllocation, 
+    
+    for(int i = 0; i < opticsTextures.size(); i++){
+        //create textures and views for optics, for use in imgui
+        imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_OPTIMAL, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, opticsTextures[i].image, opticsTextures[i].alloc, 
                     VMA_MEMORY_USAGE_GPU_ONLY);
-    _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstOptImage, dstOptImageAllocation);});*/
+        _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, opticsTextures[i].image, opticsTextures[i].alloc);});
+
+        opticsTextures[i].imageView = imageHelper->createImageView(opticsTextures[i].image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+        _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, opticsTextures[i].imageView, nullptr);});
+
+
+        //create textures and views for detection, for use in imgui
+        imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, detectionTextures[i].image, detectionTextures[i].alloc, 
+                    VMA_MEMORY_USAGE_CPU_ONLY);
+        _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, detectionTextures[i].image, detectionTextures[i].alloc);});
+
+        detectionTextures[i].imageView = imageHelper->createImageView(detectionTextures[i].image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+        _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, detectionTextures[i].imageView, nullptr);});
+
+        //mapping the detection images memory
+        VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+        VkSubresourceLayout subResourceLayout;
+        vkGetImageSubresourceLayout(device, detectionTextures[i].image, &subResource, &subResourceLayout);
+        vmaMapMemory(allocator, detectionTextures[i].alloc, (void**)&detectionImageMappings[i]);
+        detectionImageMappings[i] += subResourceLayout.offset;
+    
+    }
+
+    for(int i = 0; i < opticsTextures.size(); i++){
+        imguiTexturePackets[i].p_layout = VK_IMAGE_LAYOUT_GENERAL; //will be general after transition
+        imguiTexturePackets[i].p_view = &opticsTextures[i].imageView; //will be general after transition
+        imguiTexturePackets[i].p_sampler = &greyRGBImageSampler;
+    }
+
+    for(int i = 0; i < opticsTextures.size(); i++){
+        int ind = i + 4;
+        //offset into imguiTexturePackets by size of previous loop
+        imguiTexturePackets[ind].p_layout = VK_IMAGE_LAYOUT_GENERAL; //will be general after transition
+        imguiTexturePackets[ind].p_view = &detectionTextures[i].imageView; //will be general after transition
+        imguiTexturePackets[ind].p_sampler = &greyRGBImageSampler;
+    }
 
     //we should loop through and create 6? destination VkImages
     //we would need to track which has been rendered and processed by lander
     //need to think about this to avoid access issues, and race conditions
-    //VK_IMAGE_USAGE_TRANSFER_DST_BIT
     imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
                     VMA_MEMORY_USAGE_CPU_ONLY);
     _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, dstImage, dstImageAllocation);});
-
-    //dstImageView = imageHelper->createImageView(dstImage, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_R8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
-    //_swapDeletionQueue.push_function([=](){vkDestroyImageView(device, dstImageView, nullptr);});
 
     //mapping this one image for now, perma mapped, unmapped in cleanup
     VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
@@ -343,7 +385,9 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
     vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
     mappedData += subResourceLayout.offset;
-    //rowPitch = subResourceLayout.rowPitch; //store row pitch value as well, its 2048 (512*4 channels)
+
+
+    
 }
 
 void Vk::OffscreenRenderer::createOffscreenRenderPass(){
@@ -420,11 +464,9 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
 //take the last VKImage output by offscreen pass, convert it to linear format so we can read it
 //adapted from Sascha Willems example screenshot example
 void Vk::OffscreenRenderer::convertOffscreenImage(){
-
-    std::scoped_lock<std::mutex> lock(copyLock);
-
-    dstImageAvailablility[0] = false;
-
+    opticsFrameCounter = (opticsFrameCounter + 1) % NUM_TEXTURE_SETS;
+    std::cout << opticsFrameCounter << " optics frame counter\n";
+        
     VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
     cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     cmdBufAllocateInfo.commandPool = offscreenCommandPool;
@@ -433,14 +475,12 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     VkCommandBuffer cmdBuffer;
     vkAllocateCommandBuffers(device, &cmdBufAllocateInfo, &cmdBuffer);
-    // If requested, also start recording for the new command buffer
     VkCommandBufferBeginInfo cmdBufInfo = Vk::Structures::command_buffer_begin_info(0);
     vkBeginCommandBuffer(cmdBuffer, &cmdBufInfo);
 
-    //VkImage transitionImage;
+    std::scoped_lock<std::mutex> lock(copyLock);
 
     //prepare grey transition image
-
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         cropImage,
@@ -510,7 +550,8 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     vkCmdBlitImage(
         cmdBuffer,
         cropImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        greyRGBImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        greyRGBImage,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &imageBlitRegion, 
         VK_FILTER_NEAREST);
@@ -520,13 +561,15 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         greyRGBImage,
         0,
         VK_ACCESS_TRANSFER_WRITE_BIT,
-        //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
+    //remove last from the queue, this emans we wont render it during copy
+    if(imguiTextureSetIndicesQueue.size() >= NUM_TEXTURE_SETS)
+        imguiTextureSetIndicesQueue.pop_back();
 
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
@@ -552,12 +595,46 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     // Issue the copy command
     vkCmdCopyImage(
         cmdBuffer,
-        greyRGBImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        greyRGBImage, //opticsTextures[opticsFrameCounter].image, //greyRGBImage, 
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
         dstImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
         1,
         &imageCopyRegion);
 
-   
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        opticsTextures[opticsFrameCounter].image,//opticsTextures[opticsFrameCounter].image, //greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    // Issue the copy command
+    vkCmdCopyImage(
+        cmdBuffer,
+        greyRGBImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        opticsTextures[opticsFrameCounter].image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        1,
+        &imageCopyRegion);
+
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        opticsTextures[opticsFrameCounter].image, //greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
+    //gui image is now ready to show again
+    imguiTextureSetIndicesQueue.push_front(opticsFrameCounter);
+    //this is only for the optics texture though, might have to make 2 of these indices queues?
+
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
         dstImage,
@@ -568,45 +645,33 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
-        
+
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
-        greyRGBImage,
+        detectionTextures[opticsFrameCounter].image, //greyRGBImage,
         0,
         VK_ACCESS_TRANSFER_WRITE_BIT,
-        //VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-    flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);
-
-    //dstImage now holds BGR unsigned linear data
-    //we should probably store these in a vector or queue, deque is probably best?
-    //if we store these in a queue we could then potentially run through each item in queue in ImGui and render to screen?
-
-    //from here we write to file, the idea being that we then read from file and load into OpenCV
-    //but OpenCV can read from buffers, so maybe we only need to store the image in queue as above
-    //then maybe we can just map the memory and pass to OpenCV as a buffer? dunno if that would work
-
-    //what i need to do is get OpenCV working first, then test how loading from a buffer works
-
-    //if we DO have to write to file, then we still need some sort of queue where we can point to files conserving order
+    flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);    
 
     cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)mappedData, cv::Mat::AUTO_STEP);
-    cv::imwrite("mat.jpg", wrappedMat);
+    cvMatQueue.push_back(wrappedMat);
+}
 
-    //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
-    //cv::imwrite("mat.jpg", wrappedMat);
+void Vk::OffscreenRenderer::assignMatToImageView(cv::Mat image){
+    if(imguiDetectionIndicesQueue.size() >= NUM_TEXTURE_SETS)
+        imguiDetectionIndicesQueue.pop_back();
 
-    //cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC1, (void*)mappedData, cv::Mat::AUTO_STEP);
-    //cv::Mat increaseContrast;
-   // wrappedMat.convertTo(increaseContrast, -1, 2.0, 0);
-    //cv::imwrite("brghtmat.jpg", increaseContrast);
+    size_t sizeInBytes = image.step[0] * image.rows;
+    std::cout << sizeInBytes << " bytes \n";
+    memcpy((void*)detectionImageMappings[opticsFrameCounter], image.data, sizeInBytes);
 
-    dstImageAvailablility[0] = true;
+    imguiDetectionIndicesQueue.push_front(opticsFrameCounter);
 }
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
@@ -765,15 +830,14 @@ void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
     }
 }
 
-ImguiTexturePacket Vk::OffscreenRenderer::getDstTexturePacket(){
-    ImguiTexturePacket packet{&greyRGBImageSampler, &greyRGBImageView, VK_IMAGE_LAYOUT_GENERAL}; //VK_IMAGE_LAYOUT_GENERAL};
-    return packet;
+std::vector<ImguiTexturePacket>& Vk::OffscreenRenderer::getDstTexturePackets(){
+    return imguiTexturePackets;
 }
 
- std::array<bool, 4> Vk::OffscreenRenderer::getDstImageAvalability(){
+ //std::array<bool, 4> Vk::OffscreenRenderer::getDstImageAvalability(){
     //std::scoped_lock<std::mutex> lock(copyLock);
-    return dstImageAvailablility;
-}
+    //return dstImageAvailablility;
+//}
 
 void Vk::OffscreenRenderer::mapLightingDataToGPU(){
     //for(int i = 0; i < swapChainImages.size(); i++){
@@ -887,8 +951,6 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 
         vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
-    //uint32_t scene_uniform_offset = pad_uniform_buffer_size(sizeof(GPUSceneData)) * 0;
-    //vkCmdBindDescriptorSets(_frames[curFrame]._mainCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _skyboxPipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset);
 }
 
 void Vk::OffscreenRenderer::cleanup(){

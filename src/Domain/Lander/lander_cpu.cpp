@@ -26,9 +26,13 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
+    //check if an image is ready to process from optical camera
+    if(!p_mediator->renderer_cvMatQueueEmpty()){
+        cv.processImage(p_mediator->renderer_popCvMatQueue());
+    }
+
     //setting to landing site rotation isnt right, 
     //need to construct new matrix that faces the landing site,
-
     if(reactionWheelEnabled){
         //setRotation(); //we are cheating and locking rotation to landing s
         //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
