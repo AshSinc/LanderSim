@@ -6,12 +6,15 @@
 #include "vk_renderer_base.h"
 #include <array>
 
+int NUM_TEXTURE_SETS = 2;
+int NUM_TEXTURES_IN_SET = 2;
+
+
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
 
 void UiHandler::init(){
-    int NUM_TEXTURE_SETS = 4;
-    int NUM_TEXTURES_IN_SET = 2;
+    
 
     std::vector<ImguiTexturePacket>& texturePackets = r_mediator.renderer_getDstTexturePackets();
 
@@ -131,26 +134,50 @@ void UiHandler::gui_ShowOptics(){
         float y = wPos.y;
         float x = wPos.x;
 
-        float secondColumnX = wPos.x + imageSize.x+PAD;
-        
-        for(int q = 0; q < textureSetIndicesQueue.size(); q++){
+        float secondRowY = wPos.y + imageSize.y + PAD;
+        float secondColumnX = wPos.x + imageSize.x + PAD;
+
+        //draw like images in columns, optics on left and detection on right
+        /*for(int q = 0; q < textureSetIndicesQueue.size(); q++){
             int i = textureSetIndicesQueue[q];
 
             int d = -1;
             if(q < detectionIndicesQueue.size())
                 d = detectionIndicesQueue[q];
             
-            ImGui::GetWindowDrawList()->AddRectFilled({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
             ImGui::Image(opticsTextures.at(i), imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1)); 
             ImGui::SameLine();
             ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
 
-            ImGui::GetWindowDrawList()->AddRectFilled({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(0.f, 0.f, 0.f, 1.f));
             if(d != -1)
                 ImGui::Image(detectionTextures.at(d), imageSize);
             ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
             
             y += imageSize.y+PAD;
+        }*/
+
+        //draw like images in rows, optics top row detection second row, onlw words for texture sets of size 2 atm
+        if(textureSetIndicesQueue.size()>0){
+            int q = textureSetIndicesQueue[0];
+            ImGui::Image(opticsTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+        }
+        if(textureSetIndicesQueue.size()>1){
+            int q = textureSetIndicesQueue[1];
+            ImGui::SameLine();
+            ImGui::Image(opticsTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+        }
+        if(detectionIndicesQueue.size()>0){
+            int q = detectionIndicesQueue[0];
+            ImGui::Image(detectionTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+        }
+        if(detectionIndicesQueue.size()>1){
+            int q = detectionIndicesQueue[1];
+            ImGui::SameLine();
+            ImGui::Image(detectionTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
         }
     }
     ImGui::End();

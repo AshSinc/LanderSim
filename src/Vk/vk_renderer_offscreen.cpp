@@ -383,8 +383,8 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
     VkSubresourceLayout subResourceLayout;
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
-    vmaMapMemory(allocator, dstImageAllocation, (void**)&mappedData);
-    mappedData += subResourceLayout.offset;
+    vmaMapMemory(allocator, dstImageAllocation, (void**)&dstImageMappedData);
+    dstImageMappedData += subResourceLayout.offset;
 
 
     
@@ -465,7 +465,6 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
 //adapted from Sascha Willems example screenshot example
 void Vk::OffscreenRenderer::convertOffscreenImage(){
     opticsFrameCounter = (opticsFrameCounter + 1) % NUM_TEXTURE_SETS;
-    std::cout << opticsFrameCounter << " optics frame counter\n";
         
     VkCommandBufferAllocateInfo cmdBufAllocateInfo{};
     cmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -659,7 +658,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);    
 
-    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)mappedData, cv::Mat::AUTO_STEP);
+    cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)dstImageMappedData, cv::Mat::AUTO_STEP);
     cvMatQueue.push_back(wrappedMat);
 }
 
@@ -668,7 +667,7 @@ void Vk::OffscreenRenderer::assignMatToImageView(cv::Mat image){
         imguiDetectionIndicesQueue.pop_back();
 
     size_t sizeInBytes = image.step[0] * image.rows;
-    std::cout << sizeInBytes << " bytes \n";
+    //std::cout << sizeInBytes << " bytes \n";
     memcpy((void*)detectionImageMappings[opticsFrameCounter], image.data, sizeInBytes);
 
     imguiDetectionIndicesQueue.push_front(opticsFrameCounter);
@@ -767,22 +766,15 @@ void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
     }
 }
 
-//ISSUE - Lighting inconsistencies
-//need our own scene data and light data structs and buffers for offscreen rendering
-
 //temp overridden for testing optical settings, actually easier to change scene lighting than camera sensitivity
 void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
     glm::vec3 lightDir = glm::vec3(camData.view * glm::vec4(p_sceneLight->pos, 0));
-    std::cout<< glm::to_string(lightDir) << "\n";
     _sceneParameters.lightDirection = glm::vec4(lightDir, 0);
-    //os_sceneParameters.lightDirection = glm::vec4(p_sceneLight->pos, 0);
-    //_sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.05f,0.05f,0.05f), 1);
-    //_sceneParameters.lightDiffuse = glm::vec4(glm::vec3(10.0f,10.0f,10.0f), 1);
-    //_sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.01f,0.01f,0.01f), 1); //<-- this is good for in engine
-    _sceneParameters.lightAmbient = glm::vec4(glm::vec3(0.005f,0.005f,0.005f), 1); //<-- this is good for in engine
-    _sceneParameters.lightDiffuse = glm::vec4(glm::vec3(0.5f,0.5f,0.5f), 1);
-    _sceneParameters.lightSpecular = glm::vec4(glm::vec3(5.0f,5.0f,5.0f), 1);
+    _sceneParameters.lightAmbient = LANDER_OPTICS_AMBIENT;
+    _sceneParameters.lightDiffuse = LANDER_OPTICS_DIFFUSE;
+    _sceneParameters.lightSpecular = LANDER_OPTICS_SPECULAR;
     //_sceneParameters.lightSpecular = glm::vec4(p_sceneLight->specular, 1);
+
     // Compute the MVP matrix from the light's point of view, ortho projection, need to adjust values
     glm::mat4 projectionMatrix = glm::ortho<float>(-1000,1000,-1000,1000,-1000,1000);
     glm::mat4 viewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
@@ -793,9 +785,6 @@ void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
 
 //point lights and spotlights
 void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
-
-    std::cout << "here\n";
-
     for(int i = 0; i < p_pointLights->size(); i++){
         _pointLightParameters[i].position = glm::vec3(camData.view * glm::vec4(p_pointLights->at(i).pos, 1));
         _pointLightParameters[i].diffuse = p_pointLights->at(i).diffuse;
@@ -833,11 +822,6 @@ void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
 std::vector<ImguiTexturePacket>& Vk::OffscreenRenderer::getDstTexturePackets(){
     return imguiTexturePackets;
 }
-
- //std::array<bool, 4> Vk::OffscreenRenderer::getDstImageAvalability(){
-    //std::scoped_lock<std::mutex> lock(copyLock);
-    //return dstImageAvailablility;
-//}
 
 void Vk::OffscreenRenderer::mapLightingDataToGPU(){
     //for(int i = 0; i < swapChainImages.size(); i++){

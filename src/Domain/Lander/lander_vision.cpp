@@ -16,7 +16,7 @@ void Vision::processImage(cv::Mat optics){
 
     //cv::Mat image;
     //processing
-    optics.convertTo(optics, -1, 2.0, 0.25f);
+    optics.convertTo(optics, -1, 2.0, 0.0f);
 
 
     //detecting

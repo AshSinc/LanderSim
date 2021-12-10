@@ -1,12 +1,10 @@
 #pragma once
 #include "vk_renderer.h"
-//#include <glfw/vulkan>
+#include "opencv2/opencv.hpp"
+#include <array>
+
 class GLFWwindow;
 class Mediator;
-//class VkImage;
-#include "opencv2/opencv.hpp"
-//#include "vk_types.h"
-#include <array>
 
 namespace Vk{
 class OffscreenRenderer : public Renderer{
@@ -36,7 +34,11 @@ public:
 
 private:
 
-    int NUM_TEXTURE_SETS = 4; //4 sets
+    glm::vec4 LANDER_OPTICS_AMBIENT = glm::vec4(0.005f, 0.005f, 0.005f, 1);
+    glm::vec4 LANDER_OPTICS_DIFFUSE = glm::vec4(0.75f, 0.75f, 0.75f, 1);
+    glm::vec4 LANDER_OPTICS_SPECULAR = glm::vec4(5.0f,5.0f,5.0f, 1);
+
+    int NUM_TEXTURE_SETS = 2; //4 sets
     int NUM_TEXTURES_IN_SET = 2; //2 images in each set
 
     std::vector<ImguiTexturePacket> imguiTexturePackets;
@@ -65,7 +67,7 @@ private:
     uint32_t OFFSCREEN_IMAGE_HEIGHT_OFFSET = (RENDERED_IMAGE_HEIGHT/2) - (OUTPUT_IMAGE_WH/2);
     const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
 
-    const char* mappedData;
+    const char* dstImageMappedData;
     std::vector<const char*> detectionImageMappings;
 
     //offscreen renderpass setup, used to draw lander optic images
@@ -83,7 +85,6 @@ private:
 
     void updateSceneData(GPUCameraData& camData); //temp overridden for testing optical settings
 
-    //VkFence offscreenRenderFence;
     VkFence offscreenCopyFence;
 
     void createOffscreenImageBuffer();
