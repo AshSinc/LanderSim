@@ -108,9 +108,11 @@ class Mediator{
         std::vector<ImguiTexturePacket>& renderer_getDstTexturePackets();
         std::deque<int> renderer_getImguiTextureSetIndicesQueue();
         std::deque<int> renderer_getImguiDetectionIndicesQueue();
+        std::deque<int> renderer_getImguiMatchIndicesQueue();
         cv::Mat renderer_popCvMatQueue();
         bool renderer_cvMatQueueEmpty();
-        void renderer_assignMatToImageView(cv::Mat image);
+        void renderer_assignMatToDetectionView(cv::Mat image);
+        void renderer_assignMatToMatchingView(cv::Mat image);
         
         //Scene functions
         int scene_getWorldObjectsCount();

@@ -26,9 +26,10 @@ void Vk::OffscreenRenderer::init(){
 
     imguiTextureSetIndicesQueue.resize(0);
     imguiDetectionIndicesQueue.resize(0);
+    imguiMatchIndicesQueue.resize(0);
     cvMatQueue.resize(0);
    
-    imguiTexturePackets.resize(NUM_TEXTURE_SETS*NUM_TEXTURES_IN_SET);
+    imguiTexturePackets.resize(NUM_TEXTURE_SETS*NUM_TEXTURES_IN_SET+1); //+1 for the match image
     detectionImageMappings.resize(NUM_TEXTURE_SETS);
 
     createOffscreenColourResources();
@@ -364,16 +365,13 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     }
 
     for(int i = 0; i < opticsTextures.size(); i++){
-        int ind = i + 4;
+        int ind = i + opticsTextures.size();
         //offset into imguiTexturePackets by size of previous loop
         imguiTexturePackets[ind].p_layout = VK_IMAGE_LAYOUT_GENERAL; //will be general after transition
         imguiTexturePackets[ind].p_view = &detectionTextures[i].imageView; //will be general after transition
         imguiTexturePackets[ind].p_sampler = &greyRGBImageSampler;
     }
 
-    //we should loop through and create 6? destination VkImages
-    //we would need to track which has been rendered and processed by lander
-    //need to think about this to avoid access issues, and race conditions
     imageHelper->createImage(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
                     VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, dstImage, dstImageAllocation, 
                     VMA_MEMORY_USAGE_CPU_ONLY);
@@ -385,6 +383,26 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     vkGetImageSubresourceLayout(device, dstImage, &subResource, &subResourceLayout);
     vmaMapMemory(allocator, dstImageAllocation, (void**)&dstImageMappedData);
     dstImageMappedData += subResourceLayout.offset;
+
+    //create textures and views for detection, for use in imgui
+        imageHelper->createImage(OUTPUT_IMAGE_WH*2, OUTPUT_IMAGE_WH, 1, 1, VK_SAMPLE_COUNT_1_BIT, (VkImageCreateFlagBits)0, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_TILING_LINEAR, 
+                    VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, matchTexture.image, matchTexture.alloc, 
+                    VMA_MEMORY_USAGE_CPU_ONLY);
+        _swapDeletionQueue.push_function([=](){vmaDestroyImage(allocator, matchTexture.image, matchTexture.alloc);});
+
+        matchTexture.imageView = imageHelper->createImageView(matchTexture.image, VK_IMAGE_VIEW_TYPE_2D, VK_FORMAT_B8G8R8A8_UNORM, VK_IMAGE_ASPECT_COLOR_BIT, 1, 1);
+        _swapDeletionQueue.push_function([=](){vkDestroyImageView(device, matchTexture.imageView, nullptr);});
+
+    //mapping this one image for now, perma mapped, unmapped in cleanup
+    //subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
+    //VkSubresourceLayout subResourceLayout;
+    vkGetImageSubresourceLayout(device, matchTexture.image, &subResource, &subResourceLayout);
+    vmaMapMemory(allocator, matchTexture.alloc, (void**)&matchImageMapping);
+    matchImageMapping += subResourceLayout.offset;
+
+    imguiTexturePackets[4].p_layout = VK_IMAGE_LAYOUT_GENERAL; //will be general after transition
+    imguiTexturePackets[4].p_view = &matchTexture.imageView; //will be general after transition
+    imguiTexturePackets[4].p_sampler = &greyRGBImageSampler;
 
 
     
@@ -656,13 +674,25 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
+    //match texture and optics textures, and maybe dst can be transitioned once before this, saving time
+    imageHelper->insertImageMemoryBarrier(
+        cmdBuffer,
+        matchTexture.image, //greyRGBImage,
+        0,
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_GENERAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
+
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);    
 
     cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)dstImageMappedData, cv::Mat::AUTO_STEP);
     cvMatQueue.push_back(wrappedMat);
 }
 
-void Vk::OffscreenRenderer::assignMatToImageView(cv::Mat image){
+void Vk::OffscreenRenderer::assignMatToDetectionView(cv::Mat image){
     if(imguiDetectionIndicesQueue.size() >= NUM_TEXTURE_SETS)
         imguiDetectionIndicesQueue.pop_back();
 
@@ -671,6 +701,16 @@ void Vk::OffscreenRenderer::assignMatToImageView(cv::Mat image){
     memcpy((void*)detectionImageMappings[opticsFrameCounter], image.data, sizeInBytes);
 
     imguiDetectionIndicesQueue.push_front(opticsFrameCounter);
+}
+
+void Vk::OffscreenRenderer::assignMatToMatchingView(cv::Mat image){
+    if(imguiMatchIndicesQueue.size() >= 1)
+        imguiMatchIndicesQueue.pop_back();
+
+    size_t sizeInBytes = image.step[0] * image.rows;
+    memcpy((void*)matchImageMapping, image.data, sizeInBytes);
+
+    imguiMatchIndicesQueue.push_front(opticsFrameCounter);
 }
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){

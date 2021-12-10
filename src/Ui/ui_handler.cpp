@@ -24,13 +24,16 @@ void UiHandler::init(){
     for(int i = 0; i < NUM_TEXTURE_SETS; i++){
         int ind = i;// * NUM_TEXTURES_IN_SET;
         opticsTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
-        //detectionTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind+1].p_sampler, *texturePackets[ind+1].p_view, texturePackets[ind+1].p_layout);
     }
 
     for(int i = 0; i < NUM_TEXTURE_SETS; i++){
-        int ind = i + 4;//NUM_TEXTURES_IN_SET;
+        int ind = i + NUM_TEXTURES_IN_SET;//+4 NUM_TEXTURES_IN_SET;
         detectionTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
     }
+
+    matchTexture = ImGui_ImplVulkan_AddTexture(*texturePackets[4].p_sampler, *texturePackets[4].p_view, texturePackets[4].p_layout);
+
+
 
     //for(ImguiTexturePacket p : texturePackets){
     //    opticsTextures.push_back(ImGui_ImplVulkan_AddTexture(*p.p_sampler, *p.p_view, p.p_layout));
@@ -103,39 +106,43 @@ void UiHandler::toggleMenu(){
 void UiHandler::gui_ShowOptics(){
     ImGuiIO& io = ImGui::GetIO();
     static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoResize |
-     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
+     ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground | 
     ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove;
     
-    //ImGuiWindowFlags_NavFlattened
-    //ImGuiWindowFlags_NoScrollbar
-    //ImGuiWindowFlags_NoTitleBar
-
     const float PAD = 5.0f;
 
     ImVec2 imageSize{256, 256};
 
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - (2*imageSize.x+(4*PAD)), 0), ImGuiCond_Always, ImVec2(0.0f,0.0f));
-    ImGui::GetStyle().WindowPadding = ImVec2(5,5);
-
+    ImGui::GetStyle().WindowPadding = ImVec2(PAD,PAD);
     ImGui::SetNextWindowSize(ImVec2((2*imageSize.x+(4*PAD)), io.DisplaySize.y), ImGuiCond_Always);
+
+    ImGui::GetStyle().Colors[ImGuiCol_TitleBg] = ImVec4(0,0,0,0.0f);
+    ImGui::GetStyle().Colors[ImGuiCol_TitleBgActive] = ImVec4(0,0,0,0.0f);
+    ImGui::GetStyle().Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0,0,0,0.0f);
 
     std::deque<int> textureSetIndicesQueue = r_mediator.renderer_getImguiTextureSetIndicesQueue();
     std::deque<int> detectionIndicesQueue = r_mediator.renderer_getImguiDetectionIndicesQueue();
+    std::deque<int> matchIndicesQueue = r_mediator.renderer_getImguiMatchIndicesQueue();
 
     if (ImGui::Begin("Optics", NULL, window_flags)){  
 
         auto wPos = ImGui::GetWindowPos();
         auto wRegion =  ImGui::GetWindowContentRegionMin();
         auto wSize = ImGui::GetWindowSize();
-
         wPos.x += wRegion.x;
         wPos.y += wRegion.y;
-
         float y = wPos.y;
         float x = wPos.x;
-
+        float localColumnX = wRegion.x + PAD;
         float secondRowY = wPos.y + imageSize.y + PAD;
         float secondColumnX = wPos.x + imageSize.x + PAD;
+        float secondLocalRowY = wRegion.y + imageSize.y + PAD;
+
+        float thirdRowY = wPos.y + (imageSize.y*2) + (2*PAD);
+
+        //float localSecondRowY = wRegion.y + imageSize.y + PAD;
+        //float localSecondColumnX = wRegion.x + imageSize.x + PAD;
 
         //draw like images in columns, optics on left and detection on right
         /*for(int q = 0; q < textureSetIndicesQueue.size(); q++){
@@ -156,28 +163,35 @@ void UiHandler::gui_ShowOptics(){
             y += imageSize.y+PAD;
         }*/
 
-        //draw like images in rows, optics top row detection second row, onlw words for texture sets of size 2 atm
+        //draw like images in rows, optics top row detection second row, only works for texture sets of size 2 atm
         if(textureSetIndicesQueue.size()>0){
             int q = textureSetIndicesQueue[0];
+            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x, y)); //draw first optics image on the right, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(textureSetIndicesQueue.size()>1){
             int q = textureSetIndicesQueue[1];
-            ImGui::SameLine();
+            ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw second optics image on the left, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(detectionIndicesQueue.size()>0){
             int q = detectionIndicesQueue[0];
+            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x, secondLocalRowY)); //draw second detection image on the right, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(detectionIndicesQueue.size()>1){
             int q = detectionIndicesQueue[1];
-            ImGui::SameLine();
+            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw second detection image on the left, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
+            ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+        }
+        if(matchIndicesQueue.size() > 0){
+            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY + imageSize.y)); //draw second detection image on the left, local coords
+            ImGui::Image(matchTexture, ImVec2(imageSize.x * 2, imageSize.y));
+            ImGui::GetWindowDrawList()->AddRect({x, thirdRowY}, { x + (2*imageSize.x), thirdRowY + imageSize.x}, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
     }
     ImGui::End();
@@ -185,7 +199,7 @@ void UiHandler::gui_ShowOptics(){
 
 void UiHandler::gui_ShowOverlay(){
     static int corner = 0;
-    ImGuiIO& io = ImGui::GetIO(); //ImGuiWindowFlags_AlwaysAutoResize
+    ImGuiIO& io = ImGui::GetIO();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     
     const float PAD = 10.0f;
@@ -240,7 +254,6 @@ void UiHandler::gui_ShowEscMenu(){
             std::cout << "Show options\n";
         if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
             endScene();
-            //std::cout << "Exit to menu\n";
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
             //appRunning = false;
             std::cout << "Close App\n";
@@ -280,8 +293,6 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::SliderFloat("Lander Initial Speed", &sceneData.INITIAL_LANDER_SPEED, 0.0f, 50.0f);
         ImGui::SliderInt("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 8.0f);
         ImGui::SliderFloat("Gravity Multiplier", &sceneData.GRAVITATIONAL_FORCE_MULTIPLIER, 0.0f, 1.0f);
-        //sceneData.GRAVITATIONAL_FORCE_MULTIPLIER*=sceneData.ASTEROID_SCALE;
-        //sceneData.GRAVITATIONAL_FORCE_MULTIPLIER*=sceneData.ASTEROID_SCALE;
         ImGui::EndGroup();
 
         ImGui::SameLine();
@@ -310,7 +321,7 @@ void UiHandler::gui_ShowLoading(){
         ImGui::Text("Please wait\n");
         loadingVariablesMutex.lock();
         ImGui::ProgressBar(loadingFraction, ImVec2(0.0f, 0.0f));
-        ImGui::Text(loadingString.c_str());
+        ImGui::Text((const char*)loadingString.c_str());
         loadingVariablesMutex.unlock();
     }
     ImGui::End();

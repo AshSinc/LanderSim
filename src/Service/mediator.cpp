@@ -158,16 +158,22 @@ std::deque<int> Mediator::renderer_getImguiTextureSetIndicesQueue(){
 }
 std::deque<int> Mediator::renderer_getImguiDetectionIndicesQueue(){
     return p_renderEngine->getImguiDetectionIndicesQueue();
-};
+}
+std::deque<int> Mediator::renderer_getImguiMatchIndicesQueue(){
+    return p_renderEngine->getImguiMatchIndicesQueue();
+}
 cv::Mat Mediator::renderer_popCvMatQueue(){
     return p_renderEngine->popCvMatQueue();
 }
 bool Mediator::renderer_cvMatQueueEmpty(){
     return p_renderEngine->cvMatQueueEmpty();
 }
- void Mediator::renderer_assignMatToImageView(cv::Mat image){
-     return p_renderEngine->assignMatToImageView(image);
- }
+void Mediator::renderer_assignMatToDetectionView(cv::Mat image){
+    return p_renderEngine->assignMatToDetectionView(image);
+}
+void Mediator::renderer_assignMatToMatchingView(cv::Mat image){
+    return p_renderEngine->assignMatToMatchingView(image);
+}
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

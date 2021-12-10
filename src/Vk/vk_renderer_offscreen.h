@@ -22,6 +22,8 @@ public:
 
     std::deque<int> getImguiDetectionIndicesQueue(){return imguiDetectionIndicesQueue;};
 
+    std::deque<int> getImguiMatchIndicesQueue(){return imguiMatchIndicesQueue;};
+
     cv::Mat popCvMatQueue(){
         cv::Mat retMat = cvMatQueue.front();
         cvMatQueue.pop_front(); 
@@ -30,11 +32,12 @@ public:
 
     bool cvMatQueueEmpty(){return cvMatQueue.empty();};
 
-    void assignMatToImageView(cv::Mat image);
+    void assignMatToDetectionView(cv::Mat image);
+    void assignMatToMatchingView(cv::Mat image);
 
 private:
 
-    glm::vec4 LANDER_OPTICS_AMBIENT = glm::vec4(0.005f, 0.005f, 0.005f, 1);
+    glm::vec4 LANDER_OPTICS_AMBIENT = glm::vec4(0.0075f, 0.0075f, 0.0075f, 1);
     glm::vec4 LANDER_OPTICS_DIFFUSE = glm::vec4(0.75f, 0.75f, 0.75f, 1);
     glm::vec4 LANDER_OPTICS_SPECULAR = glm::vec4(5.0f,5.0f,5.0f, 1);
 
@@ -47,9 +50,13 @@ private:
 
     std::deque<int> imguiDetectionIndicesQueue;
 
+    std::deque<int> imguiMatchIndicesQueue;
+
     std::vector<Texture> opticsTextures;
 
     std::vector<Texture> detectionTextures;
+
+    Texture matchTexture;
 
     std::deque<cv::Mat> cvMatQueue;
 
@@ -69,6 +76,7 @@ private:
 
     const char* dstImageMappedData;
     std::vector<const char*> detectionImageMappings;
+    const char* matchImageMapping;
 
     //offscreen renderpass setup, used to draw lander optic images
     void createOffscreenRenderPass();

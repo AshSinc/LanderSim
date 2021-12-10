@@ -42,6 +42,7 @@ class UiHandler{
 
     std::vector<ImTextureID> opticsTextures;
     std::vector<ImTextureID> detectionTextures;
+    ImTextureID matchTexture;
 
     void startBtnClicked();
     void resetBtnClicked();

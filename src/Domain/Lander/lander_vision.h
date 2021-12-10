@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <vector>
 
 #include "mediator.h"
 
@@ -16,6 +17,11 @@ namespace Lander{
     //we can copy from vkImage to a vkBuffer, need to try and load it with OpenCV
 
     Mediator* p_mediator;
+    std::deque<cv::Mat> descriptorsQueue;
+    std::deque<cv::Mat> opticsQueue;
+    std::deque<std::vector<cv::KeyPoint>> keypointsQueue;
+
+    void featureMatch();
 
     public:
 
