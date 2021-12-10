@@ -134,7 +134,7 @@ void UiHandler::gui_ShowOptics(){
         wPos.y += wRegion.y;
         float y = wPos.y;
         float x = wPos.x;
-        float localColumnX = wRegion.x + PAD;
+        float localColumnX = wRegion.x;
         float secondRowY = wPos.y + imageSize.y + PAD;
         float secondColumnX = wPos.x + imageSize.x + PAD;
         float secondLocalRowY = wRegion.y + imageSize.y + PAD;
@@ -166,7 +166,7 @@ void UiHandler::gui_ShowOptics(){
         //draw like images in rows, optics top row detection second row, only works for texture sets of size 2 atm
         if(textureSetIndicesQueue.size()>0){
             int q = textureSetIndicesQueue[0];
-            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x, y)); //draw first optics image on the right, local coords
+            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw first optics image on the right, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
@@ -178,7 +178,7 @@ void UiHandler::gui_ShowOptics(){
         }
         if(detectionIndicesQueue.size()>0){
             int q = detectionIndicesQueue[0];
-            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x, secondLocalRowY)); //draw second detection image on the right, local coords
+            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, secondLocalRowY)); //draw second detection image on the right, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
@@ -189,7 +189,7 @@ void UiHandler::gui_ShowOptics(){
             ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(matchIndicesQueue.size() > 0){
-            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY + imageSize.y)); //draw second detection image on the left, local coords
+            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY + imageSize.y + PAD)); //draw second detection image on the left, local coords
             ImGui::Image(matchTexture, ImVec2(imageSize.x * 2, imageSize.y));
             ImGui::GetWindowDrawList()->AddRect({x, thirdRowY}, { x + (2*imageSize.x), thirdRowY + imageSize.x}, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }

@@ -45,8 +45,8 @@ void Vision::processImage(cv::Mat optics){
     std::vector<cv::KeyPoint> keypoints; //keypoints should be stored in an array or queue
 
     int minHessian = 400;
-    //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(minHessian);
-    cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create();
+    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(minHessian);
+    //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create();
     //cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
 
    
