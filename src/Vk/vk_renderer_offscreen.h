@@ -24,16 +24,14 @@ public:
 
     std::deque<int> getImguiMatchIndicesQueue(){return imguiMatchIndicesQueue;};
 
-    cv::Mat popCvMatQueue(){
-        cv::Mat retMat = cvMatQueue.front();
-        cvMatQueue.pop_front(); 
-        return retMat;
-    };
+    void popCvMatQueue();
+    cv::Mat& frontCvMatQueue();
 
     bool cvMatQueueEmpty(){return cvMatQueue.empty();};
 
     void assignMatToDetectionView(cv::Mat image);
     void assignMatToMatchingView(cv::Mat image);
+    
 
 private:
 
@@ -103,6 +101,7 @@ private:
     VmaAllocation offscreenImageBufferAlloc;
 
     std::mutex copyLock;
+    //std::mutex copyLock;
 
     VkFramebuffer offscreenFramebuffer;
     VkRenderPass offscreenRenderPass;

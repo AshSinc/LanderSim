@@ -23,6 +23,7 @@ namespace Lander{
 
     class CPU{
     private:
+
         std::mutex landerBoostQueueLock;
         std::deque<LanderBoostCommand> landerBoostQueue;
 
@@ -56,8 +57,6 @@ namespace Lander{
         //const float FINAL_APPROACH_DISTANCE = 15.0f;
         //const float FINAL_APPROACH_DISTANCE_REDUCTION = 0.25f;
         //int descentTicker = 0;
-
-        //bool shouldDescend = false;
 
         Mediator* p_mediator;
         LanderObj* p_lander;

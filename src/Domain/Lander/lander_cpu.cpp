@@ -26,13 +26,15 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
-    //check if an image is ready to process from optical camera
-    if(!p_mediator->renderer_cvMatQueueEmpty()){
-        cv.processImage(p_mediator->renderer_popCvMatQueue());
+
+    try{
+        cv.simulationTick(); //let vision check for image avaiable from renderer
+    }
+    catch(std::runtime_error& e){
+        std::cout << e.what() << "\n";
     }
 
-    //setting to landing site rotation isnt right, 
-    //need to construct new matrix that faces the landing site,
+    //reaction wheel slew code needs completed
     if(reactionWheelEnabled){
         //setRotation(); //we are cheating and locking rotation to landing s
         //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));

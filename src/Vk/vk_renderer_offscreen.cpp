@@ -710,7 +710,7 @@ void Vk::OffscreenRenderer::assignMatToMatchingView(cv::Mat image){
     size_t sizeInBytes = image.step[0] * image.rows;
     memcpy((void*)matchImageMapping, image.data, sizeInBytes);
 
-    imguiMatchIndicesQueue.push_front(opticsFrameCounter);
+    imguiMatchIndicesQueue.push_front(0); //index will always be 0, although value doesnt actually matter for this one as its just used as a bool in ui
 }
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
@@ -861,6 +861,22 @@ void Vk::OffscreenRenderer::updateLightingData(GPUCameraData& camData){
 
 std::vector<ImguiTexturePacket>& Vk::OffscreenRenderer::getDstTexturePackets(){
     return imguiTexturePackets;
+}
+
+void Vk::OffscreenRenderer::popCvMatQueue(){
+    std::scoped_lock<std::mutex> lock(queueSubmitMutex); 
+    //segfault here
+    //cv::Mat retMat = cvMatQueue.front();
+    cvMatQueue.pop_front(); 
+    //return retMat;
+}
+
+cv::Mat& Vk::OffscreenRenderer::frontCvMatQueue(){
+    std::scoped_lock<std::mutex> lock(queueSubmitMutex); 
+    //segfault here
+    //cv::Mat retMat = cvMatQueue.front();
+   // cvMatQueue.pop_front(); 
+    return cvMatQueue.front();
 }
 
 void Vk::OffscreenRenderer::mapLightingDataToGPU(){

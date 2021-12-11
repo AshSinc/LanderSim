@@ -45,8 +45,6 @@ struct ImguiTexturePacket;
 
 class IScene;
 
-//struct VkImage;
-
 class Mediator{
     private:
         WorldCamera* p_worldCamera;
@@ -109,7 +107,8 @@ class Mediator{
         std::deque<int> renderer_getImguiTextureSetIndicesQueue();
         std::deque<int> renderer_getImguiDetectionIndicesQueue();
         std::deque<int> renderer_getImguiMatchIndicesQueue();
-        cv::Mat renderer_popCvMatQueue();
+        void renderer_popCvMatQueue();
+        cv::Mat& renderer_frontCvMatQueue();
         bool renderer_cvMatQueueEmpty();
         void renderer_assignMatToDetectionView(cv::Mat image);
         void renderer_assignMatToMatchingView(cv::Mat image);
