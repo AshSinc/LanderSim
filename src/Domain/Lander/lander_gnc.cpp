@@ -81,7 +81,7 @@ glm::vec3 GNC::stabiliseCurrentPos(){
 //preApproach routine
 //holds the lander steady and checks for a good time to start descent
 glm::vec3 GNC::preApproach(){
-    //work out where the landing site is and which was is up at the maximum time for approach
+    //work out where the landing site is and where is "up" at the maximum time for approach
     calculateVectorsAtTime(TF_TIME);
 
     //then check if we are above that point, within 15 degrees
@@ -113,6 +113,7 @@ glm::vec3 GNC::predictFinalLandingSiteUp(glm::mat4 rotationM){
 void GNC::calculateVectorsAtTime(float time){
     if(glm::length(p_navStruct->angularVelocity) != 0){ //if angular vel is 0 we dont need to check
         rotationMatrixAtTf = constructRotationMatrixAtTf(time);
+        std::cout << glm::to_string(rotationMatrixAtTf) << "Calculated rotation\n";
         projectedLandingSitePos = predictFinalLandingSitePos(rotationMatrixAtTf);
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);

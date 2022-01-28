@@ -139,6 +139,7 @@ void CPU::setRotation(){
     //still not sure of the maths though or even how to approach this one
 }
 
+//not implemented yet, need to work on this
 void CPU::slewToLandingSiteOrientation(){
     glm::vec3 projectedLSUp = p_lander->cpu.gnc.getProjectedUpVector();
 

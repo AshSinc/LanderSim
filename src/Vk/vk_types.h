@@ -9,6 +9,7 @@
 #include <glm/gtx/hash.hpp> //used in unnordered_map to compare vertices
 #include <vk_mem_alloc.h>
 #include <string>
+#include <optional>
 
 //struct for holding pointers to dst image in offscreen renderer, used by imgui for drawing optics
 struct ImguiTexturePacket{

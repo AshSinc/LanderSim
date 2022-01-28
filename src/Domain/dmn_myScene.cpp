@@ -247,11 +247,9 @@ void MyScene::initLights(){
     WorldSpotLightObject spotlight;
     spotlight.pos = {0,0,0};
     spotlight.initialPos = {0,0,-0.5};
-    spotlight.scale = {0.05f,0.05f,0.05f};
     spotlight.diffuse = {1,1,1};
     spotlight.specular = {1,1,1};
-    //spotlight.attenuation = {1.0f,0.07f,0.017f};
-    spotlight.attenuation = {0.1f,0.005f,0.001f};
+    spotlight.attenuation = {0.2f,0.005f,0.001f};
     //spotlight.attenuation = {0.1f,0.0005f,0.001f};
     spotlight.direction = glm::vec3(0,0,1);
     //spotlight.cutoffAngles = glm::vec2(0.75f, 1.2f);
