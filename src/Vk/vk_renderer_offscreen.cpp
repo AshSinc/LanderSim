@@ -731,6 +731,9 @@ void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
 
     glm::mat4 proj = glm::perspective(glm::radians(OFFSCREEN_IMAGE_FOV), (float)RENDERED_IMAGE_WIDTH / (float)RENDERED_IMAGE_HEIGHT, 0.1f, 15000.0f);
     proj[1][1] *= -1;
+
+    std::cout << glm::to_string(proj) << " proj matrix \n";
+
     camData.projection = proj;
     camData.view = view;
 	camData.viewproj = proj * view;

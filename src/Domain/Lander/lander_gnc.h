@@ -56,7 +56,7 @@ namespace Lander{
         glm::vec3 slewToRotation(glm::vec3 up, float time);
         //glm::quat rotateTowards(glm::quat q1, glm::quat q2, float maxAngle);
 
-        glm::mat4 rotationMatrixAtTf;
+        glm::mat3 rotationMatrixAtTf;
         
     public:
         GNC(){};

@@ -95,9 +95,12 @@ glm::vec3 GNC::preApproach(){
 
 glm::mat4 GNC::constructRotationMatrixAtTf(float ttgo){
     //get degrees of rotation per second from asteroidAngularVelocity multiply by tgo to get expected total rotation
-    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*ttgo;
+    //float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*ttgo;
+    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*45;
+
+
     //construct rotated matrix
-    return glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocity));
+    return glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocity)));
 }
 
 glm::vec3 GNC::predictFinalLandingSitePos(glm::mat4 rotationM){

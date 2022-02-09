@@ -50,6 +50,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
         navStruct.angularVelocity = asteroidAngularVelocity;
+        std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
         navStruct.approachDistance = approachDistance;
         navStruct.gravityVector = Service::bt2glm(p_lander->landerGravityVector);
         navStruct.landerTransformMatrix = p_lander->transformMatrix;

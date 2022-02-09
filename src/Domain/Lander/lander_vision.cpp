@@ -12,6 +12,12 @@
 
 #include "qtimer.h"
 
+#include <glm/gtx/euler_angles.hpp> //for 
+#include <glm/gtx/string_cast.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+#include "sv_randoms.h";
+
 using namespace Lander;
 
 void Vision::init(Mediator* mediator){
@@ -87,21 +93,59 @@ void Vision::featureMatch(){
 
 
     //-- Localize the object
-    std::vector<cv::Point2f> obj;
-    std::vector<cv::Point2f> scene;
+    std::vector<cv::Point2f> src;
+    std::vector<cv::Point2f> dst;
     for( size_t i = 0; i < matches.size(); i++ )
     {
         //-- Get the keypoints from the good matches
-        obj.push_back( keypointsQueue[0][ matches[i].queryIdx ].pt );
-        scene.push_back( keypointsQueue[1][ matches[i].trainIdx ].pt );
+        src.push_back( keypointsQueue[0][ matches[i].queryIdx ].pt );
+        dst.push_back( keypointsQueue[1][ matches[i].trainIdx ].pt );
     }
-    cv::Mat H = findHomography( obj, scene, cv::RANSAC);
-
+    cv::Mat H = findHomography(src, dst, cv::RANSAC);
     std::cout << H << " H \n";
 
-    //can decompose to rotation matrix with open cv function instead, we may need to manipulate matrix first tho to minimise translation if possible
-    //cv::Mat rot = H(cv::Rect(0,1,1,3));
-    //std::cout << rot << " rot \n";
+
+    //construct intrinsic camera matrix
+    //note this is not exactly correct, because the fov is 55.63 (used online tool to calculate these values)...
+    //...for the original image 1920*1080, but we crop to 512*512
+    //could maybe improve accuracy if we calculate this correctly
+    cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
+    K2.at<_Float64>(0,2) = 256; //center points in pixels
+    K2.at<_Float64>(1,2) = 256; //center points in pixels
+    K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
+    K2.at<_Float64>(1, 1) = 55.63; //vertical fov
+    K2.at<_Float64>(2, 2) = 1; //must be 1
+
+    //512 x 512 at 42 degrees fov
+
+    std::cout << "Camera matrix = " << K2 << std::endl << std::endl;
+
+    std::vector<cv::Mat> r2;
+    std::vector<cv::Mat> t2;
+    std::vector<cv::Mat> n2;
+
+    cv::decomposeHomographyMat(H, K2, r2, t2, n2);
+
+    for (auto i: r2){
+        std::cout << i << " r2 \n"; 
+    }    
+
+    glm::mat4 correctRot = Service::openCVToGlm(r2[3]);
+    std::cout << glm::to_string(correctRot) << " estimated correct rot \n";
+
+    glm::vec3 angles;
+    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " angles \n";
+
+    //now we need to divide angles by image timer (45 sec just now)
+    //and find the highest axis, set others to zero? (this would be cheating because we know there is only 1 axis of rotation, but might be all we can do)
+    
+    //we then also need to divide the estimated rotation matrix by image timer (45 sec just now)
+    //and then multiply by 1000 (ttgo max)
+
+    //then combine both with the same function used to calculate rotation atm
+
+    //then pass this to gnc in place of the real rotation matrix
     
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html

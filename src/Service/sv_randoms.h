@@ -1,6 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <opencv2/opencv.hpp>
 class btVector3;
 class btMatrix3x3;
 class btTransform;
@@ -23,5 +24,7 @@ namespace Service{
     glm::quat bulletToGlm(const btQuaternion& q);
 
     btQuaternion glmToBulletQ(const glm::quat &q);
+
+    glm::mat4 openCVToGlm(const cv::Mat &m);
 
 }
