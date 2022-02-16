@@ -20,6 +20,8 @@
 
 #include <bits/stdc++.h>
 
+#include "obj_lander.h" //not ideal to include this here, only used to get lander up, to work out camera plane
+
 using namespace Lander;
 
 void Vision::init(Mediator* mediator, float imageTimer){
@@ -113,6 +115,19 @@ void Vision::featureMatch(){
     cv::Mat H = findHomography(src, dst, cv::RANSAC);
     std::cout << H << " H \n";
 
+    glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
+
+    estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
+
+    if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
+        active = false;
+    
+    descriptorsQueue.pop_front();
+    opticsQueue.pop_front();
+    keypointsQueue.pop_front();
+}
+
+glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //construct intrinsic camera detectImagematrix
     //note this is not exactly correct, because the fov is 55.63 (used online tool to calculate these values)...
     //...for the original image 1920*1080, but we crop to 512*512
@@ -152,50 +167,38 @@ void Vision::featureMatch(){
 
     //^^ need to play with this
 
-    cv::decomposeHomographyMat(H, K2, r2, t2, n2);
-
-    for (auto i: r2){
-        std::cout << i << " r2 \n"; 
-    }    
-
-    glm::mat4 correctRot = Service::openCVToGlm(r2[0]);
-    std::cout << glm::to_string(correctRot) << " 0 estimated correct rot \n";
+    int solutions = cv::decomposeHomographyMat(H, K2, r2, t2, n2);
 
     glm::vec3 angles;
-    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " 0 angles \n";
 
-    correctRot = Service::openCVToGlm(r2[1]);
-    std::cout << glm::to_string(correctRot) << " 1 estimated correct rot \n";
+    for (int i = 0; i < solutions; i++){
+        //double factor_d1 = 1.0 / d_inv1;
+        cv::Mat rvec_decomp;
+        cv::Rodrigues(r2[i], rvec_decomp);
+        std::cout << "Solution " << i << ":" << std::endl;
+        std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
+        std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//" and scaled by d: " << factor_d1 * t2[i].t() << std::endl;
+        std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
+        std::cout << "plane normal of camera: " << glm::to_string(-p_mediator->scene_getLanderObject()->up) << std::endl;
+        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
 
-    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " 1 angles \n";
+        glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
+        std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ\n";
+    }
 
-    correctRot = Service::openCVToGlm(r2[2]);
-    std::cout << glm::to_string(correctRot) << " 2 estimated correct rot \n";
+    //glm::vec3 angles; //this needs to be the best guess from above
 
-    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " 2 angles \n";
-
-    correctRot = Service::openCVToGlm(r2[3]);
-    std::cout << glm::to_string(correctRot) << " 3 estimated correct rot \n";
-
-    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " 3 angles \n";
-
+    //for now we will just take the last one
+    //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " best guess angular velocities\n";
+    //we need to swap x and y values velocities and negate them, this is because we are above the asteroid and the camera doesn't know that
+    //ISSUE - if we change lander position this should be changed
     float temp = angles.x;
     angles.x = -angles.y/imagingTimerSeconds;
     angles.y = -temp/imagingTimerSeconds;
     angles.z = angles.z/imagingTimerSeconds;
 
-    estimatedAngularVelocities.push_back(angles);
-
-    if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
-        active = false;
-    
-    descriptorsQueue.pop_front();
-    opticsQueue.pop_front();
-    keypointsQueue.pop_front();
+    return angles;
 }
 
 void Vision::detectImage(cv::Mat optics){

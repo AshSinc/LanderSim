@@ -31,6 +31,8 @@ namespace Lander{
 
     static bool compareDistance(cv::DMatch d1, cv::DMatch d2);
 
+    glm::vec3 findBestAngularVelocityMatchFromDecomp(cv::Mat H);
+
     public:
 
     std::vector<glm::vec3> getEstimatedAngularVelocities(){return estimatedAngularVelocities;};
@@ -40,6 +42,7 @@ namespace Lander{
     void init(Mediator* mediator, float imageTimer);
 
     void simulationTick();
+    
 
     };
 }

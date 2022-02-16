@@ -116,16 +116,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     void updateLanderUpForward(btRigidBody* body){
         //store the lander up vector (for taking images and aligning)
         btTransform landerWorldTransform = body->getWorldTransform();
-        //int indexUpAxis = 2;
-        //up = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexUpAxis));
-
-        up = Service::bt2glm(landerWorldTransform(btVector3{0,0,1}));
-
-        //store the lander forward vector (for taking images and aligning)
-        //int indexFwdAxis = 0; //not sure if this is actually the forward axis, need to test before using it
-        //forward = Service::bt2glm(landerWorldTransform.getBasis().getColumn(indexFwdAxis));
-        
-        forward = Service::bt2glm(landerWorldTransform(btVector3{1,0,0}));
+        up = glm::normalize(Service::bt2glm(landerWorldTransform(btVector3{0,0,1})));
+        forward = glm::normalize(Service::bt2glm(landerWorldTransform(btVector3{1,0,0})));
     }
 
     void timestepBehaviour(btRigidBody* body, float timeStep){

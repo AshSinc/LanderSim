@@ -728,7 +728,6 @@ void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
 
     glm::mat4 view = glm::lookAt(camPos, camPos - lander->up, lander->forward); //setting view to look forward
 
-
     glm::mat4 proj = glm::perspective(glm::radians(OFFSCREEN_IMAGE_FOV), (float)RENDERED_IMAGE_WIDTH / (float)RENDERED_IMAGE_HEIGHT, 0.1f, 15000.0f);
     proj[1][1] *= -1;
 
