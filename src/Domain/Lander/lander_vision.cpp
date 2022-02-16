@@ -16,31 +16,41 @@
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include "sv_randoms.h";
+#include "sv_randoms.h"
+
+#include <bits/stdc++.h>
 
 using namespace Lander;
 
-void Vision::init(Mediator* mediator){
+void Vision::init(Mediator* mediator, float imageTimer){
     p_mediator = mediator; 
     descriptorsQueue.resize(0);
     opticsQueue.resize(0);
     keypointsQueue.resize(0);
+    imagingTimerSeconds = imageTimer;
 }
 
 void Vision::simulationTick(){
-    if(!p_mediator->renderer_cvMatQueueEmpty()){
-        std::unique_lock<std::mutex> lock(processingLock, std::try_to_lock); //try to acquire processingLock
+    if(active){
+        if(!p_mediator->renderer_cvMatQueueEmpty()){
+            std::unique_lock<std::mutex> lock(processingLock, std::try_to_lock); //try to acquire processingLock
 
-        if(!lock.owns_lock()){  //if we dont have the lock then return error
-            throw std::runtime_error("Lock Failed, processing is taking longer than submission");
+            if(!lock.owns_lock()){  //if we dont have the lock then return error
+                throw std::runtime_error("Lock Failed, processing is taking longer than submission");
+            }
+
+            cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
+            p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
+
+            std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, reduces stuttering
+            thread.detach();   
         }
-
-        cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
-        p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
-
-        std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, reduces stuttering
-        thread.detach();   
     }
+}
+
+//compares distance of matches, for use in vector sorting of matches
+bool Vision::compareDistance(cv::DMatch d1, cv::DMatch d2){
+    return (d1.distance < d2.distance);
 }
 
 void Vision::featureMatch(){
@@ -66,46 +76,44 @@ void Vision::featureMatch(){
     std::vector<cv::DMatch> matches;
     matcher->match(descriptorsQueue[0], descriptorsQueue[1], matches);
 
+    //now we should sort matches based on distance, then take the top 30 or so
+    for (size_t i = 0; i < matches.size(); i++){
+        std::cout << matches[i].distance << " , at pos " << i << " match distance \n";
+    }
+
+    std::sort(matches.begin(), matches.end(), compareDistance);
+    
+    for (size_t i = 0; i < matches.size(); i++){
+        std::cout << matches[i].distance << " , at pos " << i << " sorted match distance \n";
+    }
+
+    //array bound check for the next operation
+    int numMatchesToUse = NUM_MATCHES_TO_USE;
+    if(matches.size() < NUM_MATCHES_TO_USE)
+        numMatchesToUse = matches.size();
+    //slice the vector and keep only the top NUM_MATCHES_TO_USE matches (30 or so)
+    std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
+
     //-- Draw matches
     cv::Mat matchedImage;
-    drawMatches(opticsQueue[0], keypointsQueue[0], opticsQueue[1], keypointsQueue[1], matches, matchedImage,
+    drawMatches(opticsQueue[0], keypointsQueue[0], opticsQueue[1], keypointsQueue[1], bestMatches, matchedImage,
                 cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);//, cv::DrawMatchesFlags::DEFAULT);
 
+    //passing back to renderer to draw the image to ui
+    p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
     //cv::imwrite("matches.jpg", matchedImage);
 
-    //passing back to renderer
-    p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
-
-    //now we need to 
-    //cv::Mat homography = cv::findHomography(Points(matched1), Points(matched2),
-    //                        cv::RANSAC, ransac_thresh, inlier_mask);
-
-    //-- Filter matches using the Lowe's ratio test
-   //const float ratio_thresh = 0.75f;
-    //std::vector<cv::DMatch> good_matches;
-    //for (size_t i = 0; i < matches.size(); i++)
-    //{
-   //     if (matches[i][0].distance < ratio_thresh * matches[i][1].distance)
-   //     {
-   //         good_matches.push_back(matches[i][0]);
-   //     }
-   // }
-
-
-    //-- Localize the object
     std::vector<cv::Point2f> src;
     std::vector<cv::Point2f> dst;
-    for( size_t i = 0; i < matches.size(); i++ )
-    {
+    for( size_t i = 0; i < bestMatches.size(); i++ ){
         //-- Get the keypoints from the good matches
-        src.push_back( keypointsQueue[0][ matches[i].queryIdx ].pt );
-        dst.push_back( keypointsQueue[1][ matches[i].trainIdx ].pt );
+        src.push_back( keypointsQueue[0][ bestMatches[i].queryIdx ].pt );
+        dst.push_back( keypointsQueue[1][ bestMatches[i].trainIdx ].pt );
     }
     cv::Mat H = findHomography(src, dst, cv::RANSAC);
     std::cout << H << " H \n";
 
-
-    //construct intrinsic camera matrix
+    //construct intrinsic camera detectImagematrix
     //note this is not exactly correct, because the fov is 55.63 (used online tool to calculate these values)...
     //...for the original image 1920*1080, but we crop to 512*512
     //could maybe improve accuracy if we calculate this correctly
@@ -124,29 +132,6 @@ void Vision::featureMatch(){
     std::vector<cv::Mat> t2;
     std::vector<cv::Mat> n2;
 
-    cv::decomposeHomographyMat(H, K2, r2, t2, n2);
-
-    for (auto i: r2){
-        std::cout << i << " r2 \n"; 
-    }    
-
-    glm::mat4 correctRot = Service::openCVToGlm(r2[3]);
-    std::cout << glm::to_string(correctRot) << " estimated correct rot \n";
-
-    glm::vec3 angles;
-    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " angles \n";
-
-    //now we need to divide angles by image timer (45 sec just now)
-    //and find the highest axis, set others to zero? (this would be cheating because we know there is only 1 axis of rotation, but might be all we can do)
-    
-    //we then also need to divide the estimated rotation matrix by image timer (45 sec just now)
-    //and then multiply by 1000 (ttgo max)
-
-    //then combine both with the same function used to calculate rotation atm
-
-    //then pass this to gnc in place of the real rotation matrix
-    
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
     /*std::vector<cv::Mat> Rs_decomp, ts_decomp, normals_decomp;
@@ -164,6 +149,49 @@ void Vision::featureMatch(){
       std::cout << "plane normal from homography decomposition: " << normals_decomp[i].t() << std::endl;
       std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
     }*/
+
+    //^^ need to play with this
+
+    cv::decomposeHomographyMat(H, K2, r2, t2, n2);
+
+    for (auto i: r2){
+        std::cout << i << " r2 \n"; 
+    }    
+
+    glm::mat4 correctRot = Service::openCVToGlm(r2[0]);
+    std::cout << glm::to_string(correctRot) << " 0 estimated correct rot \n";
+
+    glm::vec3 angles;
+    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " 0 angles \n";
+
+    correctRot = Service::openCVToGlm(r2[1]);
+    std::cout << glm::to_string(correctRot) << " 1 estimated correct rot \n";
+
+    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " 1 angles \n";
+
+    correctRot = Service::openCVToGlm(r2[2]);
+    std::cout << glm::to_string(correctRot) << " 2 estimated correct rot \n";
+
+    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " 2 angles \n";
+
+    correctRot = Service::openCVToGlm(r2[3]);
+    std::cout << glm::to_string(correctRot) << " 3 estimated correct rot \n";
+
+    glm::extractEulerAngleXYZ(correctRot, angles.x, angles.y, angles.z);
+    std::cout << glm::to_string(angles) << " 3 angles \n";
+
+    float temp = angles.x;
+    angles.x = -angles.y/imagingTimerSeconds;
+    angles.y = -temp/imagingTimerSeconds;
+    angles.z = angles.z/imagingTimerSeconds;
+
+    estimatedAngularVelocities.push_back(angles);
+
+    if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
+        active = false;
     
     descriptorsQueue.pop_front();
     opticsQueue.pop_front();

@@ -11,6 +11,12 @@ namespace Lander{
 
     private:
 
+    float imagingTimerSeconds = 0.0f;
+
+    int NUM_ESTIMATIONS_BEFORE_CALC = 20;
+
+    int NUM_MATCHES_TO_USE = 25;
+
     std::mutex processingLock;
     
     Mediator* p_mediator;
@@ -21,9 +27,17 @@ namespace Lander{
     void featureMatch();
     void detectImage(cv::Mat optics);
 
+    std::vector<glm::vec3> estimatedAngularVelocities;
+
+    static bool compareDistance(cv::DMatch d1, cv::DMatch d2);
+
     public:
 
-    void init(Mediator* mediator);
+    std::vector<glm::vec3> getEstimatedAngularVelocities(){return estimatedAngularVelocities;};
+
+    bool active = true;
+
+    void init(Mediator* mediator, float imageTimer);
 
     void simulationTick();
 

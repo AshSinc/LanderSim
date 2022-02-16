@@ -22,7 +22,7 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
     gnc.init(mediator, &navStruct);
-    cv.init(mediator);
+    cv.init(mediator, IMAGING_TIMER_SECONDS);
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
@@ -46,10 +46,24 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         reactionWheelEnabled = true;
         //camera.tick(timestep);
     }
+
     if(gncTimer(timeStep)){
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
-        navStruct.angularVelocity = asteroidAngularVelocity;
+
+        if(useRotationEstimation){
+            if(cv.active == false){
+                showEstimationStats();
+                
+                navStruct.angularVelocity = getFinalEstimatedAngularVelocity();
+                std::cout << glm::to_string(navStruct.angularVelocity) << " estimated angular velocity \n";
+                navStruct.estimationComplete = true;
+            }
+        }
+        else{
+            navStruct.angularVelocity = asteroidAngularVelocity;
+        }
+        
         std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
         navStruct.approachDistance = approachDistance;
         navStruct.gravityVector = Service::bt2glm(p_lander->landerGravityVector);
@@ -70,6 +84,40 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         else
             applyImpulse(body, nextBoost);
     }
+}
+
+void CPU::showEstimationStats(){
+    std::vector<glm::vec3> estimatedAngularVelocities = cv.getEstimatedAngularVelocities();
+    for(glm::vec3 v : estimatedAngularVelocities){
+        std::cout << glm::to_string(v) << " estimations \n";
+    }
+}
+
+glm::vec3 CPU::getFinalEstimatedAngularVelocity(){
+    
+    std::vector<glm::vec3> estimatedAngularVelocities = cv.getEstimatedAngularVelocities();
+
+    glm::vec3 axisCounter = glm::vec3(0,0,0);
+    glm::vec3 highestAxisSum = glm::vec3(0,0,0);
+
+    for(glm::vec3 v : estimatedAngularVelocities){
+        int highestAxis = Service::getHighestAxis(v);
+        axisCounter[highestAxis] += 1;
+        highestAxisSum[highestAxis] += v[highestAxis];
+    }
+
+    std::cout << glm::to_string(axisCounter) << " axis counters\n";
+    std::cout << glm::to_string(highestAxisSum) << " highest axis sum\n";
+
+    highestAxisSum[0] = highestAxisSum[0]/axisCounter[0];
+    highestAxisSum[1] = highestAxisSum[1]/axisCounter[1];
+    highestAxisSum[2] = highestAxisSum[2]/axisCounter[2];
+
+    int highestAxisOccurance = Service::getHighestAxis(axisCounter);
+    glm::vec3 finalEstimatedAngularVelocity = glm::vec3(0);
+    finalEstimatedAngularVelocity[highestAxisOccurance] = highestAxisSum[highestAxisOccurance];
+
+    return finalEstimatedAngularVelocity;
 }
 
 void CPU::addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){

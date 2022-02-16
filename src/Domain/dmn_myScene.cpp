@@ -143,6 +143,7 @@ void MyScene::initObjects(){
         asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
             break;
         }
+
         //ISSUE more than one axis of rotation also messes things up
         //suspect it may just be my descent checking predictAtTf rotations, because they wont account for angular accelrations over time maybe?
         //asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f), Service::getRandFloat(-f,f), Service::getRandFloat(-f,f));
@@ -222,6 +223,45 @@ void MyScene::initObjects(){
     objects.push_back(debugBox3);
     renderableObjects.push_back(debugBox3);
     debugObjects.push_back(debugBox3);
+
+    /*std::shared_ptr<RenderObject> debugBox4 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox4->id = id++;
+    debugBox4->pos = glm::vec3(0,0,0.0f);
+    debugBox4->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox4.get());
+    debugBox4->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox4->material->diffuse = glm::vec3(1,1,0.5f);
+    debugBox4->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    debugBox4->material->extra.x = 32;
+    objects.push_back(debugBox4);
+    renderableObjects.push_back(debugBox4);
+    debugObjects.push_back(debugBox4);
+
+    std::shared_ptr<RenderObject> debugBox5 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox5->id = id++;
+    debugBox5->pos = glm::vec3(0,0,0.0f);
+    debugBox5->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox5.get());
+    debugBox5->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox5->material->diffuse = glm::vec3(1,1,0.5f);
+    debugBox5->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    debugBox5->material->extra.x = 32;
+    objects.push_back(debugBox5);
+    renderableObjects.push_back(debugBox5);
+    debugObjects.push_back(debugBox5);
+
+    std::shared_ptr<RenderObject> debugBox6 = std::shared_ptr<RenderObject>(new RenderObject());
+    debugBox6->id = id++;
+    debugBox6->pos = glm::vec3(0,0,0.0f);
+    debugBox6->scale = glm::vec3(0.2,0.2,0.2);
+    setRendererMeshVars("box", debugBox6.get());
+    debugBox6->material = r_mediator.renderer_getMaterial("unlitmesh");
+    debugBox6->material->diffuse = glm::vec3(1,1,0.5f);
+    debugBox6->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    debugBox6->material->extra.x = 32;
+    objects.push_back(debugBox6);
+    renderableObjects.push_back(debugBox6);
+    debugObjects.push_back(debugBox6);*/
 }
 
 void MyScene::initLights(){

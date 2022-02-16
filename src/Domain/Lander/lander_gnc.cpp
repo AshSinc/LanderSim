@@ -82,11 +82,13 @@ glm::vec3 GNC::stabiliseCurrentPos(){
 //holds the lander steady and checks for a good time to start descent
 glm::vec3 GNC::preApproach(){
     //work out where the landing site is and where is "up" at the maximum time for approach
-    calculateVectorsAtTime(TF_TIME);
+    if(p_navStruct->estimationComplete){
+        calculateVectorsAtTime(TF_TIME);
 
-    //then check if we are above that point, within 15 degrees
-    if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
-        shouldDescend = true;
+        //then check if we are above that point, within 15 degrees
+        if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
+            shouldDescend = true;
+        }
     }
 
     //return a vector that will stabilize movement to 0
@@ -95,9 +97,7 @@ glm::vec3 GNC::preApproach(){
 
 glm::mat4 GNC::constructRotationMatrixAtTf(float ttgo){
     //get degrees of rotation per second from asteroidAngularVelocity multiply by tgo to get expected total rotation
-    //float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*ttgo;
-    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*45;
-
+    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*ttgo;
 
     //construct rotated matrix
     return glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocity)));
@@ -116,7 +116,7 @@ glm::vec3 GNC::predictFinalLandingSiteUp(glm::mat4 rotationM){
 void GNC::calculateVectorsAtTime(float time){
     if(glm::length(p_navStruct->angularVelocity) != 0){ //if angular vel is 0 we dont need to check
         rotationMatrixAtTf = constructRotationMatrixAtTf(time);
-        std::cout << glm::to_string(rotationMatrixAtTf) << "Calculated rotation\n";
+        //std::cout << glm::to_string(rotationMatrixAtTf) << "Calculated rotation\n";
         projectedLandingSitePos = predictFinalLandingSitePos(rotationMatrixAtTf);
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);

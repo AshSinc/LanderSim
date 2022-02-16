@@ -123,3 +123,17 @@ glm::mat4 Service::openCVToGlm(const cv::Mat &m){
     returnMat[3][3] = 0;
     return returnMat;
 }
+
+int Service::getHighestAxis(glm::vec3 v){
+    int highestAxis = 0;
+    float highestValue = abs(v.x);
+    if (highestValue < abs(v.y)){
+        highestValue = abs(v.y);
+        highestAxis = 1;
+    }
+    if (highestValue < abs(v.z)){
+        highestValue = abs(v.z);
+        highestAxis = 2;
+    }
+    return highestAxis;
+}

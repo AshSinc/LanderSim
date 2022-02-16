@@ -24,6 +24,8 @@ namespace Lander{
     class CPU{
     private:
 
+        bool useRotationEstimation = true;
+
         std::mutex landerBoostQueueLock;
         std::deque<LanderBoostCommand> landerBoostQueue;
 
@@ -39,7 +41,7 @@ namespace Lander{
         //const float LANDER_SPEED_CAP = 20.0f;
 
         const float GNC_TIMER_SECONDS = 1.0f; //still not great if higher than 1s, not sure why yet
-        const float IMAGING_TIMER_SECONDS = 45.0f; 
+        const float IMAGING_TIMER_SECONDS = 45.0f;  //45
 
         bool lockRotation = true;
         bool reactionWheelEnabled = false;
@@ -75,8 +77,12 @@ namespace Lander{
         bool landerImpulseRequested();
         void slewToLandingSiteOrientation();
         glm::quat rotateTowards(glm::quat q1, glm::quat q2, float maxAngle);
+
+        void showEstimationStats();
+        glm::vec3 getFinalEstimatedAngularVelocity();
         
     public:
+        void toggleRotationEstimation(){useRotationEstimation = !useRotationEstimation;};
         void init(Mediator* mediator, LanderObj* lander);
         void simulationTick(btRigidBody* body, float timeStep);
         void setAutopilot(bool b);

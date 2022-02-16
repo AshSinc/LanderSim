@@ -14,6 +14,7 @@ namespace Lander{
         glm::vec3 velocityVector;
         glm::vec3 landingSitePos;
         glm::vec3 landingSiteUp;
+        bool estimationComplete = false;
     };
 
     class GNC{
@@ -24,7 +25,7 @@ namespace Lander{
         //should be consts but, c++
         //float INITIAL_APPROACH_DISTANCE = 50.0f;
         float APPROACH_ANGLE = 0.15f; // radians
-        float TF_TIME = 900.0f; //1000 seconds of flight time is roughly accurate for current starting distance
+        float TF_TIME = 1000.0f; //1000 seconds of flight time is roughly accurate for current starting distance
 
         float tf = TF_TIME;
         float t = 0.0f;
