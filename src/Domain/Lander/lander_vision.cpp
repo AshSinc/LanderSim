@@ -117,7 +117,12 @@ void Vision::featureMatch(){
 
     glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
 
-    estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
+    //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
+    if(bestAngularVelocityMatch.x != 9999){
+        estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
+    }
+
+    
 
     if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
         active = false;
@@ -133,10 +138,13 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //...for the original image 1920*1080, but we crop to 512*512
     //could maybe improve accuracy if we calculate this correctly
     cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
+    //cv::Mat K2 = cv::Mat::eye(3,3, CV_64F);
     K2.at<_Float64>(0,2) = 256; //center points in pixels
     K2.at<_Float64>(1,2) = 256; //center points in pixels
-    K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
-    K2.at<_Float64>(1, 1) = 55.63; //vertical fov
+    //K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 55.63; //vertical fov
+    K2.at<_Float64>(0, 0) = 128; //horizontal fov
+    K2.at<_Float64>(1, 1) = 128; //vertical fov
     K2.at<_Float64>(2, 2) = 1; //must be 1
 
     //512 x 512 at 42 degrees fov
@@ -147,58 +155,76 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     std::vector<cv::Mat> t2;
     std::vector<cv::Mat> n2;
 
-    //from opencv docs
-    //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
-    /*std::vector<cv::Mat> Rs_decomp, ts_decomp, normals_decomp;
-    int solutions = cv::decomposeHomographyMat(H, cameraMatrix, Rs_decomp, ts_decomp, normals_decomp);
-    std::cout << "Decompose homography matrix computed from the camera displacement:" << std::endl << std::endl;
-    for (int i = 0; i < solutions; i++){
-      double factor_d1 = 1.0 / d_inv1;
-      cv::Mat rvec_decomp;
-      cv::Rodrigues(Rs_decomp[i], rvec_decomp);
-      std::cout << "Solution " << i << ":" << std::endl;
-      std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
-      std::cout << "rvec from camera displacement: " << rvec_1to2.t() << std::endl;
-      std::cout << "tvec from homography decomposition: " << ts_decomp[i].t() << " and scaled by d: " << factor_d1 * ts_decomp[i].t() << std::endl;
-      std::cout << "tvec from camera displacement: " << t_1to2.t() << std::endl;
-      std::cout << "plane normal from homography decomposition: " << normals_decomp[i].t() << std::endl;
-      std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
-    }*/
-
-    //^^ need to play with this
-
     int solutions = cv::decomposeHomographyMat(H, K2, r2, t2, n2);
 
     glm::vec3 angles;
+    glm::vec4 testPoint = glm::vec4(0,30,0,0);
+
+    std::vector<glm::vec3> possibleSolutions;
+
+    //from opencv docs
+    //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
+
+    //NOTE FOR REPORT :
+    //This approach of using homography decomposition is maybe not viable without the ability to clamp the decomposeHomography function to ignore estimating translation?
+    //even then it still is not ideal, im sure it must be possible mathematically though
+    //combined with pixel values changing as the asteroid rotates making feature matching more difficult.
+    //feature matching is sometimes very accurate and other times completely confused. cause not known
 
     for (int i = 0; i < solutions; i++){
-        //double factor_d1 = 1.0 / d_inv1;
         cv::Mat rvec_decomp;
         cv::Rodrigues(r2[i], rvec_decomp);
+        
+        
+        std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Solution " << i << ":" << std::endl;
-        std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
-        std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//" and scaled by d: " << factor_d1 * t2[i].t() << std::endl;
-        std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
-        std::cout << "plane normal of camera: " << glm::to_string(-p_mediator->scene_getLanderObject()->up) << std::endl;
-        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
+
+        glm::mat4 rotMat = Service::openCVToGlm(r2[i]);
+        glm::vec4 rotatedPoint = rotMat*testPoint;
+        std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
+        int length = (int) glm::length(rotatedPoint);
+        std::cout << "rotatedPoint length is " << length << std::endl;
 
         glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-        std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ\n";
+        std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ \n";
+
+        std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
+
+        if (length == 30){
+            //this is a valid rotation because the test distance remains the same from origin
+            //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
+            std::cout << "angular velocities added to possible solutions\n";
+            possibleSolutions.push_back(angles);
+        }
+
+        //glm::mat4 tMat = Service::openCVToGlm(t2[i]);
+        //glm::vec4 translatedPoint = tMat*testPoint;
+        //std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
+        //std::cout << "translatedPoint length is " << glm::length(translatedPoint) << std::endl;
+        
+        //std::cout << "----------------------------------------------------" << std::endl;
+        //std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
+        //std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//" and scaled by d: " << factor_d1 * t2[i].t() << std::endl;
+        //std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
+        //std::cout << "plane normal of camera: " << glm::to_string(-p_mediator->scene_getLanderObject()->up) << std::endl;
+        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
     }
-
-    //glm::vec3 angles; //this needs to be the best guess from above
-
-    //for now we will just take the last one
-    //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-    std::cout << glm::to_string(angles) << " best guess angular velocities\n";
+    
     //we need to swap x and y values velocities and negate them, this is because we are above the asteroid and the camera doesn't know that
     //ISSUE - if we change lander position this should be changed
-    float temp = angles.x;
-    angles.x = -angles.y/imagingTimerSeconds;
-    angles.y = -temp/imagingTimerSeconds;
-    angles.z = angles.z/imagingTimerSeconds;
+    if(possibleSolutions.size() > 0){
+        //just taking first of possible solutions for now.
+        float temp = possibleSolutions[0].x;
+        possibleSolutions[0].x = -possibleSolutions[0].y/imagingTimerSeconds;
+        possibleSolutions[0].y = -temp/imagingTimerSeconds;
+        possibleSolutions[0].z = possibleSolutions[0].z/imagingTimerSeconds;
+        std::cout << glm::to_string(possibleSolutions[0]) << " best guess angular velocities\n";
+    }
+    else{
+        possibleSolutions.push_back(glm::vec3(9999, 9999, 9999));
+    }
 
-    return angles;
+    return possibleSolutions[0];
 }
 
 void Vision::detectImage(cv::Mat optics){
@@ -217,8 +243,8 @@ void Vision::detectImage(cv::Mat optics){
     //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(200);
 
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
-    //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
+    //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
+    cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
     //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
 
     //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create(); //star needs BriefDescriptorExtractor created

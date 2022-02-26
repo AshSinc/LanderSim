@@ -97,27 +97,66 @@ glm::vec3 CPU::getFinalEstimatedAngularVelocity(){
     
     std::vector<glm::vec3> estimatedAngularVelocities = cv.getEstimatedAngularVelocities();
 
-    glm::vec3 axisCounter = glm::vec3(0,0,0);
-    glm::vec3 highestAxisSum = glm::vec3(0,0,0);
+    glm::vec3 posAxisCounter = glm::vec3(0,0,0);
+    glm::vec3 negAxisCounter = glm::vec3(0,0,0);
+    glm::vec3 posHighestAxisSum = glm::vec3(0,0,0);
+    glm::vec3 negHighestAxisSum = glm::vec3(0,0,0);
 
     for(glm::vec3 v : estimatedAngularVelocities){
         int highestAxis = Service::getHighestAxis(v);
-        axisCounter[highestAxis] += 1;
-        highestAxisSum[highestAxis] += v[highestAxis];
+        if(v[highestAxis] > 0){
+            posAxisCounter[highestAxis] += 1;
+            posHighestAxisSum[highestAxis] += v[highestAxis];
+        }
+        else{
+            negAxisCounter[highestAxis] += 1;
+            negHighestAxisSum[highestAxis] += v[highestAxis];
+        }
+        
     }
 
-    std::cout << glm::to_string(axisCounter) << " axis counters\n";
-    std::cout << glm::to_string(highestAxisSum) << " highest axis sum\n";
+    std::cout << glm::to_string(posAxisCounter) << " pos axis counters\n";
+    std::cout << glm::to_string(posHighestAxisSum) << " pos highest axis sum\n";
 
-    highestAxisSum[0] = highestAxisSum[0]/axisCounter[0];
-    highestAxisSum[1] = highestAxisSum[1]/axisCounter[1];
-    highestAxisSum[2] = highestAxisSum[2]/axisCounter[2];
+    std::cout << glm::to_string(negAxisCounter) << " neg axis counters\n";
+    std::cout << glm::to_string(negHighestAxisSum) << " neg highest axis sum\n";
 
-    int highestAxisOccurance = Service::getHighestAxis(axisCounter);
-    glm::vec3 finalEstimatedAngularVelocity = glm::vec3(0);
-    finalEstimatedAngularVelocity[highestAxisOccurance] = highestAxisSum[highestAxisOccurance];
+    posHighestAxisSum[0] = posHighestAxisSum[0]/posAxisCounter[0];
+    posHighestAxisSum[1] = posHighestAxisSum[1]/posAxisCounter[1];
+    posHighestAxisSum[2] = posHighestAxisSum[2]/posAxisCounter[2];
 
-    return finalEstimatedAngularVelocity;
+    negHighestAxisSum[0] = negHighestAxisSum[0]/negAxisCounter[0];
+    negHighestAxisSum[1] = negHighestAxisSum[1]/negAxisCounter[1];
+    negHighestAxisSum[2] = negHighestAxisSum[2]/negAxisCounter[2];
+
+    int posHighestAxisOccurance = Service::getHighestAxis(posAxisCounter);
+    int negHighestAxisOccurance = Service::getHighestAxis(negAxisCounter);
+
+    glm::vec3 posFinalEstimatedAngularVelocity = glm::vec3(0);
+    posFinalEstimatedAngularVelocity[posHighestAxisOccurance] = posHighestAxisSum[posHighestAxisOccurance];
+
+    glm::vec3 negFinalEstimatedAngularVelocity = glm::vec3(0);
+    negFinalEstimatedAngularVelocity[negHighestAxisOccurance] = negHighestAxisSum[negHighestAxisOccurance];
+
+    std::cout << glm::to_string(posFinalEstimatedAngularVelocity) << " pos axis final\n";
+    std::cout << glm::to_string(negFinalEstimatedAngularVelocity) << " neg axis final\n";
+
+    glm::vec3 bestEstimate;
+    if(posAxisCounter[posHighestAxisOccurance] > negAxisCounter[negHighestAxisOccurance]){
+        bestEstimate = posFinalEstimatedAngularVelocity;
+    }
+    else{
+        bestEstimate = negFinalEstimatedAngularVelocity;
+    }
+    
+    /*if (glm::length(posFinalEstimatedAngularVelocity) > glm::length(negFinalEstimatedAngularVelocity)){
+        bestEstimate = posFinalEstimatedAngularVelocity;
+    }
+    else{
+        bestEstimate = negFinalEstimatedAngularVelocity;
+    }*/
+
+    return bestEstimate;
 }
 
 void CPU::addImpulseToLanderQueue(float duration, float x, float y, float z, bool torque){
