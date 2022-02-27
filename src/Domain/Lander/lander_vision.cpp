@@ -117,6 +117,9 @@ void Vision::featureMatch(){
 
     glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
 
+    //cv::Mat camPose;
+    //cameraPoseFromHomography(H, camPose);
+
     //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
     if(bestAngularVelocityMatch.x != 9999){
         estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
@@ -132,6 +135,34 @@ void Vision::featureMatch(){
     keypointsQueue.pop_front();
 }
 
+
+void Vision::cameraPoseFromHomography(const cv::Mat& H, cv::Mat& pose)
+{
+    pose = cv::Mat::eye(3, 4, CV_32FC1);      // 3x4 matrix, the camera pose
+    float norm1 = (float)norm(H.col(0));  
+    float norm2 = (float)norm(H.col(1));  
+    float tnorm = (norm1 + norm2) / 2.0f; // Normalization value
+
+    cv::Mat p1 = H.col(0);       // Pointer to first column of H
+    cv::Mat p2 = pose.col(0);    // Pointer to first column of pose (empty)
+
+    cv::normalize(p1, p2);   // Normalize the rotation, and copies the column to pose
+
+    p1 = H.col(1);           // Pointer to second column of H
+    p2 = pose.col(1);        // Pointer to second column of pose (empty)
+
+    cv::normalize(p1, p2);   // Normalize the rotation and copies the column to pose
+
+    p1 = pose.col(0);
+    p2 = pose.col(1);
+
+    cv::Mat p3 = p1.cross(p2);   // Computes the cross-product of p1 and p2
+    cv::Mat c2 = pose.col(2);    // Pointer to third column of pose
+    p3.copyTo(c2);       // Third column is the crossproduct of columns one and two
+
+    pose.col(3) = H.col(2) / tnorm;  //vector t [R|t] is the last column of pose
+}
+
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //construct intrinsic camera detectImagematrix
     //note this is not exactly correct, because the fov is 55.63 (used online tool to calculate these values)...
@@ -143,9 +174,17 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     K2.at<_Float64>(1,2) = 256; //center points in pixels
     //K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
     //K2.at<_Float64>(1, 1) = 55.63; //vertical fov
-    K2.at<_Float64>(0, 0) = 128; //horizontal fov
-    K2.at<_Float64>(1, 1) = 128; //vertical fov
+    //K2.at<_Float64>(0, 0) = 1333.4; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 1333.4; //vertical fov
+    K2.at<_Float64>(0, 0) = 84000; //horizontal fov
+    K2.at<_Float64>(1, 1) = 84000; //vertical fov
     K2.at<_Float64>(2, 2) = 1; //must be 1
+
+    //focalLengthInMM / sensorWidthInMM * imageWidth
+    //55
+    //4635.290039756 mm
+    //And if you know the horizontal field of view, say in degrees,
+    //focal_pixel = (image_width_in_pixels * 0.5) / tan(42 * 0.5 * PI/180) 
 
     //512 x 512 at 42 degrees fov
 
@@ -158,9 +197,12 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     int solutions = cv::decomposeHomographyMat(H, K2, r2, t2, n2);
 
     glm::vec3 angles;
-    glm::vec4 testPoint = glm::vec4(0,30,0,0);
+    //glm::vec4 testPoint = glm::vec4(0,0,1000,0);
+    glm::vec4 testPoint = glm::vec4(0,1000,0,1);
 
     std::vector<glm::vec3> possibleSolutions;
+
+
 
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
@@ -171,6 +213,16 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //combined with pixel values changing as the asteroid rotates making feature matching more difficult.
     //feature matching is sometimes very accurate and other times completely confused. cause not known
 
+    std::cout << "Homography matrix = " << H << std::endl << std::endl;
+
+    glm::mat4 rotMat = Service::openCVToGlm(H);
+    glm::vec4 rotatedPoint = rotMat*testPoint;
+    std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
+    int length = (int) glm::length(rotatedPoint);
+    std::cout << "rotatedPoint length is " << length << std::endl;
+
+
+
     for (int i = 0; i < solutions; i++){
         cv::Mat rvec_decomp;
         cv::Rodrigues(r2[i], rvec_decomp);
@@ -179,16 +231,55 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Solution " << i << ":" << std::endl;
 
-        glm::mat4 rotMat = Service::openCVToGlm(r2[i]);
+        /*glm::mat4 rotMat = Service::openCVToGlm(r2[i]);
         glm::vec4 rotatedPoint = rotMat*testPoint;
         std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
         int length = (int) glm::length(rotatedPoint);
         std::cout << "rotatedPoint length is " << length << std::endl;
+        */
 
-        glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-        std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ \n";
+        //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
+        //std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ \n";
+
+        float scale = 1000;
 
         std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
+        std::cout << "tvec : " << t2[i] <<  std::endl ;//"
+        std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//"
+        std::cout << "and scaled by d: " << scale * t2[i].t() << std::endl;
+
+        cv::Mat tMatrix = cv::Mat::eye(4,4, CV_64F);
+        //tMatrix.col(3) = t2[i].t();
+        //t2[i].copyTo(tMatrix.col(2));
+
+        //tMatrix.at<_Float64>(0,3) = t2[i].at<_Float64>(0,0);
+        //tMatrix.at<_Float64>(1,3) = t2[i].at<_Float64>(0,1);
+        //tMatrix.at<_Float64>(2,3) = t2[i].at<_Float64>(0,2);
+
+        tMatrix.at<_Float64>(3,0) = t2[i].at<_Float64>(0,0);
+        tMatrix.at<_Float64>(3,1) = t2[i].at<_Float64>(0,1);
+        tMatrix.at<_Float64>(3,2) = t2[i].at<_Float64>(0,2);
+
+        //glm::mat4 tMat = Service::openCVToGlm(t2[i]);
+        std::cout << "tMatrix: " << tMatrix << std::endl;
+        glm::mat4 tmat = Service::openCVToGlm(tMatrix);
+        std::cout << "tmat: " << glm::to_string(tmat) << std::endl;
+        glm::vec3 translatedPoint =  tmat*testPoint;
+        std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
+        length = (int) glm::length(translatedPoint);
+        std::cout << "translatedPoint length is " << length << std::endl;
+
+        glm::extractEulerAngleXYZ(Service::openCVToGlm(t2[i].t()), angles.x, angles.y, angles.z);
+        std::cout << glm::to_string(angles) << " translation angular velocities from extractEulerAngleXYZ \n";
+
+
+        std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
+        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << endl << endl;
+
+
+        //so if rvez Z is the primary component then we just use that,
+        //if not then we use tvec instead and calculate the change in angle
+
 
         if (length == 30){
             //this is a valid rotation because the test distance remains the same from origin

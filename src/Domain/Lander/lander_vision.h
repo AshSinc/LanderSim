@@ -33,6 +33,8 @@ namespace Lander{
 
     glm::vec3 findBestAngularVelocityMatchFromDecomp(cv::Mat H);
 
+    void cameraPoseFromHomography(const cv::Mat& H, cv::Mat& pose);
+
     public:
 
     std::vector<glm::vec3> getEstimatedAngularVelocities(){return estimatedAngularVelocities;};

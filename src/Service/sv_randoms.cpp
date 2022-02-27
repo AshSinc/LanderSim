@@ -108,19 +108,19 @@ glm::mat4 Service::openCVToGlm(const cv::Mat &m){
     returnMat[0][0] = m.at<_Float64>(0,0);
     returnMat[0][1] = m.at<_Float64>(0,1);
     returnMat[0][2] = m.at<_Float64>(0,2);
-    returnMat[0][3] = 0;
+    returnMat[0][3] = m.at<_Float64>(0,3);
     returnMat[1][0] = m.at<_Float64>(1,0);
     returnMat[1][1] = m.at<_Float64>(1,1);
     returnMat[1][2] = m.at<_Float64>(1,2);
-    returnMat[1][3] = 0;
+    returnMat[1][3] = m.at<_Float64>(1,3);
     returnMat[2][0] = m.at<_Float64>(2,0);
     returnMat[2][1] = m.at<_Float64>(2,1);
     returnMat[2][2] = m.at<_Float64>(2,2);
-    returnMat[2][3] = 0;
+    returnMat[2][3] = m.at<_Float64>(2,3);
     returnMat[3][0] = m.at<_Float64>(3,0);
     returnMat[3][1] = m.at<_Float64>(3,1);
     returnMat[3][2] = m.at<_Float64>(3,2);
-    returnMat[3][3] = 0;
+    returnMat[3][3] = m.at<_Float64>(3,3);
     return returnMat;
 }
 
