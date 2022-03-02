@@ -126,7 +126,7 @@ void MyScene::initObjects(){
     asteroid->mass = 100000;
 
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
-        float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
+        /*float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
         int axis = Service::getRandFloat(0,3);
         switch (axis)
         {
@@ -141,6 +141,24 @@ void MyScene::initObjects(){
             break;
         default:
         asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+            break;
+        }*/
+
+        float f = 0.0025;
+        int axis = 0;
+        switch (axis)
+        {
+        case 0:
+            asteroid->angularVelocity = btVector3(f, 0.0f, 0.0f);
+            break;
+        case 1:
+            asteroid->angularVelocity = btVector3(0.0f, f, 0.0f);
+            break;
+        case 2:
+            asteroid->angularVelocity = btVector3(0.0f, 0.0f, f);
+            break;
+        default:
+        asteroid->angularVelocity = btVector3(0.0f, 0.0f, f);
             break;
         }
 
@@ -267,7 +285,7 @@ void MyScene::initObjects(){
 void MyScene::initLights(){
     //set directional scene light values
     //this is light from the star in the background
-    sceneLight.pos = glm::vec3(1,0,0);
+    sceneLight.pos = glm::vec3(0,0,-1);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
     sceneLight.diffuse = glm::vec3(0.5f,0.5f,0.5f);

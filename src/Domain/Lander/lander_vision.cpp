@@ -80,15 +80,16 @@ void Vision::featureMatch(){
     matcher->match(descriptorsQueue[0], descriptorsQueue[1], matches);
 
     //now we should sort matches based on distance, then take the top 30 or so
-    for (size_t i = 0; i < matches.size(); i++){
-        std::cout << matches[i].distance << " , at pos " << i << " match distance \n";
-    }
+    //for (size_t i = 0; i < matches.size(); i++){
+    //    std::cout << matches[i].distance << " , at pos " << i << " match distance \n";
+    //}
 
+    //sorting
     std::sort(matches.begin(), matches.end(), compareDistance);
     
-    for (size_t i = 0; i < matches.size(); i++){
-        std::cout << matches[i].distance << " , at pos " << i << " sorted match distance \n";
-    }
+    //for (size_t i = 0; i < matches.size(); i++){
+    //    std::cout << matches[i].distance << " , at pos " << i << " sorted match distance \n";
+    //}
 
     //array bound check for the next operation
     int numMatchesToUse = NUM_MATCHES_TO_USE;
@@ -96,6 +97,8 @@ void Vision::featureMatch(){
         numMatchesToUse = matches.size();
     //slice the vector and keep only the top NUM_MATCHES_TO_USE matches (30 or so)
     std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
+    //std::vector<cv::DMatch> bestMatches = matches;
+    
 
     //-- Draw matches
     cv::Mat matchedImage;
@@ -113,7 +116,8 @@ void Vision::featureMatch(){
         src.push_back( keypointsQueue[0][ bestMatches[i].queryIdx ].pt );
         dst.push_back( keypointsQueue[1][ bestMatches[i].trainIdx ].pt );
     }
-    cv::Mat H = findHomography(src, dst, cv::RANSAC);
+    cv::Mat H = findHomography(src, dst, cv::RANSAC);//, 1.0, cv::noArray(), 3000);
+    //cv::Mat H = findHomography(src, dst, 0);
     std::cout << H << " H \n";
 
     glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
@@ -188,6 +192,10 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     K2.at<_Float64>(2, 2) = 1; //must be 1
 
     //std::cout << "Camera matrix = " << K2 << std::endl << std::endl;
+    cv::Mat pose;
+    cameraPoseFromHomography(H, pose);
+
+    std::cout << pose << " pose \n";
 
     std::vector<cv::Mat> r2;
     std::vector<cv::Mat> t2;
@@ -197,11 +205,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
     glm::vec3 angles;
     //glm::vec4 testPoint = glm::vec4(0,0,1000,0);
-    glm::vec3 testPoint = glm::vec3(0, 1000, 0);
-
-    std::vector<glm::vec3> possibleSolutions;
-
-
+    glm::vec3 testPoint = glm::vec3(0, 0, 1000);
 
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
@@ -214,6 +218,8 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
     //std::cout << "Homography matrix = " << H << std::endl << std::endl;
 
+    std::vector<glm::vec3> possibleSolutions;
+
     for (int i = 0; i < solutions; i++){
         cv::Mat rvec_decomp;
         cv::Rodrigues(r2[i], rvec_decomp);
@@ -222,7 +228,13 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Solution " << i << ":" << std::endl;
 
+        
+
         glm::mat3 rotMat = Service::openCVToGlm(r2[i]);
+
+        std::cout << glm::to_string(rotMat) << " rotmat \n";
+
+        //glm::vec3 rotatedPoint = rotMat*glm::vec3(0,0,1000);
         glm::vec3 rotatedPoint = rotMat*testPoint;
         std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
         int rotLength = (int) glm::length(rotatedPoint);
@@ -231,6 +243,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
         std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ \n";
 
+        
         
         if(Service::getHighestAxis(angles) == 2){
             //then we have a Z rotation which can be taken
@@ -249,6 +262,8 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
             float scale = 1000.0f;
 
+            std::cout << t2[i] << " t mat \n";
+
 
             glm::mat4 tmat = glm::mat4(1.0f);
             tmat[3][0] = t2[i].at<_Float64>(0,0)*scale;
@@ -256,7 +271,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             tmat[3][2] = t2[i].at<_Float64>(0,2)*scale;
 
             
-
+            
             std::cout << "tmat " << glm::to_string(tmat) << std::endl;
             std::cout << "tvec from homography decomposition: " << t2[i].t() << "\n";
 
@@ -264,6 +279,12 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
             int tLength = (int) glm::length(translatedPoint);
             std::cout << "translatedPoint length is " << tLength << std::endl;
+
+            //glm::vec3 rotatedtranslatedPoint =  tmat*glm::vec4(translatedPoint,1);
+            //std::cout << "rotatedtranslatedPoint " << glm::to_string(rotatedtranslatedPoint) << std::endl;
+
+            //glm::vec3 rtPoint = (testPoint*rotMat) * tmat;
+            //std::cout << "rotate then translate Point " << tLength << std::endl;
 
             //+z coordinate maps to +x rotational velocity
             //-z coordinate maps to -x rotational velocity
@@ -281,7 +302,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             //std::cout << " angle between y is : " << angleY << "\n";
             //std::cout << " angle between z is : " << angleZ << "\n";
             
-            float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 1, 0));
+            float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 0, 1));
             std::cout << " angle between vectors is : " << angle << "\n";
 
         //}

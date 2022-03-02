@@ -32,7 +32,8 @@ class MyScene: public IScene{
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {
             {"lander", "resources/models/insight.obj"},
-            {"asteroid", "resources/models/asteroidscaled.obj"},
+            //{"asteroid", "resources/models/asteroidscaled.obj"},
+            {"asteroid", "resources/models/plane.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
             {"box", "resources/models/box.obj"}

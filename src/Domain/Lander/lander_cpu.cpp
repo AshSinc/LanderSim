@@ -64,7 +64,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
             navStruct.angularVelocity = asteroidAngularVelocity;
         }
         
-        std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
+        //std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
         navStruct.approachDistance = approachDistance;
         navStruct.gravityVector = Service::bt2glm(p_lander->landerGravityVector);
         navStruct.landerTransformMatrix = p_lander->transformMatrix;
@@ -185,7 +185,7 @@ bool CPU::gncTimer(float timeStep){
     if(gncActive){
         gncTime += timeStep;
         if(gncTime > GNC_TIMER_SECONDS){
-            std::cout << "GNC Requested\n";
+            //std::cout << "GNC Requested\n";
             gncTime = 0;
             return true;
         }
