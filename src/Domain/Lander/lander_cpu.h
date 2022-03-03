@@ -49,6 +49,7 @@ namespace Lander{
         bool imagingActive = true;
         bool gncActive = true;
         float imagingTime = 0.0f;
+        int imgCount = 0; //only used for resetting test plane every first image
         float gncTime = 0.0f;
         float approachDistance = 0.0f;
         glm::vec3 asteroidAngularVelocity;

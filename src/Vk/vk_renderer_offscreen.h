@@ -31,7 +31,7 @@ public:
 
     void assignMatToDetectionView(cv::Mat image);
     void assignMatToMatchingView(cv::Mat image);
-    
+    void clearOpticsViews();
 
 private:
 

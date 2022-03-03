@@ -11,7 +11,7 @@
 
 #include "vk_pipeline.h"
 
-
+#include "obj_testPlane.h" //temp testing
 
 Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator)
     : Renderer(windowptr, mediator){}
@@ -584,7 +584,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
-    //remove last from the queue, this emans we wont render it during copy
+    //remove last from the queue, this means we wont render it during copy
     if(imguiTextureSetIndicesQueue.size() >= NUM_TEXTURE_SETS)
         imguiTextureSetIndicesQueue.pop_back();
 
@@ -711,6 +711,13 @@ void Vk::OffscreenRenderer::assignMatToMatchingView(cv::Mat image){
     memcpy((void*)matchImageMapping, image.data, sizeInBytes);
 
     imguiMatchIndicesQueue.push_front(0); //index will always be 0, although value doesnt actually matter for this one as its just used as a bool in ui
+}
+
+void Vk::OffscreenRenderer::clearOpticsViews(){
+    //careful of mem leaks, need to check
+    imguiMatchIndicesQueue.clear();
+    imguiDetectionIndicesQueue.clear();
+    imguiTextureSetIndicesQueue.clear();
 }
 
 void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
@@ -949,7 +956,8 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 
     //temp code for drawing plane guides
     //if(ENABLE_PLANE_DRAWING)
-    for(int c = 0; c < 10; c++){
+    int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
+    for(int c = 0; c < numObjs; c++){
         renderObjectIds.push_back(11+c);
     }
     

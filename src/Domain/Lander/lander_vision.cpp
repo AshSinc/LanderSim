@@ -53,7 +53,7 @@ void Vision::simulationTick(){
 
 //compares distance of matches, for use in vector sorting of matches
 bool Vision::compareDistance(cv::DMatch d1, cv::DMatch d2){
-    return (d1.distance < d2.distance);
+    return (d1.distance <= d2.distance);
 }
 
 void Vision::featureMatch(){
@@ -70,8 +70,8 @@ void Vision::featureMatch(){
     That is, the two features in both sets should match each other. It provides consistent result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
     */
 
-    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
-    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
+    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
+    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
 
     //cv::Ptr<cv::FlannBasedMatcher> matcher = cv::FlannBasedMatcher::create(); //use with binary string based descriptors descriptors
     //matcher->knnMatch(descriptorsQueue[0], descriptorsQueue[1], 2); //may not be using flann properly, and knn needs different params
@@ -135,9 +135,21 @@ void Vision::featureMatch(){
     if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
         active = false;
     
+    
     descriptorsQueue.pop_front();
     opticsQueue.pop_front();
     keypointsQueue.pop_front();
+
+    //ISSUE need to fix
+    //THere are issues with queus here and in render and ui probably
+    //will need to clean to ensure first image set is correct.
+    //and subsequent image sets are correct.
+
+    //if(USING_PLANE){
+        descriptorsQueue.pop_front();
+        opticsQueue.pop_front();
+        keypointsQueue.pop_front();
+    //}
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
@@ -275,6 +287,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             
             float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 0, 1));
             std::cout << " angle between vectors is : " << angle << "\n";
+            std::cout << "----------------------------------------------------" << std::endl;
 
         //}
 
@@ -360,12 +373,12 @@ void Vision::detectImage(cv::Mat optics){
     startT(1); //timer start
     
     //surf and sift, both use floating point descriptors so matcher should use NORM_L2
-    //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(10);//min hessian
+    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(200);//min hessian
     //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(100);
 
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
     //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
-    cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
+    //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
     //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
 
     //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create(); //star needs BriefDescriptorExtractor created

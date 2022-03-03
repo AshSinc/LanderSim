@@ -39,7 +39,8 @@ class MyScene: public IScene{
             //{"asteroid", "resources/models/plane.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
-            {"sphere1", "resources/models/sphere.obj"}, //workaround for colour tied to material in shaders
+
+            /*{"sphere1", "resources/models/sphere.obj"}, //workaround for colour tied to material in shaders
             {"sphere2", "resources/models/sphere.obj"},
             {"sphere3", "resources/models/sphere.obj"},
             {"sphere4", "resources/models/sphere.obj"},
@@ -48,7 +49,17 @@ class MyScene: public IScene{
             {"sphere7", "resources/models/sphere.obj"},
             {"sphere8", "resources/models/sphere.obj"},
             {"sphere9", "resources/models/sphere.obj"},
-            {"sphere10", "resources/models/sphere.obj"},
+            {"sphere0", "resources/models/sphere.obj"},*/
+            {"sphere1", "resources/models/box.obj"}, //workaround for colour tied to material in shaders
+            {"sphere2", "resources/models/box.obj"},
+            {"sphere3", "resources/models/box.obj"},
+            {"sphere4", "resources/models/box.obj"},
+            {"sphere5", "resources/models/box.obj"},
+            {"sphere6", "resources/models/box.obj"},
+            {"sphere7", "resources/models/box.obj"},
+            {"sphere8", "resources/models/box.obj"},
+            {"sphere9", "resources/models/box.obj"},
+            {"sphere0", "resources/models/box.obj"},
             {"box", "resources/models/box.obj"}
         };
         

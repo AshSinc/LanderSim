@@ -179,6 +179,9 @@ void Mediator::renderer_assignMatToDetectionView(cv::Mat image){
 void Mediator::renderer_assignMatToMatchingView(cv::Mat image){
     return p_renderEngine->assignMatToMatchingView(image);
 }
+void Mediator::renderer_clearOpticsViews(){
+    return p_renderEngine->clearOpticsViews();
+}
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

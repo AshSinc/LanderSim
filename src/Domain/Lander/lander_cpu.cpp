@@ -2,6 +2,7 @@
 #include "mediator.h"
 #include "obj_lander.h"
 #include "obj_landingSite.h"
+#include "obj_testPlane.h"
 #define GLM_FORCE_RADIANS //makes sure GLM uses radians to avoid confusion
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES //forces GLM to use a version of vec2 and mat4 that have the correct alignment requirements for Vulkan
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
@@ -193,11 +194,23 @@ bool CPU::gncTimer(float timeStep){
     return false;
 }
 
-//this should be renamed, its more than an image timer
 bool CPU::imagingTimer(float timeStep){
     if(imagingActive){
         imagingTime += timeStep;
         if(imagingTime > IMAGING_TIMER_SECONDS){
+
+            //resetting testing plane every first image of set, to ensure first points are perpenicular to camera
+            //if(USING_TESTPLANE){
+                if(imgCount == 0){
+                    p_mediator->scene_getTestPlaneObject()->resetTestPlaneObjects();
+                    p_mediator->renderer_clearOpticsViews();
+                    //Vision
+                }
+                imgCount++;
+                if(imgCount == 2)
+                    imgCount = 0;
+            //}
+
             std::cout << "Image Requested\n";
             imagingTime = 0;
             return true;
