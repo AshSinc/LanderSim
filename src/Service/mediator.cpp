@@ -4,6 +4,7 @@
 #include "dmn_myScene.h"
 #include "obj_landingSite.h"
 #include "obj_lander.h"
+//#include "obj_testPlane.h"
 
 
 //Scene Functions
@@ -19,6 +20,10 @@ WorldObject& Mediator::scene_getFocusableObject(std::string name){
 LandingSiteObj* Mediator::scene_getLandingSiteObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLandingSiteObject();
+}
+TestPlaneObj* Mediator::scene_getTestPlaneObject(){
+    MyScene* tp = dynamic_cast<MyScene*>(p_scene);
+    return tp->getTestPlaneObject();
 }
 LanderObj* Mediator::scene_getLanderObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);

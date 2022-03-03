@@ -944,8 +944,14 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 
     //could have a menu option to disable drawing certain things in offscreen like the asteroid for testing,
     //or in the main renderer pass show things like landing site boxes and other debugging things
-    int renderObjectIds [6] = {1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
-    //int renderObjectIds [2] = {1,3}; //3 = asteroid
+    std::vector<int> renderObjectIds;
+    //renderObjectIds = std::vector{1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
+
+    //temp code for drawing plane guides
+    //if(ENABLE_PLANE_DRAWING)
+    for(int c = 0; c < 10; c++){
+        renderObjectIds.push_back(11+c);
+    }
     
     //here we are drawing objects using altMaterial, this is the greyscale material of each respective object set in scene init
     for(const int i : renderObjectIds){
@@ -993,6 +999,53 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
 
         vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
     }
+
+    //here we are drawing objects using material, this is the coloured material
+    /*for(const int i : renderObjectIds){
+        RenderObject* object = p_renderables->at(i).get();
+        //only bind the pipeline and different descriptor sets if they don't match the already bound one
+		if (object->material != lastMaterial) {
+            if(object->material == nullptr){throw std::runtime_error("object.material is a null reference in drawObjects()");} //remove if statement in release
+			vkCmdBindPipeline(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, object->material->pipeline);
+			lastMaterial = object->material;
+
+            //offset for our scene buffer
+            uint32_t scene_uniform_offset = 0; //requires offset for dynamic offscreenDescriptorSet, because its built on renderer pipeline layout, must match
+            //bind the descriptor set when changing pipeline
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
+
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
+
+	        //object data descriptor
+        	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 1, 1, &os_objectDescriptor, 0, nullptr);
+
+             //material descriptor, we are using a dynamic uniform buffer and referencing materials by their offset with propertiesId, which just stores the int relative to the material in _materials
+        	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 2, 1, &_frames[curFrame].materialSet, 0, nullptr);
+            //the "firstSet" param above is 2 because in init_pipelines its described in VkDescriptorSetLayout[] in index 2!
+            
+            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                object->material->pipelineLayout, 3, 1, &os_lightSet, 0, nullptr);
+
+            if (object->material->_multiTextureSets.size() > 0) {
+                vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
+                    object->material->pipelineLayout, 4, 1, &object->material->_multiTextureSets[0], 0, nullptr);
+		    }
+		}
+        //add material property id for this object to push constant
+		PushConstants constants;
+		constants.matIndex = object->material->propertiesId;
+        constants.numPointLights = p_pointLights->size();
+        constants.numSpotLights = p_spotLights->size();
+
+        //upload the mesh to the GPU via pushconstants
+		vkCmdPushConstants(offscreenCommandBuffer, object->material->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
+
+        vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders
+    }*/
 }
 
 void Vk::OffscreenRenderer::cleanup(){

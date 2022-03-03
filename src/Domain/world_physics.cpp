@@ -9,6 +9,7 @@
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 #include <glm/gtx/string_cast.hpp>
+#include "obj_testPlane.h" //these references should be in a child class derived from WorldPhysics
 #include "obj_landingSite.h" //these references should be in a child class derived from WorldPhysics
 #include "obj_lander.h" //these references should be in a child class derived from WorldPhysics
 #include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
@@ -129,6 +130,7 @@ void WorldPhysics::stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep
     WorldPhysics* p_physics = (WorldPhysics*)world->getWorldUserInfo();
     p_physics->updateCollisionObjects(timeStep);
     p_physics->r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
+    p_physics->r_mediator.scene_getTestPlaneObject()->updateTestPlaneObjects();
     p_physics->r_mediator.scene_getLanderObject()->updateSpotlight();
 }
 

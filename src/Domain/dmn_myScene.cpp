@@ -5,6 +5,7 @@
 #include "sv_randoms.h"
 #include <glm/gtx/string_cast.hpp>
 #include "obj_landingSite.h"
+#include "obj_testPlane.h"
 #include <glm/gtx/quaternion.hpp>
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
@@ -242,44 +243,10 @@ void MyScene::initObjects(){
     renderableObjects.push_back(debugBox3);
     debugObjects.push_back(debugBox3);
 
-    /*std::shared_ptr<RenderObject> debugBox4 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox4->id = id++;
-    debugBox4->pos = glm::vec3(0,0,0.0f);
-    debugBox4->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox4.get());
-    debugBox4->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox4->material->diffuse = glm::vec3(1,1,0.5f);
-    debugBox4->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    debugBox4->material->extra.x = 32;
-    objects.push_back(debugBox4);
-    renderableObjects.push_back(debugBox4);
-    debugObjects.push_back(debugBox4);
 
-    std::shared_ptr<RenderObject> debugBox5 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox5->id = id++;
-    debugBox5->pos = glm::vec3(0,0,0.0f);
-    debugBox5->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox5.get());
-    debugBox5->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox5->material->diffuse = glm::vec3(1,1,0.5f);
-    debugBox5->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    debugBox5->material->extra.x = 32;
-    objects.push_back(debugBox5);
-    renderableObjects.push_back(debugBox5);
-    debugObjects.push_back(debugBox5);
-
-    std::shared_ptr<RenderObject> debugBox6 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox6->id = id++;
-    debugBox6->pos = glm::vec3(0,0,0.0f);
-    debugBox6->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox6.get());
-    debugBox6->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox6->material->diffuse = glm::vec3(1,1,0.5f);
-    debugBox6->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    debugBox6->material->extra.x = 32;
-    objects.push_back(debugBox6);
-    renderableObjects.push_back(debugBox6);
-    debugObjects.push_back(debugBox6);*/
+    //ISSUE - test plane needs a bool and that needs checked in renderer to avoid drawing if we dont want it.
+    testPlane = std::shared_ptr<TestPlaneObj>(new TestPlaneObj(&r_mediator));
+    testPlane.get()->constructPlane(sceneData, &objects, &renderableObjects, this);
 }
 
 void MyScene::initLights(){

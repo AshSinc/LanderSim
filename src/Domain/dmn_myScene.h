@@ -3,6 +3,7 @@
 #include "mediator.h"
 #include <string>
 #include "data_scene.h"
+//#include "obj_testPlane.h"
 
 class MyScene: public IScene{
         public:
@@ -14,6 +15,7 @@ class MyScene: public IScene{
         void setSceneData(SceneData sceneData);
         void setRendererMeshVars(std::string name, RenderObject* renderObj);
         LandingSiteObj* getLandingSiteObject(){return landingSite.get();};
+        TestPlaneObj* getTestPlaneObject(){return testPlane.get();};
         LanderObj* getLanderObject(){return lander.get();};
         
         private:
@@ -27,17 +29,29 @@ class MyScene: public IScene{
         Mediator& r_mediator;
 
         std::shared_ptr<LandingSiteObj> landingSite; //pointers passed by mediator for ease so we store them in scene
+        std::shared_ptr<TestPlaneObj> testPlane; //pointers passed by mediator for ease so we store them in scene
         std::shared_ptr<LanderObj> lander; //pointers passed by mediator for ease so we store them in scene
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved
         const std::vector<ModelInfo> MODEL_INFOS = {
             {"lander", "resources/models/insight.obj"},
-            //{"asteroid", "resources/models/asteroidscaled.obj"},
-            {"asteroid", "resources/models/plane.obj"},
+            {"asteroid", "resources/models/asteroidscaled.obj"},
+            //{"asteroid", "resources/models/plane.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
+            {"sphere1", "resources/models/sphere.obj"}, //workaround for colour tied to material in shaders
+            {"sphere2", "resources/models/sphere.obj"},
+            {"sphere3", "resources/models/sphere.obj"},
+            {"sphere4", "resources/models/sphere.obj"},
+            {"sphere5", "resources/models/sphere.obj"},
+            {"sphere6", "resources/models/sphere.obj"},
+            {"sphere7", "resources/models/sphere.obj"},
+            {"sphere8", "resources/models/sphere.obj"},
+            {"sphere9", "resources/models/sphere.obj"},
+            {"sphere10", "resources/models/sphere.obj"},
             {"box", "resources/models/box.obj"}
         };
+        
 
         //texture identifier and path pairs, used in loading and assigning to map
         const std::vector<TextureInfo> TEXTURE_INFOS = {

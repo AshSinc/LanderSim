@@ -536,6 +536,9 @@ void Vk::RendererBase::initPipelines(){
     //load and create all shaders
     auto default_lit_vert_c = Vk::Init::readFile("resources/shaders/default_lit_vert.spv"); 
     auto default_lit_frag_c = Vk::Init::readFile("resources/shaders/default_lit_frag.spv");
+
+    //auto unlit_vert_c = Vk::Init::readFile("resources/shaders/unlit_vert.spv");
+    
     auto unlit_frag_c = Vk::Init::readFile("resources/shaders/unlit_frag.spv");
     auto textured_lit_frag_c = Vk::Init::readFile("resources/shaders/textured_lit_frag.spv");
 
@@ -548,6 +551,9 @@ void Vk::RendererBase::initPipelines(){
 
     auto default_lit_vert_m = createShaderModule(default_lit_vert_c);
     auto default_lit_frag_m = createShaderModule(default_lit_frag_c);
+
+    //auto unlit_vert_m = createShaderModule(unlit_vert_c);
+
     auto unlit_frag_m = createShaderModule(unlit_frag_c);
     auto textured_lit_frag_m = createShaderModule(textured_lit_frag_c);
 

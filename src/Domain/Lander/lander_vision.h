@@ -15,7 +15,7 @@ namespace Lander{
 
     int NUM_ESTIMATIONS_BEFORE_CALC = 20;
 
-    int NUM_MATCHES_TO_USE = 100;
+    int NUM_MATCHES_TO_USE = 50;
 
     std::mutex processingLock;
     

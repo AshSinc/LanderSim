@@ -40,6 +40,7 @@ struct SceneData;
 struct WorldStats;
 struct LandingSiteObj;
 struct LanderObj;
+struct TestPlaneObj;
 
 struct ImguiTexturePacket;
 
@@ -118,6 +119,7 @@ class Mediator{
         WorldObject& scene_getWorldObject(int i);
         WorldObject& scene_getFocusableObject(std::string name);
         LandingSiteObj* scene_getLandingSiteObject();
+        TestPlaneObj* scene_getTestPlaneObject();
         LanderObj* scene_getLanderObject();
         std::vector<std::shared_ptr<RenderObject>>* scene_getDebugObjects();
 

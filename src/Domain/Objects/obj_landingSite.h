@@ -26,14 +26,11 @@ struct LandingSiteObj : virtual WorldObject{
             MyScene* myScene
             ){
         //first get center of scenario landing site, scale it, 
-        //reduce scaling by a factor, helps with overshooting the landing site pos, not great still though
-        //instead i should move it down towards origin by an amount determined by scaleAmount
         float scaleAmount = sceneData.ASTEROID_SCALE*LANDING_SCALE_REDUCTION_FACTOR;
         glm::mat4 scale_m = glm::scale(glm::mat4(1.0f), glm::vec3(sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE, sceneData.ASTEROID_SCALE)); //scale matrix
         glm::vec3 towardsOrigin = glm::normalize(-sceneData.landingSite.pos)*scaleAmount;
         glm::vec3 landingSitePos = scale_m * glm::vec4(sceneData.landingSite.pos+towardsOrigin,1);
-        //glm::mat4 landingSiteRot = sceneData.landingSite.rot;
-        glm::mat4 landingSiteRot = sceneData.landingSite.rot;// * p_mediator->scene_getFocusableObject("Asteroid").initialRot;
+        glm::mat4 landingSiteRot = sceneData.landingSite.rot;
 
         pos = landingSitePos;
         initialPos = landingSitePos;
@@ -42,7 +39,7 @@ struct LandingSiteObj : virtual WorldObject{
 
         glm::mat4 scaleM = glm::scale(glm::mat4{ 1.0 }, scale);
         glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, pos);
-        glm::mat4 rotation = rot;//*p_mediator->scene_getFocusableObject("Asteroid").initialRot;
+        glm::mat4 rotation = rot;
         glm::mat4 landerWorldTransform = translation * rotation * scaleM;
         int indexUpAxis = 2;
         up = glm::normalize(landerWorldTransform[2]);
@@ -106,8 +103,8 @@ struct LandingSiteObj : virtual WorldObject{
         rot = asteroidRenderObject.rot*initialRot;
         
         for(int x = 0; x < 4; x++){
-            WorldObject& box = p_mediator->scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
-            glm::vec3 directionToOrigin = glm::normalize(-initialPos);
+            WorldObject& box = p_mediator->scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list ISSUE - need an object mgr
+            //glm::vec3 directionToOrigin = glm::normalize(-initialPos);
             glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(box.initialPos, 1);
             box.pos = rotated_point;
             box.rot = asteroidRenderObject.rot*box.initialRot;

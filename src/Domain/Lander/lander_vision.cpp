@@ -140,34 +140,6 @@ void Vision::featureMatch(){
     keypointsQueue.pop_front();
 }
 
-
-void Vision::cameraPoseFromHomography(const cv::Mat& H, cv::Mat& pose)
-{
-    pose = cv::Mat::eye(3, 4, CV_32FC1);      // 3x4 matrix, the camera pose
-    float norm1 = (float)norm(H.col(0));  
-    float norm2 = (float)norm(H.col(1));  
-    float tnorm = (norm1 + norm2) / 2.0f; // Normalization value
-
-    cv::Mat p1 = H.col(0);       // Pointer to first column of H
-    cv::Mat p2 = pose.col(0);    // Pointer to first column of pose (empty)
-
-    cv::normalize(p1, p2);   // Normalize the rotation, and copies the column to pose
-
-    p1 = H.col(1);           // Pointer to second column of H
-    p2 = pose.col(1);        // Pointer to second column of pose (empty)
-
-    cv::normalize(p1, p2);   // Normalize the rotation and copies the column to pose
-
-    p1 = pose.col(0);
-    p2 = pose.col(1);
-
-    cv::Mat p3 = p1.cross(p2);   // Computes the cross-product of p1 and p2
-    cv::Mat c2 = pose.col(2);    // Pointer to third column of pose
-    p3.copyTo(c2);       // Third column is the crossproduct of columns one and two
-
-    pose.col(3) = H.col(2) / tnorm;  //vector t [R|t] is the last column of pose
-}
-
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
     //construct intrinsic camera matrix
@@ -192,10 +164,9 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     K2.at<_Float64>(2, 2) = 1; //must be 1
 
     //std::cout << "Camera matrix = " << K2 << std::endl << std::endl;
-    cv::Mat pose;
-    cameraPoseFromHomography(H, pose);
-
-    std::cout << pose << " pose \n";
+    //cv::Mat pose;
+    //cameraPoseFromHomography(H, pose);
+    //std::cout << pose << " pose \n";
 
     std::vector<cv::Mat> r2;
     std::vector<cv::Mat> t2;
@@ -388,9 +359,9 @@ void Vision::detectImage(cv::Mat optics){
     //-- Step 1: Detect the keypoints
     startT(1); //timer start
     
-    //surf and sift, both use floating point descriptors so matcher should use 
-    //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(200);//min hessian
-    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(200);
+    //surf and sift, both use floating point descriptors so matcher should use NORM_L2
+    //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(10);//min hessian
+    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(100);
 
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
     //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
@@ -419,6 +390,8 @@ void Vision::detectImage(cv::Mat optics){
     
     //passing back to renderer
     p_mediator->renderer_assignMatToDetectionView(kpimage);
+
+    //p_mediator->renderer_assignMatToDetectionView(opticsQueue.back()); //for testing without kps drawn
 
     //if we have 2 descriptors then we can match them
     if(descriptorsQueue.size()>1)

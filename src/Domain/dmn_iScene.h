@@ -34,6 +34,7 @@ class IScene{
         std::vector<std::shared_ptr<RenderObject>> renderableObjects;
         std::unordered_map<std::string, std::shared_ptr<WorldObject>> focusableObjects;
         std::vector<std::shared_ptr<RenderObject>> debugObjects;
+        //std::vector<std::shared_ptr<RenderObject>> planeObjects;
 
     public:
         int getNumPointLights(){return pointLights.size();}

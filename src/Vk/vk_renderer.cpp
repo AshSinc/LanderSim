@@ -418,10 +418,18 @@ void Vk::Renderer::drawObjects(int curFrame){
     Material* lastMaterial = nullptr;
 
     std::vector<int> renderObjectIds;
+    
     if(ENABLE_DEBUG_DRAWING)
+        //renderObjectIds = std::vector{1,2,3,4,5,6,7,8,9,10}; //8 9 10 are debug boxes
         renderObjectIds = std::vector{1,2,3,4,5,6,7,8,9,10}; //8 9 10 are debug boxes
     else
         renderObjectIds = std::vector{1,2,3,4,5,6,7};
+
+    //temp code for drawing plane guides
+    //if(ENABLE_PLANE_DRAWING)
+    for(int c = 0; c < 10; c++){
+        renderObjectIds.push_back(11+c);
+    }
     
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
@@ -571,7 +579,27 @@ void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
     for(ModelInfo info : MODEL_INFOS){
         glm::vec3 colour = glm::vec3(0,0,1);//temp colour code
         if(info.modelName == "sphere")//temp colour code
-            colour = glm::vec3(1,1,0.5f);//temp colour code
+            colour = glm::vec3(1,1,1);//temp colour code
+        else if(info.modelName == "sphere1")
+            colour = glm::vec3(0.2,1,1);//temp colour code
+        else if(info.modelName == "sphere2")
+            colour = glm::vec3(0.4,0.8,1);//temp colour code
+        else if(info.modelName == "sphere3")
+            colour = glm::vec3(0.6,0.6,1);//temp colour code
+        else if(info.modelName == "sphere4")
+            colour = glm::vec3(0.8,0.4,1);//temp colour code
+        else if(info.modelName == "sphere5")
+            colour = glm::vec3(1,0.2,1);//temp colour code
+        else if(info.modelName == "sphere6")
+            colour = glm::vec3(1,1,0.2);//temp colour code
+        else if(info.modelName == "sphere7")
+            colour = glm::vec3(1,1,0.4);//temp colour code
+        else if(info.modelName == "sphere8")
+            colour = glm::vec3(1,1,0.6);//temp colour code
+        else if(info.modelName == "sphere9")
+            colour = glm::vec3(1,1,0.8);//temp colour code
+        else if(info.modelName == "sphere10")
+            colour = glm::vec3(1,1,1);//temp colour code
         else
             colour = glm::vec3(0,0,1);//temp colour code
         populateVerticesIndices(info.filePath, uniqueVertices, colour);
