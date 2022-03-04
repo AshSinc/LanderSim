@@ -586,7 +586,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     //remove last from the queue, this means we wont render it during copy
     if(imguiTextureSetIndicesQueue.size() >= NUM_TEXTURE_SETS)
-        imguiTextureSetIndicesQueue.pop_back();
+        imguiTextureSetIndicesQueue.pop_front();
 
     imageHelper->insertImageMemoryBarrier(
         cmdBuffer,
@@ -649,7 +649,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
         VkImageSubresourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 });
 
     //gui image is now ready to show again
-    imguiTextureSetIndicesQueue.push_front(opticsFrameCounter);
+    imguiTextureSetIndicesQueue.push_back(opticsFrameCounter);
     //this is only for the optics texture though, might have to make 2 of these indices queues?
 
     imageHelper->insertImageMemoryBarrier(
@@ -694,23 +694,23 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
 void Vk::OffscreenRenderer::assignMatToDetectionView(cv::Mat image){
     if(imguiDetectionIndicesQueue.size() >= NUM_TEXTURE_SETS)
-        imguiDetectionIndicesQueue.pop_back();
+        imguiDetectionIndicesQueue.pop_front();
 
     size_t sizeInBytes = image.step[0] * image.rows;
     //std::cout << sizeInBytes << " bytes \n";
     memcpy((void*)detectionImageMappings[opticsFrameCounter], image.data, sizeInBytes);
 
-    imguiDetectionIndicesQueue.push_front(opticsFrameCounter);
+    imguiDetectionIndicesQueue.push_back(opticsFrameCounter);
 }
 
 void Vk::OffscreenRenderer::assignMatToMatchingView(cv::Mat image){
     if(imguiMatchIndicesQueue.size() >= 1)
-        imguiMatchIndicesQueue.pop_back();
+        imguiMatchIndicesQueue.pop_front();
 
     size_t sizeInBytes = image.step[0] * image.rows;
     memcpy((void*)matchImageMapping, image.data, sizeInBytes);
 
-    imguiMatchIndicesQueue.push_front(0); //index will always be 0, although value doesnt actually matter for this one as its just used as a bool in ui
+    imguiMatchIndicesQueue.push_back(0); //index will always be 0, although value doesnt actually matter for this one as its just used as a bool in ui
 }
 
 void Vk::OffscreenRenderer::clearOpticsViews(){

@@ -4,6 +4,7 @@
 #include <deque>
 #include <vector>
 #include <mutex>
+#include "lander_navstruct.h"
 
 namespace Lander{
 
@@ -11,11 +12,16 @@ namespace Lander{
 
     private:
 
+    NavigationStruct* p_navStruct;
+
     float imagingTimerSeconds = 0.0f;
 
     int NUM_ESTIMATIONS_BEFORE_CALC = 20;
 
     int NUM_MATCHES_TO_USE = 50;
+
+    std::deque<float> radiusPerImageQueue;
+    std::deque<float> altitudePerImageQueue;
 
     std::mutex processingLock;
     
@@ -41,7 +47,7 @@ namespace Lander{
 
     bool active = true;
 
-    void init(Mediator* mediator, float imageTimer);
+    void init(Mediator* mediator, float imageTimer, NavigationStruct* gncVars);
 
     void simulationTick();
     

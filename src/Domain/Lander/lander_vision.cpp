@@ -24,12 +24,13 @@
 
 using namespace Lander;
 
-void Vision::init(Mediator* mediator, float imageTimer){
+void Vision::init(Mediator* mediator, float imageTimer, NavigationStruct* gncVars){
     p_mediator = mediator; 
     descriptorsQueue.resize(0);
     opticsQueue.resize(0);
     keypointsQueue.resize(0);
     imagingTimerSeconds = imageTimer;
+    p_navStruct = gncVars;
 }
 
 void Vision::simulationTick(){
@@ -43,6 +44,9 @@ void Vision::simulationTick(){
 
             cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
             p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
+
+            radiusPerImageQueue.emplace_back(p_navStruct->radiusOfOpticalLock);
+            altitudePerImageQueue.emplace_back(p_navStruct->altitude);
 
             std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, solves stuttering during processing
             thread.detach();   
@@ -140,16 +144,19 @@ void Vision::featureMatch(){
     //will need to clean to ensure first image set is correct.
     //and subsequent image sets are correct.
 
-    if(false){ //if(USING_PLANE){
-        descriptorsQueue.clear();
-        opticsQueue.clear();
-        keypointsQueue.clear();
-    }
-    else{
+    //if(false){ //if(USING_PLANE){
+    //    descriptorsQueue.clear();
+    //    opticsQueue.clear();
+    //    keypointsQueue.clear();
+    //    
+    //}
+    //else{
         descriptorsQueue.pop_front();
         opticsQueue.pop_front();
         keypointsQueue.pop_front();
-    }
+        radiusPerImageQueue.pop_front();
+        altitudePerImageQueue.pop_front();
+    //}
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
@@ -164,9 +171,9 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //so new fov is 45/2.109375 = 21.33333
     //f_y = 512*0.5 / tan(21.33333 / 2) = 1359.175722654
 
-    //if fov = 10
-    //so new fov is 10/2.109375 = 0.468750073
-    //f_y = 512*0.5 / tan(0.468750073 / 2) = 31290.955645192
+    //if fov = 5
+    //so new fov is 5/2.109375 = 2.37037037
+    //f_y = 512*0.5 / tan(2.37037037 / 2) = 12374.123173661
 
     //cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
     cv::Mat K2 = cv::Mat::eye(3,3, CV_64F);
@@ -178,11 +185,9 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //K2.at<_Float64>(1, 1) = 666.9; //vertical fov
     //K2.at<_Float64>(0, 0) = 1359.175722654; //horizontal fov
     //K2.at<_Float64>(1, 1) = 1359.175722654; //vertical fov = 45
-    //K2.at<_Float64>(0, 0) = 31290.955645192; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 31290.955645192; //vertical fov = 10
-    K2.at<_Float64>(2, 2) = 1; //must be 1
+    //K2.at<_Float64>(0, 0) = 12374.123173661; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 12374.123173661; //vertical fov = 5
 
-    //std::cout << "Camera matrix = " << K2 << std::endl << std::endl;
     //cv::Mat pose;
     //cameraPoseFromHomography(H, pose);
     //std::cout << pose << " pose \n";
@@ -195,7 +200,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
     glm::vec3 angles;
     //glm::vec4 testPoint = glm::vec4(0,0,1000,0);
-    glm::vec3 testPoint = glm::vec3(0, 0, 1000);
+    glm::vec3 testPoint = glm::vec3(0, 0, p_navStruct->altitude);
 
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
@@ -214,17 +219,12 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         cv::Mat rvec_decomp;
         cv::Rodrigues(r2[i], rvec_decomp);
         
-        
         std::cout << "----------------------------------------------------" << std::endl;
         std::cout << "Solution " << i << ":" << std::endl;
 
-        
-
         glm::mat3 rotMat = Service::openCVToGlm(r2[i]);
-
         std::cout << glm::to_string(rotMat) << " rotmat \n";
 
-        //glm::vec3 rotatedPoint = rotMat*glm::vec3(0,0,1000);
         glm::vec3 rotatedPoint = rotMat*testPoint;
         std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
         int rotLength = (int) glm::length(rotatedPoint);
@@ -250,26 +250,32 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             
             //we have an x or y rotation and need to dig deeper
 
-            //float scale = 1000.0f;
-            float scale = 1.0f;
+            std::cout << "radius of optical lock image1: " << radiusPerImageQueue.at(0) << "\n";
+            std::cout << "radius of optical lock image2: " << radiusPerImageQueue.at(1) << "\n";
+            std::cout << "diff in radius : " << radiusPerImageQueue.at(0)-radiusPerImageQueue.at(1) << "\n";
+            std::cout << "ratio diff in radius : " << radiusPerImageQueue.at(1)/radiusPerImageQueue.at(0) << "\n";
 
-            std::cout << t2[i] << " t mat \n";
+            std::cout << "altitude image1: " << altitudePerImageQueue.at(0) << "\n";
+            std::cout << "altitude image2: " << altitudePerImageQueue.at(1) << "\n";
+            std::cout << "diff in altitude : " << altitudePerImageQueue.at(0)-altitudePerImageQueue.at(1) << "\n";
+            std::cout << "ratio diff in altitude : " << altitudePerImageQueue.at(1)/altitudePerImageQueue.at(0) << "\n";
 
-
+            float idealRadius = 70; //why does this work? there is some relationship between optics and this radius, probably fov
+            float scale = idealRadius/radiusPerImageQueue.at(0);
+            //float scale = 1;
+            std::cout << "scale is " << scale << std::endl;
             glm::mat4 tmat = glm::mat4(1.0f);
             tmat[3][0] = t2[i].at<_Float64>(0,0)*scale;
             tmat[3][1] = t2[i].at<_Float64>(0,1)*scale;
             tmat[3][2] = t2[i].at<_Float64>(0,2)*scale;
 
-            
-            
-            std::cout << "tmat " << glm::to_string(tmat) << std::endl;
-            std::cout << "tvec from homography decomposition: " << t2[i].t() << "\n";
-
             glm::vec3 translatedPoint =  tmat*glm::vec4(testPoint,1);
             std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
             int tLength = (int) glm::length(translatedPoint);
             std::cout << "translatedPoint length is " << tLength << std::endl;
+
+            
+
 
             //glm::vec3 rotatedtranslatedPoint =  tmat*glm::vec4(translatedPoint,1);
             //std::cout << "rotatedtranslatedPoint " << glm::to_string(rotatedtranslatedPoint) << std::endl;

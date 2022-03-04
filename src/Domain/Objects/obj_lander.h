@@ -127,11 +127,6 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         landerGravityVector = direction.normalize()*gravitationalForce;
         body->setGravity(landerGravityVector);
         
-        //btVector3 direction = btVector3(0,0,-1); //
-        //gravitationalForce = 0.1f;
-        //landerGravityVector = direction.normalize()*gravitationalForce;
-        //body->setGravity(landerGravityVector);
-        
         //store the linear velocity, 
         landerVelocity = body->getLinearVelocity().length(); //will need to properly work out the world size 
 

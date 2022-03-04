@@ -23,7 +23,7 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
     gnc.init(mediator, &navStruct);
-    cv.init(mediator, IMAGING_TIMER_SECONDS);
+    cv.init(mediator, IMAGING_TIMER_SECONDS, &navStruct);
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
@@ -42,10 +42,21 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         //slewToLandingSiteOrientation();
     }
     
+    //here we will compute distance to asteroid for calibrating optics fov zoom
+    //and then inform offscreen renderer that it can draw the image next cpu cycle
     if(imagingTimer(timeStep)){
-        p_mediator->renderer_setShouldDrawOffscreen(true);
+
+        //first check distance to center point of our camera in world space and store in navstruct to share with gnc and vision
+        glm::vec3 opticsCenterWorldPoint = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 100000.0f);
+        navStruct.altitude = glm::length(p_lander->pos-opticsCenterWorldPoint);
+        navStruct.radiusOfOpticalLock = glm::length(opticsCenterWorldPoint);
+        std::cout << glm::to_string(p_lander->pos) << " lander pos \n";
+        std::cout << navStruct.altitude << " distanceToSurface \n";
+
+        p_mediator->renderer_setShouldDrawOffscreen(true); //inform renderer that it can draw offscreen image next cpu cycle
     }
 
+    
     if(gncTimer(timeStep)){
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
@@ -72,6 +83,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         glm::vec3 calculatedThrustVector = gnc.getThrustVector(GNC_TIMER_SECONDS);
         if(glm::length(calculatedThrustVector) != 0);
             addImpulseToLanderQueue(1.0f, calculatedThrustVector.x, calculatedThrustVector.y, calculatedThrustVector.z, false);
+            
     }
 
     //check if we have a boost command queued

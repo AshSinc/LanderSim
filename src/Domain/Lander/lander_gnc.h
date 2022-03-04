@@ -2,20 +2,11 @@
 
 #include <glm/vec3.hpp>
 #include <glm/mat4x4.hpp>
+#include "lander_navstruct.h"
+
 class Mediator;
 
 namespace Lander{
-
-    struct NavigationStruct{
-        float approachDistance;
-        glm::vec3 angularVelocity;
-        glm::vec3 gravityVector;
-        glm::mat4 landerTransformMatrix;
-        glm::vec3 velocityVector;
-        glm::vec3 landingSitePos;
-        glm::vec3 landingSiteUp;
-        bool estimationComplete = false;
-    };
 
     class GNC{
     private:

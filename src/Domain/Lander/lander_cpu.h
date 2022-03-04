@@ -7,6 +7,7 @@
 #include <mutex>
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include "lander_navstruct.h"
 
 class Mediator;
 struct LanderObj;
@@ -53,6 +54,8 @@ namespace Lander{
         float gncTime = 0.0f;
         float approachDistance = 0.0f;
         glm::vec3 asteroidAngularVelocity;
+
+        //float distanceToSurface = 1000.0f; //used in storing distance for fov calculation
         
         //const int DESCENT_TICKER = 30; //number of IMAGING_TIMER_SECONDS cycles waited until begin final descent
         //const float LANDER_SPEED_CAP = 20.0f;
