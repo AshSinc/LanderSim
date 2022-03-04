@@ -130,7 +130,7 @@ void WorldPhysics::stepPreTickCallback(btDynamicsWorld *world, btScalar timeStep
     WorldPhysics* p_physics = (WorldPhysics*)world->getWorldUserInfo();
     p_physics->updateCollisionObjects(timeStep);
     p_physics->r_mediator.scene_getLandingSiteObject()->updateLandingSiteObjects();
-    p_physics->r_mediator.scene_getTestPlaneObject()->updateTestPlaneObjects();
+   //p_physics->r_mediator.scene_getTestPlaneObject()->updateTestPlaneObjects(); //if USING_TESTPLANE
     p_physics->r_mediator.scene_getLanderObject()->updateSpotlight();
 }
 

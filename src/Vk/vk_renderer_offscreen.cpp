@@ -952,13 +952,15 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     //could have a menu option to disable drawing certain things in offscreen like the asteroid for testing,
     //or in the main renderer pass show things like landing site boxes and other debugging things
     std::vector<int> renderObjectIds;
-    //renderObjectIds = std::vector{1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
+    renderObjectIds = std::vector{1,3,4,5,6,7}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
 
     //temp code for drawing plane guides
     //if(ENABLE_PLANE_DRAWING)
-    int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
-    for(int c = 0; c < numObjs; c++){
-        renderObjectIds.push_back(11+c);
+    if(false){
+        int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
+        for(int c = 0; c < numObjs; c++){
+            renderObjectIds.push_back(11+c);
+        }
     }
     
     //here we are drawing objects using altMaterial, this is the greyscale material of each respective object set in scene init

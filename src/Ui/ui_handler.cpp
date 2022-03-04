@@ -165,31 +165,51 @@ void UiHandler::gui_ShowOptics(){
 
         //draw like images in rows, optics top row detection second row, only works for texture sets of size 2 atm
         //changed to only draw when there are 2 images ( was previously textureSetIndicesQueue.size() > 0 etc)
-        if(textureSetIndicesQueue.size()==2){
+        if(textureSetIndicesQueue.size()>0){
+            //int q = textureSetIndicesQueue[0];
+            //ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw first optics image on the right, local coords
+            //ImGui::Image(opticsTextures.at(q), imageSize);
+            //ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+
             int q = textureSetIndicesQueue[0];
-            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw first optics image on the right, local coords
-            ImGui::Image(opticsTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-        }
-        if(textureSetIndicesQueue.size()==2){
-            int q = textureSetIndicesQueue[1];
-            ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw second optics image on the left, local coords
+            ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw first optics image on the left, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
-        if(detectionIndicesQueue.size()==2){
+        if(textureSetIndicesQueue.size()>1){
+            //int q = textureSetIndicesQueue[1];
+            //ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw second optics image on the left, local coords
+            //ImGui::Image(opticsTextures.at(q), imageSize);
+            //ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+
+            int q = textureSetIndicesQueue[1];
+            ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw second optics image on the right, local coords
+            ImGui::Image(opticsTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+        }
+        if(detectionIndicesQueue.size()>0){
+            //int q = detectionIndicesQueue[0];
+            //ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, secondLocalRowY)); //draw second detection image on the right, local coords
+            //ImGui::Image(detectionTextures.at(q), imageSize);
+            //ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+
             int q = detectionIndicesQueue[0];
+            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw first detection image on the left, local coords
+            ImGui::Image(detectionTextures.at(q), imageSize);
+            ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+        }
+        if(detectionIndicesQueue.size()>1){
+            //int q = detectionIndicesQueue[1];
+            //ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw second detection image on the left, local coords
+            //ImGui::Image(detectionTextures.at(q), imageSize);
+            //ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
+
+            int q = detectionIndicesQueue[1];
             ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, secondLocalRowY)); //draw second detection image on the right, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
-        if(detectionIndicesQueue.size()==2){
-            int q = detectionIndicesQueue[1];
-            ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw second detection image on the left, local coords
-            ImGui::Image(detectionTextures.at(q), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-        }
-        if(matchIndicesQueue.size() == 1){
+        if(matchIndicesQueue.size()>0){
             ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY + imageSize.y + PAD)); //draw second detection image on the left, local coords
             ImGui::Image(matchTexture, ImVec2(imageSize.x * 2, imageSize.y));
             ImGui::GetWindowDrawList()->AddRect({x, thirdRowY}, { x + (2*imageSize.x), thirdRowY + imageSize.x}, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords

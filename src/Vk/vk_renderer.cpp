@@ -430,9 +430,11 @@ void Vk::Renderer::drawObjects(int curFrame){
     
     //temp code for drawing plane guides
     //if(ENABLE_PLANE_DRAWING)
-    int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
-    for(int c = 0; c < numObjs; c++){
-        renderObjectIds.push_back(11+c);
+    if(false){
+        int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
+        for(int c = 0; c < numObjs; c++){
+            renderObjectIds.push_back(11+c);
+        }
     }
 
     

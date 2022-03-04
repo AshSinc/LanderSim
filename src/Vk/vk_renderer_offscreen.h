@@ -70,7 +70,8 @@ private:
     uint32_t OUTPUT_IMAGE_WH = 512; //this is desired output resolution, width and height 
     uint32_t OFFSCREEN_IMAGE_WIDTH_OFFSET = (RENDERED_IMAGE_WIDTH/2) - (OUTPUT_IMAGE_WH/2); //this works out offset to get center of image
     uint32_t OFFSCREEN_IMAGE_HEIGHT_OFFSET = (RENDERED_IMAGE_HEIGHT/2) - (OUTPUT_IMAGE_WH/2);
-    const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
+    //const float OFFSCREEN_IMAGE_FOV = 45.0f; //degrees
+    const float OFFSCREEN_IMAGE_FOV = 5.0f; //degrees
 
     const char* dstImageMappedData;
     std::vector<const char*> detectionImageMappings;

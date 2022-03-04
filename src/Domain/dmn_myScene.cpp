@@ -245,8 +245,10 @@ void MyScene::initObjects(){
 
 
     //ISSUE - test plane needs a bool and that needs checked in renderer to avoid drawing if we dont want it.
-    testPlane = std::shared_ptr<TestPlaneObj>(new TestPlaneObj(&r_mediator));
-    testPlane.get()->constructPlane(sceneData, &objects, &renderableObjects, this);
+    if(false){ //USE_TESTINGPLANE
+        testPlane = std::shared_ptr<TestPlaneObj>(new TestPlaneObj(&r_mediator));
+        testPlane.get()->constructPlane(sceneData, &objects, &renderableObjects, this);
+    }
 }
 
 void MyScene::initLights(){

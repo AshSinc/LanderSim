@@ -44,8 +44,6 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
     
     if(imagingTimer(timeStep)){
         p_mediator->renderer_setShouldDrawOffscreen(true);
-        reactionWheelEnabled = true;
-        //camera.tick(timestep);
     }
 
     if(gncTimer(timeStep)){
@@ -201,14 +199,14 @@ bool CPU::imagingTimer(float timeStep){
 
             //resetting testing plane every first image of set, to ensure first points are perpenicular to camera
             //if(USING_TESTPLANE){
-                if(imgCount == 0){
-                    p_mediator->scene_getTestPlaneObject()->resetTestPlaneObjects();
-                    p_mediator->renderer_clearOpticsViews();
+                //if(imgCount == 0){
+                    //p_mediator->scene_getTestPlaneObject()->resetTestPlaneObjects();
+                    //p_mediator->renderer_clearOpticsViews();
                     //Vision
-                }
-                imgCount++;
-                if(imgCount == 2)
-                    imgCount = 0;
+                //}
+                //imgCount++;
+                //if(imgCount == 2)
+                //    imgCount = 0;
             //}
 
             std::cout << "Image Requested\n";

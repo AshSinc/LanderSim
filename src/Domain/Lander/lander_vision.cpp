@@ -4,7 +4,6 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/features2d.hpp"
 #include "opencv2/xfeatures2d.hpp"
-//#include "opencv2/core.hpp"
 #include "opencv2/calib3d.hpp"
 #include "opencv2/imgproc.hpp"
 
@@ -12,7 +11,7 @@
 
 #include "qtimer.h"
 
-#include <glm/gtx/euler_angles.hpp> //for 
+#include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -45,7 +44,7 @@ void Vision::simulationTick(){
             cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
             p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
 
-            std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, reduces stuttering
+            std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, solves stuttering during processing
             thread.detach();   
         }
     }
@@ -135,21 +134,22 @@ void Vision::featureMatch(){
     if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
         active = false;
     
-    
-    descriptorsQueue.pop_front();
-    opticsQueue.pop_front();
-    keypointsQueue.pop_front();
 
     //ISSUE need to fix
     //THere are issues with queus here and in render and ui probably
     //will need to clean to ensure first image set is correct.
     //and subsequent image sets are correct.
 
-    //if(USING_PLANE){
+    if(false){ //if(USING_PLANE){
+        descriptorsQueue.clear();
+        opticsQueue.clear();
+        keypointsQueue.clear();
+    }
+    else{
         descriptorsQueue.pop_front();
         opticsQueue.pop_front();
         keypointsQueue.pop_front();
-    //}
+    }
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
@@ -162,17 +162,24 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     //where a_x is fov
     //because we crop that must reduce fov by 1080/512 = 2.109375
     //so new fov is 45/2.109375 = 21.33333
-    //f_x = 512*0.5 / tan(21.33333 / 2) = 1359.175722654
+    //f_y = 512*0.5 / tan(21.33333 / 2) = 1359.175722654
 
-    cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
+    //if fov = 10
+    //so new fov is 10/2.109375 = 0.468750073
+    //f_y = 512*0.5 / tan(0.468750073 / 2) = 31290.955645192
+
+    //cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
+    cv::Mat K2 = cv::Mat::eye(3,3, CV_64F);
     K2.at<_Float64>(0,2) = 256; //center points in pixels
     K2.at<_Float64>(1,2) = 256; //center points in pixels
     //K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
     //K2.at<_Float64>(1, 1) = 55.63; //vertical fov
     //K2.at<_Float64>(0, 0) = 666.9; //horizontal fov
     //K2.at<_Float64>(1, 1) = 666.9; //vertical fov
-    K2.at<_Float64>(0, 0) = 1359.175722654; //horizontal fov
-    K2.at<_Float64>(1, 1) = 1359.175722654; //vertical fov
+    //K2.at<_Float64>(0, 0) = 1359.175722654; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 1359.175722654; //vertical fov = 45
+    //K2.at<_Float64>(0, 0) = 31290.955645192; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 31290.955645192; //vertical fov = 10
     K2.at<_Float64>(2, 2) = 1; //must be 1
 
     //std::cout << "Camera matrix = " << K2 << std::endl << std::endl;
@@ -243,7 +250,8 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             
             //we have an x or y rotation and need to dig deeper
 
-            float scale = 1000.0f;
+            //float scale = 1000.0f;
+            float scale = 1.0f;
 
             std::cout << t2[i] << " t mat \n";
 
