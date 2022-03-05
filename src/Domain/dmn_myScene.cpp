@@ -145,8 +145,8 @@ void MyScene::initObjects(){
             break;
         }*/
 
-        float f = 0.005;
-        int axis = 1;
+        float f = -0.0025;
+        int axis = 0;
         switch (axis)
         {
         case 0:

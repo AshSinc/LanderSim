@@ -82,17 +82,8 @@ void Vision::featureMatch(){
     std::vector<cv::DMatch> matches;
     matcher->match(descriptorsQueue[0], descriptorsQueue[1], matches);
 
-    //now we should sort matches based on distance, then take the top 30 or so
-    //for (size_t i = 0; i < matches.size(); i++){
-    //    std::cout << matches[i].distance << " , at pos " << i << " match distance \n";
-    //}
-
     //sorting
     std::sort(matches.begin(), matches.end(), compareDistance);
-    
-    //for (size_t i = 0; i < matches.size(); i++){
-    //    std::cout << matches[i].distance << " , at pos " << i << " sorted match distance \n";
-    //}
 
     //array bound check for the next operation
     int numMatchesToUse = NUM_MATCHES_TO_USE;
@@ -102,7 +93,6 @@ void Vision::featureMatch(){
     std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
     //std::vector<cv::DMatch> bestMatches = matches;
     
-
     //-- Draw matches
     cv::Mat matchedImage;
     drawMatches(opticsQueue[0], keypointsQueue[0], opticsQueue[1], keypointsQueue[1], bestMatches, matchedImage,
@@ -125,151 +115,115 @@ void Vision::featureMatch(){
 
     glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
 
-    //cv::Mat camPose;
-    //cameraPoseFromHomography(H, camPose);
-
     //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
     if(bestAngularVelocityMatch.x != 9999){
         estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
     }
 
-    
-
     if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
         active = false;
     
+    descriptorsQueue.pop_front();
+    opticsQueue.pop_front();
+    keypointsQueue.pop_front();
+    radiusPerImageQueue.pop_front();
+    altitudePerImageQueue.pop_front();
 
-    //ISSUE need to fix
-    //THere are issues with queus here and in render and ui probably
-    //will need to clean to ensure first image set is correct.
-    //and subsequent image sets are correct.
-
-    //if(false){ //if(USING_PLANE){
-    //    descriptorsQueue.clear();
-    //    opticsQueue.clear();
-    //    keypointsQueue.clear();
-    //    
-    //}
-    //else{
-        descriptorsQueue.pop_front();
-        opticsQueue.pop_front();
-        keypointsQueue.pop_front();
-        radiusPerImageQueue.pop_front();
-        altitudePerImageQueue.pop_front();
-    //}
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
+    cv::Mat intrinsicM = cv::Mat::eye(3,3, CV_64F); //we will just work in pixels, tried so many times to calibrate camera but this way is much easier
+    intrinsicM.at<_Float64>(0,2) = 256; //center points in pixels
+    intrinsicM.at<_Float64>(1,2) = 256; //center points in pixels
 
-    //construct intrinsic camera matrix
-    //image is 1920x1080 originally, with 45 degree vertical fov
-    //this is then cropped to 512x512
+    std::vector<cv::Mat> rotationM;
+    std::vector<cv::Mat> translationM;
+    std::vector<cv::Mat> n;
+    int solutions = cv::decomposeHomographyMat(H, intrinsicM, rotationM, translationM, n);
 
-    //f_x = x*0.5 / tan(a_x / 2) //https://codeyarns.com/tech/2015-09-08-how-to-compute-intrinsic-camera-matrix-for-a-camera.html
-    //where a_x is fov
-    //because we crop that must reduce fov by 1080/512 = 2.109375
-    //so new fov is 45/2.109375 = 21.33333
-    //f_y = 512*0.5 / tan(21.33333 / 2) = 1359.175722654
+    //calculate avg altitude and radius from the 2 images
+    float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
+    float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
 
-    //if fov = 5
-    //so new fov is 5/2.109375 = 2.37037037
-    //f_y = 512*0.5 / tan(2.37037037 / 2) = 12374.123173661
-
-    //cv::Mat K2 = cv::Mat::zeros(3,3, CV_64F);
-    cv::Mat K2 = cv::Mat::eye(3,3, CV_64F);
-    K2.at<_Float64>(0,2) = 256; //center points in pixels
-    K2.at<_Float64>(1,2) = 256; //center points in pixels
-    //K2.at<_Float64>(0,2) = 960; //center points in pixels
-    //K2.at<_Float64>(1,2) = 540; //center points in pixels
-    //K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 55.63; //vertical fov
-    //K2.at<_Float64>(0, 0) = 666.9; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 666.9; //vertical fov
-    //K2.at<_Float64>(0, 0) = 1359.175722654; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 1359.175722654; //vertical fov = 45
-    //K2.at<_Float64>(0, 0) = 3660.970561718; //horizontal fov 3660.970561718
-    //K2.at<_Float64>(1, 1) = 5863.363980398; //vertical fov = 5
-    //K2.at<_Float64>(0, 0) = 12374.123173661; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 12374.123173661; //vertical fov = 5
-    //K2.at<_Float64>(0, 0) = 7722.359778624; //horizontal fov
-    //K2.at<_Float64>(1, 1) = 12368.033396153; //vertical fov = 5
-
-    //K2 = K2.t();
-    //std::cout << K2 << " K2 \n";
-
-    std::vector<cv::Mat> r2;
-    std::vector<cv::Mat> t2;
-    std::vector<cv::Mat> n2;
-
-    int solutions = cv::decomposeHomographyMat(H, K2, r2, t2, n2);
-
-    glm::vec3 angles;
-    glm::vec3 testPoint = glm::vec3(0, 0, p_navStruct->altitude);
-
-    //from opencv docs
-    //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
+    glm::vec3 testPoint = glm::vec3(0, 0, avgAltitude+avgRadius); //construct a point used for testing, this is effectively the lander distance from center of asteroid
+    std::cout << "testPoint :" << glm::to_string(testPoint) << "\n";
 
     std::vector<glm::vec3> possibleSolutions;
-
+    //go through each solution and test if the rotated or translated points lie behind the camera
+    //opencv docs https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
     for (int i = 0; i < solutions; i++){
-        cv::Mat rvec_decomp;
-        cv::Rodrigues(r2[i], rvec_decomp);
-        
-        std::cout << "----------------------------------------------------" << std::endl;
-        std::cout << "Solution " << i << ":" << std::endl;
+        std::cout << "----------------------------------------------------\n";
+        std::cout << "Solution " << i << ":" << "\n";
 
-        glm::mat3 rotMat = Service::openCVToGlm(r2[i]);
-        std::cout << glm::to_string(rotMat) << " rotmat \n";
+        //get rotation matrix and convert to glm, then apply to testPoint
+        glm::mat4 rotMat = Service::openCVToGlm(rotationM[i]);
+        glm::vec3 rotatedPoint = rotMat*glm::vec4(testPoint,1);
+        std::cout << "rotMat " << glm::to_string(rotMat) << "\n";
+        std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << "\n";
 
-        glm::vec3 rotatedPoint = rotMat*testPoint;
-        std::cout << "rotatedPoint " << glm::to_string(rotatedPoint) << std::endl;
-        int rotLength = (int) glm::length(rotatedPoint);
-        std::cout << "rotatedPoint length is " << rotLength << std::endl;
+        //get translation matrix and apply to testPoint
+        glm::mat4 tMat = glm::mat4(1.0f);
+        tMat[3][0] = translationM[i].at<_Float64>(0,0);
+        tMat[3][1] = translationM[i].at<_Float64>(0,1);
+        tMat[3][2] = translationM[i].at<_Float64>(0,2);
+        glm::vec3 translatedPoint =  tMat*glm::vec4(testPoint,1);
+        std::cout << "tMat " << glm::to_string(tMat) << "\n";
+        std::cout << "translatedPoint " << glm::to_string(translatedPoint) << "\n";
 
-        glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-        std::cout << glm::to_string(angles) << " angular velocities from extractEulerAngleXYZ \n";
-
-        
-        
-        if(Service::getHighestAxis(angles) == 2){
-            //then we have a Z rotation which can be taken
-
-            //still need to check for correct solution
-            if (rotLength == 1000){
-                //this is a valid rotation because the test distance remains the same from origin
-                //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-                std::cout << "angular velocities added to possible solutions\n";
-                possibleSolutions.push_back(angles);
-            }
+        //if rotation is behind camera then discard this solution
+        //if rotation is on the opposite side of asteroid then discard
+        if((int)rotatedPoint.z > (int)testPoint.z){
+            std::cout << "rotatedPoint is behind camera " << rotatedPoint.z << "\n";
+            continue;
         }
-        //else{
-            
-            //we have an x or y rotation and need to dig deeper
+        else if(rotatedPoint.z < 0){
+            std::cout << "rotatedPoint is opposite side of asteroid " << rotatedPoint.z << "\n";
+            continue;
+        }
 
-            std::cout << "radius of optical lock image1: " << radiusPerImageQueue.at(0) << "\n";
-            std::cout << "radius of optical lock image2: " << radiusPerImageQueue.at(1) << "\n";
+        //if translation is behind camera then discard this solution
+        //if translation is on the opposite side of asteroid then discard, dont think this ever happens?
+        if((int)translatedPoint.z > (int)testPoint.z){ //this maybe should have more leeway to accept small errors
+            std::cout << "translatedPoint is behind camera " << translatedPoint.z << "\n";
+            continue;
+        }
+        else if(translatedPoint.z < 0){
+            std::cout << "translatedPoint is opposite side of asteroid " << translatedPoint.z << "\n";
+            continue;
+        }
+        
+        //we can extract rotation angles from rotMatrix, this will show us if there is a z rotation later
+        glm::vec3 rotationAngles;
+        glm::extractEulerAngleXYZ(rotMat, rotationAngles.x, rotationAngles.y, rotationAngles.z);
+        std::cout << glm::to_string(rotationAngles) << " angular velocities from extractEulerAngleXYZ \n";
 
-            std::cout << "altitude image1: " << altitudePerImageQueue.at(0) << "\n";
-            std::cout << "altitude image2: " << altitudePerImageQueue.at(1) << "\n";
+        //need to check against translation
+        float tLength = glm::length(glm::vec2(translatedPoint));
+        std::cout << "translatedPoint length : " << tLength << "\n";
 
-            float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
-            float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
+        //if translation appears significant then get primary axis and calculate angular velocity
+        glm::vec3 angularVelocityEstimation = glm::vec3(0);
+        if(tLength > 1){
+            int axis = Service::getHighestAxis(glm::vec3(translatedPoint.x, translatedPoint.y, 0)); //find the significant axis
+            float pixelsMoved = translatedPoint[axis]; //perform adjust for altitude and radius
+            float unitsMoved = pixelsMoved/(12500/avgAltitude);
+            float angularVelocity = unitsMoved/avgRadius;
+            angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
+        }
+        else if(Service::getHighestAxis(rotationAngles) == 2){ 
+            //if translation is insignificant and z is highest axis in rotation, we can just use that
+            angularVelocityEstimation.z = rotationAngles.z/imagingTimerSeconds;
+        }
 
-            glm::mat4 tmat = glm::mat4(1.0f);
-            tmat[3][0] = t2[i].at<_Float64>(0,0);
-            tmat[3][1] = t2[i].at<_Float64>(0,1);
-            tmat[3][2] = t2[i].at<_Float64>(0,2);
+        if(glm::length(angularVelocityEstimation) != 0){
+            std::cout << "angular velocities added to possible solutions\n";
+            std::cout << glm::to_string(angularVelocityEstimation) << "\n";
+            possibleSolutions.push_back(angularVelocityEstimation);
+        }
+        
+        std::cout << "----------------------------------------------------\n";
 
-            glm::vec3 translatedPoint =  tmat*glm::vec4(testPoint,1);
-            std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
-            //int tLength = (int) glm::length(translatedPoint);
-            //std::cout << "translatedPoint length is " << tLength << std::endl;
-
-            //glm::vec3 normTranslatedPoint = glm::normalize(translatedPoint);
-            //glm::vec3 normTestPoint = glm::normalize(testPoint);
-            //float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 0, 1));
-            //std::cout << " angle between vectors is : " << angle << "\n";
-
+        //NOTES ------------
             //at scale 1, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
 
             //measurements with 2x2 scale box at various distances
@@ -288,7 +242,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             //12.5 = k/1000
             //k = 12500
             //1 unit in pixels = 12500/distance
-   
+
             //this must be measuring linear speed at the surface, we need angular velocity
 
             //find angular velocity
@@ -312,35 +266,16 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             //then find angular velocity ω = r × v / |r|² = v / r
             //6.48 / 59 = 0.109830508 rad
             //good!
-
-            float pixelsMoved = translatedPoint.y;
-
-            float unitsMoved = pixelsMoved/(12500/avgAltitude);
-
-            float angularVelocity = unitsMoved/avgRadius;
-
-            std::cout << "angular velocity is : " << angularVelocity << "\n";
-
-
-            std::cout << "----------------------------------------------------" << std::endl;
-
+        //NOTES ------------
     }
     
-    //we need to swap x and y values velocities and negate them, this is because we are above the asteroid and the camera doesn't know that
-    //ISSUE - if we change lander position this should be changed
-    if(possibleSolutions.size() > 0){
-        //just taking first of possible solutions for now.
-        float temp = possibleSolutions[0].x;
-        possibleSolutions[0].x = -possibleSolutions[0].y/imagingTimerSeconds;
-        possibleSolutions[0].y = -temp/imagingTimerSeconds;
-        possibleSolutions[0].z = possibleSolutions[0].z/imagingTimerSeconds;
-        std::cout << glm::to_string(possibleSolutions[0]) << " best guess angular velocities\n";
-    }
-    else{
-        possibleSolutions.push_back(glm::vec3(9999, 9999, 9999));
-    }
+    if(possibleSolutions.size() == 0)
+        possibleSolutions.push_back(glm::vec3(9999, 9999, 9999)); //dummy that is discarded
 
-    return possibleSolutions[0];
+    for(glm::vec3 sol : possibleSolutions)
+        std::cout << glm::to_string(sol) << "\n";
+
+    return possibleSolutions[0]; //need to clean this up, last thing is to check direction of x and y rotation somehow, there is a safety in place after returning though
 }
 
 void Vision::detectImage(cv::Mat optics){

@@ -103,8 +103,6 @@ struct TestPlaneObj : virtual WorldObject{
 
     void updateTestPlaneObjects(){
         WorldObject& asteroidRenderObject = p_mediator->scene_getFocusableObject("Asteroid");
-        //glm::vec3 rotated_point = asteroidRenderObject.rot * glm::vec4(initialPos, 1);
-        //pos = rotated_point;
         
         for(int i = 0; i < NUM_OBJS; i++){
             WorldObject& planePoint = p_mediator->scene_getWorldObject(11+i); //11 is the first index of plane marker obj in the world object list ISSUE - need an object mgr
