@@ -145,7 +145,7 @@ void MyScene::initObjects(){
             break;
         }*/
 
-        float f = 0.0025;
+        float f = 0.005;
         int axis = 1;
         switch (axis)
         {
@@ -243,6 +243,37 @@ void MyScene::initObjects(){
     renderableObjects.push_back(debugBox3);
     debugObjects.push_back(debugBox3);
 
+    /*std::shared_ptr<RenderObject> scalebox = std::shared_ptr<RenderObject>(new RenderObject());
+    scalebox->id = id++;
+    scalebox->pos = glm::vec3(0,0,0.0f);
+    scalebox->scale = glm::vec3(1,1,1);
+    setRendererMeshVars("box", scalebox.get());
+    scalebox->material = r_mediator.renderer_getMaterial("unlitmesh");
+    scalebox->material->diffuse = glm::vec3(1,1,0.5f);
+    scalebox->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    scalebox->material->extra.x = 32;
+    scalebox->altMaterial = r_mediator.renderer_getMaterial("greyscale_unlitmesh");
+    scalebox->altMaterial->diffuse = glm::vec3(0,0.0f,1.0f);
+    scalebox->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
+    scalebox->altMaterial->extra.x = 32;
+    objects.push_back(scalebox);
+    renderableObjects.push_back(scalebox);
+
+    std::shared_ptr<RenderObject> scalebox2 = std::shared_ptr<RenderObject>(new RenderObject());
+    scalebox2->id = id++;
+    scalebox2->pos = glm::vec3(1,1,0.0f);
+    scalebox2->scale = glm::vec3(1,1,1);
+    setRendererMeshVars("box", scalebox2.get());
+    scalebox2->material = r_mediator.renderer_getMaterial("unlitmesh");
+    scalebox2->material->diffuse = glm::vec3(1,1,0.5f);
+    scalebox2->material->specular = glm::vec3(1.0f,0.5f,0.5f);
+    scalebox2->material->extra.x = 32;
+    scalebox2->altMaterial = r_mediator.renderer_getMaterial("greyscale_unlitmesh");
+    scalebox2->altMaterial->diffuse = glm::vec3(0,0.0f,1.0f);
+    scalebox2->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
+    scalebox2->altMaterial->extra.x = 32;
+    objects.push_back(scalebox2);
+    renderableObjects.push_back(scalebox2);*/
 
     //ISSUE - test plane needs a bool and that needs checked in renderer to avoid drawing if we dont want it.
     if(false){ //USE_TESTINGPLANE

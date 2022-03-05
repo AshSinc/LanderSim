@@ -179,18 +179,23 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     cv::Mat K2 = cv::Mat::eye(3,3, CV_64F);
     K2.at<_Float64>(0,2) = 256; //center points in pixels
     K2.at<_Float64>(1,2) = 256; //center points in pixels
+    //K2.at<_Float64>(0,2) = 960; //center points in pixels
+    //K2.at<_Float64>(1,2) = 540; //center points in pixels
     //K2.at<_Float64>(0, 0) = 55.63; //horizontal fov
     //K2.at<_Float64>(1, 1) = 55.63; //vertical fov
     //K2.at<_Float64>(0, 0) = 666.9; //horizontal fov
     //K2.at<_Float64>(1, 1) = 666.9; //vertical fov
     //K2.at<_Float64>(0, 0) = 1359.175722654; //horizontal fov
     //K2.at<_Float64>(1, 1) = 1359.175722654; //vertical fov = 45
+    //K2.at<_Float64>(0, 0) = 3660.970561718; //horizontal fov 3660.970561718
+    //K2.at<_Float64>(1, 1) = 5863.363980398; //vertical fov = 5
     //K2.at<_Float64>(0, 0) = 12374.123173661; //horizontal fov
     //K2.at<_Float64>(1, 1) = 12374.123173661; //vertical fov = 5
+    //K2.at<_Float64>(0, 0) = 7722.359778624; //horizontal fov
+    //K2.at<_Float64>(1, 1) = 12368.033396153; //vertical fov = 5
 
-    //cv::Mat pose;
-    //cameraPoseFromHomography(H, pose);
-    //std::cout << pose << " pose \n";
+    //K2 = K2.t();
+    //std::cout << K2 << " K2 \n";
 
     std::vector<cv::Mat> r2;
     std::vector<cv::Mat> t2;
@@ -199,19 +204,10 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     int solutions = cv::decomposeHomographyMat(H, K2, r2, t2, n2);
 
     glm::vec3 angles;
-    //glm::vec4 testPoint = glm::vec4(0,0,1000,0);
     glm::vec3 testPoint = glm::vec3(0, 0, p_navStruct->altitude);
 
     //from opencv docs
     //https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
-
-    //NOTE FOR REPORT :
-    //This approach of using homography decomposition is maybe not viable without the ability to clamp the decomposeHomography function to ignore estimating translation?
-    //even then it still is not ideal, im sure it must be possible mathematically though
-    //combined with pixel values changing as the asteroid rotates making feature matching more difficult.
-    //feature matching is sometimes very accurate and other times completely confused. cause not known
-
-    //std::cout << "Homography matrix = " << H << std::endl << std::endl;
 
     std::vector<glm::vec3> possibleSolutions;
 
@@ -252,110 +248,82 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
             std::cout << "radius of optical lock image1: " << radiusPerImageQueue.at(0) << "\n";
             std::cout << "radius of optical lock image2: " << radiusPerImageQueue.at(1) << "\n";
-            std::cout << "diff in radius : " << radiusPerImageQueue.at(0)-radiusPerImageQueue.at(1) << "\n";
-            std::cout << "ratio diff in radius : " << radiusPerImageQueue.at(1)/radiusPerImageQueue.at(0) << "\n";
 
             std::cout << "altitude image1: " << altitudePerImageQueue.at(0) << "\n";
             std::cout << "altitude image2: " << altitudePerImageQueue.at(1) << "\n";
-            std::cout << "diff in altitude : " << altitudePerImageQueue.at(0)-altitudePerImageQueue.at(1) << "\n";
-            std::cout << "ratio diff in altitude : " << altitudePerImageQueue.at(1)/altitudePerImageQueue.at(0) << "\n";
 
-            float idealRadius = 70; //why does this work? there is some relationship between optics and this radius, probably fov
-            float scale = idealRadius/radiusPerImageQueue.at(0);
-            //float scale = 1;
-            std::cout << "scale is " << scale << std::endl;
+            float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
+            float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
+
             glm::mat4 tmat = glm::mat4(1.0f);
-            tmat[3][0] = t2[i].at<_Float64>(0,0)*scale;
-            tmat[3][1] = t2[i].at<_Float64>(0,1)*scale;
-            tmat[3][2] = t2[i].at<_Float64>(0,2)*scale;
+            tmat[3][0] = t2[i].at<_Float64>(0,0);
+            tmat[3][1] = t2[i].at<_Float64>(0,1);
+            tmat[3][2] = t2[i].at<_Float64>(0,2);
 
             glm::vec3 translatedPoint =  tmat*glm::vec4(testPoint,1);
             std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
-            int tLength = (int) glm::length(translatedPoint);
-            std::cout << "translatedPoint length is " << tLength << std::endl;
+            //int tLength = (int) glm::length(translatedPoint);
+            //std::cout << "translatedPoint length is " << tLength << std::endl;
 
+            //glm::vec3 normTranslatedPoint = glm::normalize(translatedPoint);
+            //glm::vec3 normTestPoint = glm::normalize(testPoint);
+            //float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 0, 1));
+            //std::cout << " angle between vectors is : " << angle << "\n";
+
+            //at scale 1, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
+
+            //measurements with 2x2 scale box at various distances
+            //1 unit is 12.5 pixels at 1000, confirmed
+            //1 unit is 25 pixels at 500, confirmed
+            //1 unit is 50 pixels at 250, confirmed
+            //1 unit is 100 pixels at 125, confirmed
+            //1 unit is 200 pixels at 62.5
+            //1 unit is 400 pixels at 31.25
+            //1 unit is 800 pixels at 15.625
+            //1 unit is 1600 pixels at 7.8125
+            //1 unit is 3200 pixels at 3.90625
+
+            //we should be able to define a relationship with distance
+            //inversely proportional
+            //12.5 = k/1000
+            //k = 12500
+            //1 unit in pixels = 12500/distance
+   
+            //this must be measuring linear speed at the surface, we need angular velocity
+
+            //find angular velocity
+            //ω = r × v / |r|²
+            //40 * 4 / 40² = 0.1 rad (this would be for 100 pixels of movement)
+            //we need 40 pixels of movement scaled based on alt
+
+            //example
+            //altitude 950, radius 59, 84 pixels of measured movement
+            //convert 84 pixels to real world units,
+            //1 unit in pixels = 12500/950 = 13.157894737
+            //units moved = 84/13.157894737 = 6.384
+            //then find angular velocity ω = r × v / |r|² = v / r
+            //6.384 / 59 = 0.10820339 rad
             
+            //example 2
+            //altitude 450, radius 59, 180 pixels of measured movement
+            //convert 180 pixels to real world units,
+            //1 unit in pixels = 12500/450 = 27.777777778
+            //units moved = 180/27.777777778 = 6.48
+            //then find angular velocity ω = r × v / |r|² = v / r
+            //6.48 / 59 = 0.109830508 rad
+            //good!
+
+            float pixelsMoved = translatedPoint.y;
+
+            float unitsMoved = pixelsMoved/(12500/avgAltitude);
+
+            float angularVelocity = unitsMoved/avgRadius;
+
+            std::cout << "angular velocity is : " << angularVelocity << "\n";
 
 
-            //glm::vec3 rotatedtranslatedPoint =  tmat*glm::vec4(translatedPoint,1);
-            //std::cout << "rotatedtranslatedPoint " << glm::to_string(rotatedtranslatedPoint) << std::endl;
-
-            //glm::vec3 rtPoint = (testPoint*rotMat) * tmat;
-            //std::cout << "rotate then translate Point " << tLength << std::endl;
-
-            //+z coordinate maps to +x rotational velocity
-            //-z coordinate maps to -x rotational velocity
-
-            //+x coordinate maps to +z rotational velocity
-
-            glm::vec3 normTranslatedPoint = glm::normalize(translatedPoint);
-            glm::vec3 normTestPoint = glm::normalize(testPoint);
-
-            //float angleX = glm::angle(normTranslatedPoint.x, normTestPoint.x);
-            //float angleY = glm::angle(normTranslatedPoint.y, normTestPoint.y);
-            //float angleZ = glm::angle(normTranslatedPoint.z, normTestPoint.z);
-
-            //std::cout << " angle between x is : " << angleX << "\n";
-            //std::cout << " angle between y is : " << angleY << "\n";
-            //std::cout << " angle between z is : " << angleZ << "\n";
-            
-            float angle = glm::orientedAngle(normTranslatedPoint,normTestPoint,glm::vec3(0, 0, 1));
-            std::cout << " angle between vectors is : " << angle << "\n";
             std::cout << "----------------------------------------------------" << std::endl;
 
-        //}
-
-        //float scale = 1000;
-
-        //std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
-        //std::cout << "tvec : " << t2[i] <<  std::endl ;//"
-        //std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//"
-        //std::cout << "and scaled by d: " << scale * t2[i].t() << std::endl;
-
-        //cv::Mat tMatrix = cv::Mat::eye(4,4, CV_64F);
-        //tMatrix.at<_Float64>(3,0) = t2[i].at<_Float64>(0,0);
-        //tMatrix.at<_Float64>(3,1) = t2[i].at<_Float64>(0,1);
-        //tMatrix.at<_Float64>(3,2) = t2[i].at<_Float64>(0,2);
-        //glm::mat4 tmat = glm::mat4(1.0f);
-        //tmat[3][0] = t2[i].at<_Float64>(0,0);
-        //tmat[3][1] = t2[i].at<_Float64>(0,1);
-        //tmat[3][2] = t2[i].at<_Float64>(0,2);
-
-        //glm::mat4 tmat = Service::openCVToGlm(tMatrix);
-        //std::cout << "tmatrix " << tMatrix << std::endl;
-        //std::cout << "tmat " << glm::to_string(tmat) << std::endl;
-
-        //glm::vec3 translatedPoint =  tmat*testPoint;
-        //std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
-        //int tLength = (int) glm::length(translatedPoint);
-        //std::cout << "translatedPoint length is " << tLength << std::endl;
-
-        //std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
-        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << endl << endl;
-
-
-        //so if rvez Z is the primary component then we just use that,
-        //if not then we use tvec instead and calculate the change in angle
-
-
-        //if (rotLength == 1000){
-            //this is a valid rotation because the test distance remains the same from origin
-            //glm::extractEulerAngleXYZ(Service::openCVToGlm(r2[i]), angles.x, angles.y, angles.z);
-        //    std::cout << "angular velocities added to possible solutions\n";
-        //    possibleSolutions.push_back(angles);
-        //}
-
-        //glm::mat4 tMat = Service::openCVToGlm(t2[i]);
-        //glm::vec4 translatedPoint = tMat*testPoint;
-        //std::cout << "translatedPoint " << glm::to_string(translatedPoint) << std::endl;
-        //std::cout << "translatedPoint length is " << glm::length(translatedPoint) << std::endl;
-        
-        //std::cout << "----------------------------------------------------" << std::endl;
-        //std::cout << "rvec from homography decomposition: " << rvec_decomp.t() << std::endl;
-        //std::cout << "tvec from homography decomposition: " << t2[i].t() <<  std::endl ;//" and scaled by d: " << factor_d1 * t2[i].t() << std::endl;
-        //std::cout << "plane normal from homography decomposition: " << n2[i].t() << std::endl;
-        //std::cout << "plane normal of camera: " << glm::to_string(-p_mediator->scene_getLanderObject()->up) << std::endl;
-        //std::cout << "plane normal at camera 1 pose: " << normal1.t() << std::endl << std::endl;
     }
     
     //we need to swap x and y values velocities and negate them, this is because we are above the asteroid and the camera doesn't know that
@@ -381,6 +349,8 @@ void Vision::detectImage(cv::Mat optics){
 
     //processing
     opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
+
+    //cv::imwrite("scale.jpg", opticsQueue.back());
    
     //detecting
     //-- Step 1: Detect the keypoints
