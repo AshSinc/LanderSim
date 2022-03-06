@@ -131,7 +131,6 @@ struct LandingSiteObj : virtual WorldObject{
             roll+=z*step;
 
             initialRot = glm::yawPitchRoll(glm::radians(yaw), glm::radians(pitch), glm::radians(roll));
-
             for(int x = 0; x < 4; x++){
                 WorldObject& box = p_mediator->scene_getWorldObject(4+x); //4 is the first index of landing box in the world object list
                 box.initialRot = initialRot;

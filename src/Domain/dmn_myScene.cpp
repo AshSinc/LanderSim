@@ -279,7 +279,7 @@ void MyScene::initLights(){
     //set directional scene light values
     //this is light from the star in the background
     sceneLight.pos = glm::vec3(0,0,-1); //above
-    sceneLight.pos = glm::vec3(1,0,0);
+    //sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
     sceneLight.diffuse = glm::vec3(0.5f,0.5f,0.5f);

@@ -16,6 +16,7 @@ namespace Lander{
         //should be consts but, c++
         //float INITIAL_APPROACH_DISTANCE = 50.0f;
         float APPROACH_ANGLE = 0.15f; // radians
+        //float APPROACH_ANGLE = 0.40f; // radians
         float TF_TIME = 1000.0f; //1000 seconds of flight time is roughly accurate for current starting distance
 
         float tf = TF_TIME;

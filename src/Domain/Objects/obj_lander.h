@@ -42,7 +42,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //we will make a compound shape, to keep it simple a box for each foot, and a cylinder for the body
         btCompoundShape* compoundShape = new btCompoundShape();
 
-        collisionShapes->push_back(compoundShape); //we are tracking cllisions shapes to delete them on close
+        collisionShapes->push_back(compoundShape); //we are tracking collisions shapes to delete them on close
 
         float bodyRadius = 1;
         float bodyHeight = 0.3f;

@@ -9,7 +9,8 @@ int Application::run(){
     try{
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
-        //Vk::Renderer renderer = Vk::Renderer(window, mediator); //instanciate render engine
+        //MAJOR ISSUE - renderer crashing on second optics image render trying to flush command buffer if monitor is on 60hz rather than 120hz!
+        //should investigate before submision
         Vk::OffscreenRenderer renderer = Vk::OffscreenRenderer(window, mediator); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, mediator);
 

@@ -85,7 +85,11 @@ glm::vec3 GNC::preApproach(){
     if(p_navStruct->estimationComplete){
         calculateVectorsAtTime(TF_TIME);
 
+        //ISSUE - TODO we should add a check in case we are never going to be in 15 degrees alignment
+        //called alignment stage, that will reposition to the nearest point that will be in alignment
         //then check if we are above that point, within 15 degrees
+        //maybe check if the alignment angle is reducing and then increasing, once starts to increase move to the current alignment position and recheck
+        //could use zem zev again but would need to add a new stage and possibly alter current inputs?
         if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
             shouldDescend = true;
         }

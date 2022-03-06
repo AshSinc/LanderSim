@@ -27,18 +27,19 @@ void UiInput::processKeyGroupMovement(int key, bool repeatKeypress){
     float x = 0, y = 0, z = 0;
     float duration = 1;
     bool torque = false;
+    
    if(!(repeatKeypress && !landingSiteInput)){ //need to stop repeat keys on lander controls
-        if (key == GLFW_KEY_KP_8)
+        if (key == GLFW_KEY_8)
             z=1.0f;
-        if (key == GLFW_KEY_KP_2)
+        if (key == GLFW_KEY_2)
             z=-1.0f;
-        if (key == GLFW_KEY_KP_4)
+        if (key == GLFW_KEY_4)
             x=-1.0f;
-        if (key == GLFW_KEY_KP_6)
+        if (key == GLFW_KEY_6)
             x=1.0f;
-        if (key == GLFW_KEY_KP_7)
+        if (key == GLFW_KEY_7)
             y=-1.0f;
-        if (key == GLFW_KEY_KP_9)
+        if (key == GLFW_KEY_9)
             y=1.0f;
         if (key == GLFW_KEY_LEFT){
             z=-1.0f;
@@ -56,10 +57,18 @@ void UiInput::processKeyGroupMovement(int key, bool repeatKeypress){
             y=-1.0f;
             torque = true;
         }
+        if (key == GLFW_KEY_L){
+            x=-1.0f;
+            torque = true;
+        }
+        if (key == GLFW_KEY_U){
+            x=1.0f;
+            torque = true;
+        }
     }
 
     //if there is a valid input direction
-    if(x != 0 && y != 0 && z != 0)
+    if(x != 0 || y != 0 || z != 0)
         if(landingSiteInput)
                 r_mediator.physics_moveLandingSite(x, y, z, torque);
             else

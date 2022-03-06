@@ -20,8 +20,8 @@ struct LandingSiteData_1: LandingSiteData{
 
 struct LandingSiteData_2: LandingSiteData{
     LandingSiteData_2(){
-        pos = glm::vec3(0,0,40);
-        yaw = 0, pitch = 0, roll = 0;
+        pos = glm::vec3(-43.423363, -6.744720, 11.310112);
+        yaw = -73, pitch = 19, roll = -7;
         rot = glm::yawPitchRoll(glm::radians(yaw), glm::radians(pitch), glm::radians(roll));
     }
 };
