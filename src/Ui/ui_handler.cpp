@@ -14,34 +14,22 @@ UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window},
 }
 
 void UiHandler::init(){
-    
-
     std::vector<ImguiTexturePacket>& texturePackets = r_mediator.renderer_getDstTexturePackets();
 
     opticsTextures.resize(NUM_TEXTURE_SETS);
     detectionTextures.resize(NUM_TEXTURE_SETS);
     
     for(int i = 0; i < NUM_TEXTURE_SETS; i++){
-        int ind = i;// * NUM_TEXTURES_IN_SET;
+        int ind = i;
         opticsTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
     }
 
     for(int i = 0; i < NUM_TEXTURE_SETS; i++){
-        int ind = i + NUM_TEXTURES_IN_SET;//+4 NUM_TEXTURES_IN_SET;
+        int ind = i + NUM_TEXTURES_IN_SET;
         detectionTextures[i] = ImGui_ImplVulkan_AddTexture(*texturePackets[ind].p_sampler, *texturePackets[ind].p_view, texturePackets[ind].p_layout);
     }
 
     matchTexture = ImGui_ImplVulkan_AddTexture(*texturePackets[4].p_sampler, *texturePackets[4].p_view, texturePackets[4].p_layout);
-
-
-
-    //for(ImguiTexturePacket p : texturePackets){
-    //    opticsTextures.push_back(ImGui_ImplVulkan_AddTexture(*p.p_sampler, *p.p_view, p.p_layout));
-    //}
-
-    //create texture id's for imgui, for our optics images
-    
-    //textureID = ImGui_ImplVulkan_AddTexture(*p_sampler, *p_imageView, imageLayout);
 }
 
 void UiHandler::cleanup(){
@@ -52,7 +40,6 @@ void UiHandler::cleanup(){
 
 UiHandler::~UiHandler(){}
 
-//this should all be moved to a UI handler
 void UiHandler::drawUI(){
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -90,7 +77,7 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     opticsWindowPos = ImVec2(width - opticsWindowSize.x, opticsWindowSize.y);
 }
 
-//toggles menu on and off, should be moved to a UI handler
+//toggles menu on and off
 void UiHandler::toggleMenu(){
     if(showEscMenu){
         hideCursor();
@@ -141,69 +128,27 @@ void UiHandler::gui_ShowOptics(){
 
         float thirdRowY = wPos.y + (imageSize.y*2) + (2*PAD);
 
-        //float localSecondRowY = wRegion.y + imageSize.y + PAD;
-        //float localSecondColumnX = wRegion.x + imageSize.x + PAD;
-
-        //draw like images in columns, optics on left and detection on right
-        /*for(int q = 0; q < textureSetIndicesQueue.size(); q++){
-            int i = textureSetIndicesQueue[q];
-
-            int d = -1;
-            if(q < detectionIndicesQueue.size())
-                d = detectionIndicesQueue[q];
-            
-            ImGui::Image(opticsTextures.at(i), imageSize);//, ImVec2(0,0), ImVec2(1,1), ImVec4(1,1,1,1), ImVec4(1,1,1,1)); 
-            ImGui::SameLine();
-            ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
-
-            if(d != -1)
-                ImGui::Image(detectionTextures.at(d), imageSize);
-            ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f));
-            
-            y += imageSize.y+PAD;
-        }*/
-
         //draw like images in rows, optics top row detection second row, only works for texture sets of size 2 atm
         //changed to only draw when there are 2 images ( was previously textureSetIndicesQueue.size() > 0 etc)
         if(textureSetIndicesQueue.size()>0){
-            //int q = textureSetIndicesQueue[0];
-            //ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw first optics image on the right, local coords
-            //ImGui::Image(opticsTextures.at(q), imageSize);
-            //ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-
             int q = textureSetIndicesQueue[0];
             ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw first optics image on the left, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(textureSetIndicesQueue.size()>1){
-            //int q = textureSetIndicesQueue[1];
-            //ImGui::SetCursorPos(ImVec2(localColumnX, y)); //draw second optics image on the left, local coords
-            //ImGui::Image(opticsTextures.at(q), imageSize);
-            //ImGui::GetWindowDrawList()->AddRect({x, y}, { x + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-
             int q = textureSetIndicesQueue[1];
             ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, y)); //draw second optics image on the right, local coords
             ImGui::Image(opticsTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({secondColumnX, y}, { secondColumnX + imageSize.x, y + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(detectionIndicesQueue.size()>0){
-            //int q = detectionIndicesQueue[0];
-            //ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, secondLocalRowY)); //draw second detection image on the right, local coords
-            //ImGui::Image(detectionTextures.at(q), imageSize);
-            //ImGui::GetWindowDrawList()->AddRect({secondColumnX, secondRowY}, { secondColumnX + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-
             int q = detectionIndicesQueue[0];
             ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw first detection image on the left, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
             ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
         }
         if(detectionIndicesQueue.size()>1){
-            //int q = detectionIndicesQueue[1];
-            //ImGui::SetCursorPos(ImVec2(localColumnX, secondLocalRowY)); //draw second detection image on the left, local coords
-            //ImGui::Image(detectionTextures.at(q), imageSize);
-            //ImGui::GetWindowDrawList()->AddRect({x, secondRowY}, { x + imageSize.x, secondRowY + imageSize.y }, ImColor(1.f, 1.f, 1.f, 1.f)); //screen coords
-
             int q = detectionIndicesQueue[1];
             ImGui::SetCursorPos(ImVec2(localColumnX + imageSize.x + PAD, secondLocalRowY)); //draw second detection image on the right, local coords
             ImGui::Image(detectionTextures.at(q), imageSize);
@@ -271,8 +216,8 @@ void UiHandler::gui_ShowEscMenu(){
     if (ImGui::Begin("EscMenu", NULL, window_flags)){
         if (ImGui::Button("Return to Sim", ImVec2(150,50)))
             toggleMenu();
-        if (ImGui::Button("Options", ImVec2(150,50)))
-            std::cout << "Show options\n";
+        if (ImGui::Button("Reset", ImVec2(150,50)))
+            std::cout << "Reset\n";
         if (ImGui::Button("Exit to Menu", ImVec2(150,50)))
             endScene();
         if (ImGui::Button("Exit Application", ImVec2(150,50)))
@@ -305,13 +250,22 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::EndGroup();
         
         ImGui::BeginGroup();
-        ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
-        ImGui::SameLine();
-        ImGui::Checkbox("Collision Course", &sceneData.LANDER_COLLISION_COURSE);
-        
-        ImGui::SliderFloat("Lander Distance", &sceneData.LANDER_START_DISTANCE, 50.0f, 1000.0f);
-        ImGui::SliderFloat("Lander Pass Distance", &sceneData.LANDER_PASS_DISTANCE, 0.0f, 1000.0f);
-        ImGui::SliderFloat("Lander Initial Speed", &sceneData.INITIAL_LANDER_SPEED, 0.0f, 50.0f);
+        //ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
+        float rv = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
+        ImGui::Checkbox("Randomize Asteroid Rotation", &sceneData.RANDOMIZE_ROTATION);
+        if(ImGui::SliderFloat("Asteroid Rotation X", &sceneData.ASTEROID_ROTATION_X, -rv, rv, "%.4f")){
+            
+            sceneData.ASTEROID_ROTATION_Y = 0;
+            sceneData.ASTEROID_ROTATION_Z = 0;
+        }
+        if(ImGui::SliderFloat("Asteroid Rotation Y", &sceneData.ASTEROID_ROTATION_Y, -rv, rv, "%.4f")){
+            sceneData.ASTEROID_ROTATION_X = 0;
+            sceneData.ASTEROID_ROTATION_Z = 0;
+        }
+        if(ImGui::SliderFloat("Asteroid Rotation Z", &sceneData.ASTEROID_ROTATION_Z, -rv, rv, "%.4f")){
+            sceneData.ASTEROID_ROTATION_X = 0;
+            sceneData.ASTEROID_ROTATION_Y = 0;
+        }
         ImGui::SliderInt("Asteroid Scale", &sceneData.ASTEROID_SCALE, 1.0f, 8.0f);
         ImGui::SliderFloat("Gravity Multiplier", &sceneData.GRAVITATIONAL_FORCE_MULTIPLIER, 0.0f, 1.0f);
         ImGui::EndGroup();

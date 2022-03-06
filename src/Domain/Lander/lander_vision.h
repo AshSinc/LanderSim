@@ -18,6 +18,8 @@ namespace Lander{
 
     int NUM_ESTIMATIONS_BEFORE_CALC = 20;
 
+    int MIN_NUM_FEATURES_MATCHED = 30; //minimum number of matching features, prevent findHomography crash when num features are too low
+
     int NUM_MATCHES_TO_USE = 50;
 
     std::deque<float> radiusPerImageQueue;

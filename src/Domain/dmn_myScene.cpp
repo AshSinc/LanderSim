@@ -101,12 +101,10 @@ void MyScene::initObjects(){
     lander->material->extra.x = 64;
     lander->mass = 1.0f;
 
-    lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
-    lander->randomStartPositions = sceneData.RANDOMIZE_START;
+    //lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
+    //lander->randomStartPositions = sceneData.RANDOMIZE_START;
     lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER;
     lander->startDistance = sceneData.LANDER_START_DISTANCE;
-    lander->passDistance = sceneData.LANDER_PASS_DISTANCE;
-    lander->initialSpeed = sceneData.INITIAL_LANDER_SPEED;
 
     objects.push_back(lander);
     renderableObjects.push_back(lander);
@@ -124,41 +122,23 @@ void MyScene::initObjects(){
     asteroid->altMaterial->extra.x = 32;
     asteroid->mass = 100000;
 
-    //ISSUE - Definitely need to allow ui selection of axis and speed
+    asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
+    asteroid->initialRotation.setEulerZYX(0,0,0);
+    asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
 
-    if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
-        /*float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
+    if(sceneData.RANDOMIZE_ROTATION){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
+        float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
         int axis = Service::getRandFloat(0,3);
+        float angle = Service::getAbsMax(Service::getRandFloat(-f,f), sceneData.ASTEROID_MIN_ROTATIONAL_VELOCITY*sceneData.ASTEROID_SCALE);
         switch (axis){
         case 0:
-            asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f), 0.0f, 0.0f);
+            asteroid->angularVelocity = btVector3(angle, 0.0f, 0.0f);
             break;
         case 1:
-            asteroid->angularVelocity = btVector3(0.0f, Service::getRandFloat(-f,f), 0.0f);
-            break;
-        case 2:
-            asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
+            asteroid->angularVelocity = btVector3(0.0f, angle, 0.0f);
             break;
         default:
-        asteroid->angularVelocity = btVector3(0.0f, 0.0f, Service::getRandFloat(-f,f));
-            break;
-        }*/
-
-        float f = -0.0025;
-        int axis = 0;
-        switch (axis)
-        {
-        case 0:
-            asteroid->angularVelocity = btVector3(f, 0.0f, 0.0f);
-            break;
-        case 1:
-            asteroid->angularVelocity = btVector3(0.0f, f, 0.0f);
-            break;
-        case 2:
-            asteroid->angularVelocity = btVector3(0.0f, 0.0f, f);
-            break;
-        default:
-        asteroid->angularVelocity = btVector3(0.0f, 0.0f, f);
+        asteroid->angularVelocity = btVector3(0.0f, 0.0f, angle);
             break;
         }
 
@@ -169,13 +149,26 @@ void MyScene::initObjects(){
         //ISSUE randomizing starting rotation messes up descent checks in lander ai, need to account for initial rotation in there
         //possibly in other locations too, like the zemzev gnc and maybe even landing site?
         //asteroid->initialRotation.setEulerZYX(Service::getRandFloat(0,359),Service::getRandFloat(0,359),Service::getRandFloat(0,359));
-        asteroid->initialRotation.setEulerZYX(0,0,0);
-        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
+        
     }
     else{
-        asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
-        asteroid->initialRotation.setEulerZYX(0,0,0);
-        asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
+        //float f = -0.0025;
+        //int axis = 0;
+        //switch (axis){
+        //case 0:
+            asteroid->angularVelocity = btVector3(sceneData.ASTEROID_ROTATION_X, sceneData.ASTEROID_ROTATION_Y, sceneData.ASTEROID_ROTATION_Z);
+         //   break;
+       // case 1:
+            //asteroid->angularVelocity = btVector3(0.0f, sceneData.ASTEROID_ROTATION_Y, 0.0f);
+       //     break;
+       // default:
+            //asteroid->angularVelocity = btVector3(0.0f, 0.0f, sceneData.ASTEROID_ROTATION_Z);
+       //     break;
+        //}
+
+        //asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
+        //asteroid->initialRotation.setEulerZYX(0,0,0);
+        //asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
     }
 
     objects.push_back(asteroid);
@@ -188,16 +181,17 @@ void MyScene::initObjects(){
     focusableObjects["Landing_Site"] = landingSite;
     landingSite->angularVelocity = asteroid->angularVelocity; //for convenience
 
-    if(sceneData.RANDOMIZE_START){ //best to update lander pos now
+    //if(sceneData.RANDOMIZE_START){ //best to update lander pos now
         //glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
         //glm::vec3 rotatedUp = landingSite->initialRot * asteroid->initialRot * glm::vec4(landingSite->up, 0.0f);
         //glm::vec3 pos = landingSite->pos+(rotatedUp * sceneData.LANDER_START_DISTANCE);
         //lander->pos = pos;
 
-        lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
-    }
-    else
-        lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
+        //lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
+    //}
+    //else
+    
+    lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
         
         //ISSUE - Need to set initial rotation of lander pointing at asteroid, origin
 
@@ -284,7 +278,8 @@ void MyScene::initObjects(){
 void MyScene::initLights(){
     //set directional scene light values
     //this is light from the star in the background
-    sceneLight.pos = glm::vec3(0,0,-1);
+    sceneLight.pos = glm::vec3(0,0,-1); //above
+    sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
     sceneLight.diffuse = glm::vec3(0.5f,0.5f,0.5f);

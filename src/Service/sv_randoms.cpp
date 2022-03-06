@@ -36,10 +36,12 @@ float Service::getRandFloat(float min, float max)
     std::random_device rd;
     std::default_random_engine eng(rd());
     std::uniform_real_distribution<> distr(min, max);
-    //std::setprecision(10);
     float result = distr(eng) - offset;
-    //std::cout << result << "\n";
     return result;
+}
+
+float Service::getAbsMax(float a, float b){
+    return copysign(std::max(abs(a), abs(b)), a); //returns abs min of the 2 values, with the sign of a
 }
 
 btVector3 Service::glm2bt(const glm::vec3 &vec)

@@ -71,6 +71,7 @@ void Vision::detectFeatures(cv::Mat optics){
 
     std::vector<cv::KeyPoint> kp; //keypoints should be stored in an array or queue
     detector->detect(opticsQueue.back(), kp);
+
     keypointsQueue.push_back(kp);
 
     descriptorsQueue.emplace_back();
@@ -118,47 +119,57 @@ void Vision::featureMatch(){
     //cv::Ptr<cv::FlannBasedMatcher> matcher = cv::FlannBasedMatcher::create(); //use with binary string based descriptors descriptors
     //matcher->knnMatch(descriptorsQueue[0], descriptorsQueue[1], 2); //may not be using flann properly, and knn needs different params
 
-    std::vector<cv::DMatch> matches;
-    matcher->match(descriptorsQueue[0], descriptorsQueue[1], matches);
-
-    //sorting
-    std::sort(matches.begin(), matches.end(), compareDistance);
-
-    //array bound check for the next operation
-    int numMatchesToUse = NUM_MATCHES_TO_USE;
-    if(matches.size() < NUM_MATCHES_TO_USE)
-        numMatchesToUse = matches.size();
-    //slice the vector and keep only the top NUM_MATCHES_TO_USE matches
-    std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
+    std::cout << " num of descriptorsQueue[0] : " << descriptorsQueue[0].size() << "\n";
+    std::cout << " num of descriptorsQueue[1] : " << descriptorsQueue[1].size() << "\n";
     
-    //-- Draw matches
-    cv::Mat matchedImage;
-    drawMatches(opticsQueue[0], keypointsQueue[0], opticsQueue[1], keypointsQueue[1], bestMatches, matchedImage,
-                cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);//, cv::DrawMatchesFlags::DEFAULT);
+    //check the descriptors have at least some information, abandon if they do not
+    if((descriptorsQueue[0].rows > 0 && descriptorsQueue[0].cols > 0) && (descriptorsQueue[1].rows > 0 && descriptorsQueue[1].cols > 0)){
+        std::vector<cv::DMatch> matches;
+        matcher->match(descriptorsQueue[0], descriptorsQueue[1], matches);
+        //sorting
+        std::sort(matches.begin(), matches.end(), compareDistance);
 
-    //passing back to renderer to draw the image to ui
-    p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
-    //cv::imwrite("matches.jpg", matchedImage);
+        //array bound check for the next operation
+        int numMatchesToUse = NUM_MATCHES_TO_USE;
+        if(matches.size() < NUM_MATCHES_TO_USE)
+            numMatchesToUse = matches.size();
+        //slice the vector and keep only the top NUM_MATCHES_TO_USE matches
+        std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
+        
+        //-- Draw matches
+        cv::Mat matchedImage;
+        drawMatches(opticsQueue[0], keypointsQueue[0], opticsQueue[1], keypointsQueue[1], bestMatches, matchedImage,
+                    cv::Scalar::all(-1), cv::Scalar::all(-1), std::vector<char>(), cv::DrawMatchesFlags::DEFAULT);//, cv::DrawMatchesFlags::DEFAULT);
 
-    std::vector<cv::Point2f> src;
-    std::vector<cv::Point2f> dst;
-    for( size_t i = 0; i < bestMatches.size(); i++ ){
-        //-- Get the keypoints from the good matches
-        src.push_back( keypointsQueue[0][bestMatches[i].queryIdx ].pt);
-        dst.push_back( keypointsQueue[1][bestMatches[i].trainIdx ].pt);
+        //passing back to renderer to draw the image to ui
+        p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
+        //cv::imwrite("matches.jpg", matchedImage);
+
+        std::vector<cv::Point2f> src;
+        std::vector<cv::Point2f> dst;
+        if(bestMatches.size() > MIN_NUM_FEATURES_MATCHED){
+            for( size_t i = 0; i < bestMatches.size(); i++ ){
+                //-- Get the keypoints from the good matches
+                src.push_back( keypointsQueue[0][bestMatches[i].queryIdx ].pt);
+                dst.push_back( keypointsQueue[1][bestMatches[i].trainIdx ].pt);
+            }
+            cv::Mat H = findHomography(src, dst, cv::RANSAC);//, 1.0, cv::noArray(), 3000);
+            std::cout << H << " H \n";
+
+            glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
+
+            //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
+            if(bestAngularVelocityMatch.x != 9999){
+                estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
+            }
+
+            if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
+                active = false;
+        }
     }
-    cv::Mat H = findHomography(src, dst, cv::RANSAC);//, 1.0, cv::noArray(), 3000);
-    std::cout << H << " H \n";
-
-    glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
-
-    //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
-    if(bestAngularVelocityMatch.x != 9999){
-        estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
-    }
-
-    if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
-        active = false;
+    else
+        std::cout << "Not enough keypoints found, abandoning \n";
+    
     
     descriptorsQueue.pop_front();
     opticsQueue.pop_front();
@@ -289,6 +300,8 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             float unitsMoved = pixelsMoved/(12500/avgAltitude); //convert pixels travelled to world units (m)
             float angularVelocity = unitsMoved/avgRadius;
             angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
+            if(axis == 1)
+                angularVelocityEstimation[1] = -angularVelocityEstimation[1]; //if y axis we need to invert it to correct for world orientation
         }
         else if(Service::getHighestAxis(rotationAngles) == 2){ 
             //if translation is insignificant and z is highest axis in rotation, we can just use that

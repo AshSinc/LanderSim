@@ -9,15 +9,14 @@
 
 struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interface for 
     Lander::CPU cpu = Lander::CPU();
-    bool collisionCourse = false;
-    bool randomStartPositions = false;
-    double asteroidGravForceMultiplier = 0.01f;
-    float startDistance = 150.0f;
-    float passDistance = 70.0f;
-    float initialSpeed = 1.5f; //this var isnt actually set here, its in data_scene.h
-    btVector3 asteroidRotationalVelocity = btVector3(0,0,0); //we can cheat by assigning it in myscene.cpp
+    //bool collisionCourse = false;
+    //bool randomStartPositions;
+    double asteroidGravForceMultiplier;
+    float startDistance;
+    //float passDistance = 70.0f;
+    float initialSpeed = 0.00001f; //if 0 we get a black screen on auto camera, lander is in correct pos though, changing focus fixes
+    btVector3 asteroidRotationalVelocity = btVector3(0,0,0);
     
-
     float landerVelocity = 0.0f;
     glm::vec3 landerVelocityVector = glm::vec3(0.0f);
     glm::vec3 landerAngularVelocity = glm::vec3(0.0f);
@@ -97,7 +96,7 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
         //using motionstate is recommended, it provides interpolation capabilities, and only synchronizes 'active' objects
         btDefaultMotionState* myMotionState = new btDefaultMotionState(landerTransform);
         btRigidBody::btRigidBodyConstructionInfo rbInfo(btMass, myMotionState, compoundShape, localInertia);
-        rbInfo.m_friction = 2.0f;
+        rbInfo.m_friction = 1.0f;
         rbInfo.m_spinningFriction  = 0.1f;
         //rbInfo.m_rollingFriction = 0.5f;
         btRigidBody* rigidbody = new btRigidBody(rbInfo);
@@ -155,14 +154,11 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     }
 
     void initRigidBody(btTransform* transform, btRigidBody* rigidbody){
-        btVector3 direction;
-        if(collisionCourse)
-            direction = -transform->getOrigin(); //this isnt working properly, gives black screen even tho objects should still be visible, no idea
-            //dest-current position is the direction, dest is origin so just negate
-        else
-            //instead of origin pick a random point LANDER_PAPP_DISTANCE away from the asteroid
-            direction = Service::getPointOnSphere(Service::getRandFloat(0,360), Service::getRandFloat(0,360), passDistance)-transform->getOrigin();
+        //this isnt working properly, gives black screen, although everything is still in correct position, black screen caused with auto camera, and maybe transform isnt set yet
+        //btVector3 direction = -transform->getOrigin(); 
 
+        //btVector3 direction = btVector3(0,0,-1); //lets do this for now, this causes black screen as well!
+        btVector3 direction = Service::getPointOnSphere(Service::getRandFloat(0,360), Service::getRandFloat(0,360), 100)-transform->getOrigin(); //why on earth does this work instead
         rigidbody->setLinearVelocity(direction.normalize()*initialSpeed); //start box falling towards asteroid
     }
 

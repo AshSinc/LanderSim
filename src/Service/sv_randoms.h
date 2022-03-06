@@ -27,6 +27,8 @@ namespace Service{
 
     glm::mat4 openCVToGlm(const cv::Mat &m);
 
+    float getAbsMax(float a, float b);
+
     int getHighestAxis(glm::vec3);
 
 }
