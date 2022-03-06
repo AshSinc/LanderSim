@@ -98,8 +98,6 @@ void MyScene::initObjects(){
     lander->scale = glm::vec3(1.0f,1.0f,1.0f);
     setRendererMeshVars("lander", lander.get());   //instead of box and default mesh we need to load the model
     lander->material = r_mediator.renderer_getMaterial("texturedmesh2");
-    //lander->material->diffuse = glm::vec3(0,0,1);
-    //lander->material->specular = glm::vec3(1,0.5f,0.5f);
     lander->material->extra.x = 64;
     lander->mass = 1.0f;
 
@@ -126,11 +124,12 @@ void MyScene::initObjects(){
     asteroid->altMaterial->extra.x = 32;
     asteroid->mass = 100000;
 
+    //ISSUE - Definitely need to allow ui selection of axis and speed
+
     if(sceneData.RANDOMIZE_START){ //easier if we do this now, then we can pass angular velocity to landing site obj, so lander can get it, simple :)
         /*float f = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY/sceneData.ASTEROID_SCALE;
         int axis = Service::getRandFloat(0,3);
-        switch (axis)
-        {
+        switch (axis){
         case 0:
             asteroid->angularVelocity = btVector3(Service::getRandFloat(-f,f), 0.0f, 0.0f);
             break;

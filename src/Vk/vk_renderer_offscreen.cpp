@@ -697,7 +697,6 @@ void Vk::OffscreenRenderer::assignMatToDetectionView(cv::Mat image){
         imguiDetectionIndicesQueue.pop_front();
 
     size_t sizeInBytes = image.step[0] * image.rows;
-    //std::cout << sizeInBytes << " bytes \n";
     memcpy((void*)detectionImageMappings[opticsFrameCounter], image.data, sizeInBytes);
 
     imguiDetectionIndicesQueue.push_back(opticsFrameCounter);

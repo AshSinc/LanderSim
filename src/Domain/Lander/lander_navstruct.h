@@ -10,6 +10,6 @@ struct NavigationStruct{
     glm::vec3 landingSitePos;
     glm::vec3 landingSiteUp;
     float altitude;
-    float radiusOfOpticalLock;
+    float radiusAtOpticalCenter;
     bool estimationComplete = false;
 };

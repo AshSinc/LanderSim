@@ -29,15 +29,13 @@ struct LandingSiteData_2: LandingSiteData{
 struct SceneData{
     bool RANDOMIZE_START = false;
     bool LANDER_COLLISION_COURSE = false;
-    float LANDER_START_DISTANCE = 1010.0f;
+    float LANDER_START_DISTANCE = 1000.0f;
     float LANDER_PASS_DISTANCE = 750.0f;
-    float INITIAL_LANDER_SPEED = 1.0f;
+    float INITIAL_LANDER_SPEED = 0.00001f;
     //float INITIAL_LANDER_SPEED = 0.0f; //this causes black screen, for some reason, possibly issue in LanderObj::initRigidBody
     int ASTEROID_SCALE = 2;
     float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.02f; //0.04f
-    //float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.01f; //0.04f
     float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/10.5f;
-    //float GRAVITATIONAL_FORCE_MULTIPLIER = 0.0f;
     LandingSiteData landingSite = LandingSiteData_1();
 };
 
@@ -45,9 +43,9 @@ struct ScenarioData_Scenario1: SceneData{
     ScenarioData_Scenario1(){
         RANDOMIZE_START = false;
         LANDER_COLLISION_COURSE = false;
-        LANDER_START_DISTANCE = 1010.0f;
+        LANDER_START_DISTANCE = 1000.0f;
         LANDER_PASS_DISTANCE = 750.0f;
-        INITIAL_LANDER_SPEED = 2.0f;
+        INITIAL_LANDER_SPEED = 0.00001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.02f; //0.025f;
         ASTEROID_SCALE = 2;
         GRAVITATIONAL_FORCE_MULTIPLIER = 1.5f;
@@ -61,7 +59,7 @@ struct ScenarioData_Scenario2: SceneData{
         LANDER_COLLISION_COURSE = false;
         LANDER_START_DISTANCE = 300.0f;
         LANDER_PASS_DISTANCE = 200.0f;
-        INITIAL_LANDER_SPEED = 1.5f;
+        INITIAL_LANDER_SPEED = 0.00001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
         ASTEROID_SCALE = 5;
         GRAVITATIONAL_FORCE_MULTIPLIER = 2.0f;
@@ -75,7 +73,7 @@ struct ScenarioData_Scenario3: SceneData{
         LANDER_COLLISION_COURSE = false;
         LANDER_START_DISTANCE = 1000.0f;
         LANDER_PASS_DISTANCE = 500.0f;
-        INITIAL_LANDER_SPEED = 2.0f;
+        INITIAL_LANDER_SPEED = 0.00001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.025f;
         ASTEROID_SCALE = 10;
         GRAVITATIONAL_FORCE_MULTIPLIER = 5.0f;

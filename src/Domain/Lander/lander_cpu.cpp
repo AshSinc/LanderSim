@@ -49,7 +49,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         //first check distance to center point of our camera in world space and store in navstruct to share with gnc and vision
         glm::vec3 opticsCenterWorldPoint = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 100000.0f);
         navStruct.altitude = glm::length(p_lander->pos-opticsCenterWorldPoint);
-        navStruct.radiusOfOpticalLock = glm::length(opticsCenterWorldPoint);
+        navStruct.radiusAtOpticalCenter = glm::length(opticsCenterWorldPoint);
         std::cout << glm::to_string(p_lander->pos) << " lander pos \n";
         std::cout << navStruct.altitude << " distanceToSurface \n";
 

@@ -16,7 +16,7 @@ namespace Lander{
 
     float imagingTimerSeconds = 0.0f;
 
-    int NUM_ESTIMATIONS_BEFORE_CALC = 10;
+    int NUM_ESTIMATIONS_BEFORE_CALC = 20;
 
     int NUM_MATCHES_TO_USE = 50;
 
@@ -31,7 +31,7 @@ namespace Lander{
     std::deque<std::vector<cv::KeyPoint>> keypointsQueue;
 
     void featureMatch();
-    void detectImage(cv::Mat optics);
+    void detectFeatures(cv::Mat optics);
 
     std::vector<glm::vec3> estimatedAngularVelocities;
 

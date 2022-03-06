@@ -1,26 +1,18 @@
 #include "lander_vision.h"
-
 #include <opencv2/opencv.hpp>
 #include "opencv2/highgui.hpp"
 #include "opencv2/features2d.hpp"
 #include "opencv2/xfeatures2d.hpp"
 #include "opencv2/calib3d.hpp"
 #include "opencv2/imgproc.hpp"
-
 #include <thread>
-
 #include "qtimer.h"
-
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
-
 #include "sv_randoms.h"
-
 #include <bits/stdc++.h>
-
-#include "obj_lander.h" //not ideal to include this here, only used to get lander up, to work out camera plane
 
 using namespace Lander;
 
@@ -38,25 +30,72 @@ void Vision::simulationTick(){
         if(!p_mediator->renderer_cvMatQueueEmpty()){
             std::unique_lock<std::mutex> lock(processingLock, std::try_to_lock); //try to acquire processingLock
 
-            if(!lock.owns_lock()){  //if we dont have the lock then return error
+            if(!lock.owns_lock())  //if we dont have the lock then return error
                 throw std::runtime_error("Lock Failed, processing is taking longer than submission");
-            }
 
             cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
             p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
 
-            radiusPerImageQueue.emplace_back(p_navStruct->radiusOfOpticalLock);
+            radiusPerImageQueue.emplace_back(p_navStruct->radiusAtOpticalCenter);
             altitudePerImageQueue.emplace_back(p_navStruct->altitude);
 
-            std::thread thread(&Lander::Vision::detectImage, this, nextImage); //we run the conversions in a seperate thread, solves stuttering during processing
+            std::thread thread(&Lander::Vision::detectFeatures, this, nextImage); //we run the conversions in a seperate thread, solves stuttering during processing
             thread.detach();   
         }
     }
 }
 
-//compares distance of matches, for use in vector sorting of matches
-bool Vision::compareDistance(cv::DMatch d1, cv::DMatch d2){
-    return (d1.distance <= d2.distance);
+void Vision::detectFeatures(cv::Mat optics){
+
+    opticsQueue.push_back(optics.clone()); //copy it
+
+    //processing
+    opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
+
+    //cv::imwrite("scale.jpg", opticsQueue.back());
+   
+    //detecting
+    //-- Step 1: Detect the keypoints
+    startT(1); //timer start
+    
+    //surf and sift, both use floating point descriptors so matcher should use NORM_L2
+    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(100);//min hessian
+    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(100);
+
+    //orb brief brisk use string descriptors so should use NORM HAMMING matcher
+    //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
+    //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
+    //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
+
+    //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create(); //star needs BriefDescriptorExtractor created
+
+    std::vector<cv::KeyPoint> kp; //keypoints should be stored in an array or queue
+    detector->detect(opticsQueue.back(), kp);
+    keypointsQueue.push_back(kp);
+
+    descriptorsQueue.emplace_back();
+    if(false){ //if using StarDetector, need to specify a descriptor extractor
+        cv::Ptr<cv::xfeatures2d::BriefDescriptorExtractor> extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
+        extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+    }
+    else{
+        detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+    }
+    
+    //-- Draw keypoints
+    cv::Mat kpimage;
+    //cv::drawKeypoints(optics, keypoints, image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+    cv::drawKeypoints(opticsQueue.back(), kp, kpimage);
+    
+    //passing back to renderer to copy image to feature detection queue for drawing in ui_handler 
+    p_mediator->renderer_assignMatToDetectionView(kpimage);
+
+    //if we have 2 descriptors then we can match them
+    if(descriptorsQueue.size()>1)
+        featureMatch();
+
+    endT(1);
+    showStats(true);
 }
 
 void Vision::featureMatch(){
@@ -89,9 +128,8 @@ void Vision::featureMatch(){
     int numMatchesToUse = NUM_MATCHES_TO_USE;
     if(matches.size() < NUM_MATCHES_TO_USE)
         numMatchesToUse = matches.size();
-    //slice the vector and keep only the top NUM_MATCHES_TO_USE matches (30 or so)
+    //slice the vector and keep only the top NUM_MATCHES_TO_USE matches
     std::vector<cv::DMatch> bestMatches = std::vector<cv::DMatch>(matches.begin(), matches.begin() + numMatchesToUse);
-    //std::vector<cv::DMatch> bestMatches = matches;
     
     //-- Draw matches
     cv::Mat matchedImage;
@@ -106,11 +144,10 @@ void Vision::featureMatch(){
     std::vector<cv::Point2f> dst;
     for( size_t i = 0; i < bestMatches.size(); i++ ){
         //-- Get the keypoints from the good matches
-        src.push_back( keypointsQueue[0][ bestMatches[i].queryIdx ].pt );
-        dst.push_back( keypointsQueue[1][ bestMatches[i].trainIdx ].pt );
+        src.push_back( keypointsQueue[0][bestMatches[i].queryIdx ].pt);
+        dst.push_back( keypointsQueue[1][bestMatches[i].trainIdx ].pt);
     }
     cv::Mat H = findHomography(src, dst, cv::RANSAC);//, 1.0, cv::noArray(), 3000);
-    //cv::Mat H = findHomography(src, dst, 0);
     std::cout << H << " H \n";
 
     glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
@@ -132,25 +169,27 @@ void Vision::featureMatch(){
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
-    cv::Mat intrinsicM = cv::Mat::eye(3,3, CV_64F); //we will just work in pixels, tried so many times to calibrate camera but this way is much easier
-    intrinsicM.at<_Float64>(0,2) = 256; //center points in pixels
-    intrinsicM.at<_Float64>(1,2) = 256; //center points in pixels
+    //calculate avg altitude and radius from the 2 images
+    float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
+    float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
+
+    //construct a point used for testing, this is effectively the lander distance from center of asteroid
+    glm::vec3 testPoint = glm::vec3(0, 0, avgAltitude+avgRadius);
+    std::cout << "testPoint :" << glm::to_string(testPoint) << "\n";
+
+    //we have no distortion or skew so calibration is not necessary, this means we are working in pixel coordinates
+    //we can manually account for scale later
+    cv::Mat intrinsicM = cv::Mat::eye(3,3, CV_64F);
+    intrinsicM.at<_Float64>(0,2) = 256; //center point of optics in pixels
+    intrinsicM.at<_Float64>(1,2) = 256; //center point of optics in pixels
 
     std::vector<cv::Mat> rotationM;
     std::vector<cv::Mat> translationM;
     std::vector<cv::Mat> n;
     int solutions = cv::decomposeHomographyMat(H, intrinsicM, rotationM, translationM, n);
 
-    //calculate avg altitude and radius from the 2 images
-    float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
-    float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
-
-    glm::vec3 testPoint = glm::vec3(0, 0, avgAltitude+avgRadius); //construct a point used for testing, this is effectively the lander distance from center of asteroid
-    std::cout << "testPoint :" << glm::to_string(testPoint) << "\n";
-
     std::vector<glm::vec3> possibleSolutions;
-    //go through each solution and test if the rotated or translated points lie behind the camera
-    //opencv docs https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
+
     for (int i = 0; i < solutions; i++){
         std::cout << "----------------------------------------------------\n";
         std::cout << "Solution " << i << ":" << "\n";
@@ -204,9 +243,50 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         //if translation appears significant then get primary axis and calculate angular velocity
         glm::vec3 angularVelocityEstimation = glm::vec3(0);
         if(tLength > 1){
+
+            //NOTES and working ------------
+
+                //at scale 1, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
+
+                //measurements with 2x2 scale box at various distances
+                //1m is 12.5 pixels at 1000m altitude
+                //1m is 25 pixels at 500m altitude
+                //1m is 50 pixels at 250m altitude
+                //1m is 100 pixels at 125m altitude
+
+                //we should be able to define a relationship with distance
+                //inversely proportional
+                //12.5 = k/1000
+                //k = 12500
+                //1m in pixels = 12500/distance
+
+                //any displacement must measure linear speed at the surface, we need angular speed
+
+                //find angular velocity
+                //ω = r × v / |r|², we are assuming one axis of rotation so to simplify ω = v / r
+
+                //example
+                //altitude 950, radius 59, 84 pixels of measured movement
+                //convert 84 pixels to real world units,
+                //1 unit in pixels = 12500/950 = 13.157894737
+                //units moved = 84/13.157894737 = 6.384
+                //then find angular velocity ω = v / r
+                //6.384 / 59 = 0.10820339 rad
+                
+                //example 2
+                //altitude 450, radius 59, 180 pixels of measured movement
+                //convert 180 pixels to real world units,
+                //1 unit in pixels = 12500/450 = 27.777777778
+                //units moved = 180/27.777777778 = 6.48
+                //then find angular velocity ω = v / r
+                //6.48 / 59 = 0.109830508 rad
+                //good!
+
+            //NOTES ------------
+
             int axis = Service::getHighestAxis(glm::vec3(translatedPoint.x, translatedPoint.y, 0)); //find the significant axis
-            float pixelsMoved = translatedPoint[axis]; //perform adjust for altitude and radius
-            float unitsMoved = pixelsMoved/(12500/avgAltitude);
+            float pixelsMoved = translatedPoint[axis]; 
+            float unitsMoved = pixelsMoved/(12500/avgAltitude); //convert pixels travelled to world units (m)
             float angularVelocity = unitsMoved/avgRadius;
             angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
         }
@@ -222,119 +302,21 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         }
         
         std::cout << "----------------------------------------------------\n";
-
-        //NOTES ------------
-            //at scale 1, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
-
-            //measurements with 2x2 scale box at various distances
-            //1 unit is 12.5 pixels at 1000, confirmed
-            //1 unit is 25 pixels at 500, confirmed
-            //1 unit is 50 pixels at 250, confirmed
-            //1 unit is 100 pixels at 125, confirmed
-            //1 unit is 200 pixels at 62.5
-            //1 unit is 400 pixels at 31.25
-            //1 unit is 800 pixels at 15.625
-            //1 unit is 1600 pixels at 7.8125
-            //1 unit is 3200 pixels at 3.90625
-
-            //we should be able to define a relationship with distance
-            //inversely proportional
-            //12.5 = k/1000
-            //k = 12500
-            //1 unit in pixels = 12500/distance
-
-            //this must be measuring linear speed at the surface, we need angular velocity
-
-            //find angular velocity
-            //ω = r × v / |r|²
-            //40 * 4 / 40² = 0.1 rad (this would be for 100 pixels of movement)
-            //we need 40 pixels of movement scaled based on alt
-
-            //example
-            //altitude 950, radius 59, 84 pixels of measured movement
-            //convert 84 pixels to real world units,
-            //1 unit in pixels = 12500/950 = 13.157894737
-            //units moved = 84/13.157894737 = 6.384
-            //then find angular velocity ω = r × v / |r|² = v / r
-            //6.384 / 59 = 0.10820339 rad
-            
-            //example 2
-            //altitude 450, radius 59, 180 pixels of measured movement
-            //convert 180 pixels to real world units,
-            //1 unit in pixels = 12500/450 = 27.777777778
-            //units moved = 180/27.777777778 = 6.48
-            //then find angular velocity ω = r × v / |r|² = v / r
-            //6.48 / 59 = 0.109830508 rad
-            //good!
-        //NOTES ------------
     }
     
     if(possibleSolutions.size() == 0)
         possibleSolutions.push_back(glm::vec3(9999, 9999, 9999)); //dummy that is discarded
-
-    for(glm::vec3 sol : possibleSolutions)
-        std::cout << glm::to_string(sol) << "\n";
+    else if(possibleSolutions.size() > 1){ 
+        //if there is still more than one solution we need to determine correct one
+        //can happen than + or - translations get mixed up, need to test this
+        for(glm::vec3 sol : possibleSolutions)
+            std::cout << glm::to_string(sol) << "\n";
+    }
 
     return possibleSolutions[0]; //need to clean this up, last thing is to check direction of x and y rotation somehow, there is a safety in place after returning though
 }
 
-void Vision::detectImage(cv::Mat optics){
-
-    opticsQueue.push_back(optics.clone()); //copy it
-
-    //processing
-    opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
-
-    //cv::imwrite("scale.jpg", opticsQueue.back());
-   
-    //detecting
-    //-- Step 1: Detect the keypoints
-    startT(1); //timer start
-    
-    //surf and sift, both use floating point descriptors so matcher should use NORM_L2
-    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(200);//min hessian
-    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(100);
-
-    //orb brief brisk use string descriptors so should use NORM HAMMING matcher
-    //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
-    //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
-    //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
-
-    //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create(); //star needs BriefDescriptorExtractor created
-
-    std::vector<cv::KeyPoint> kp; //keypoints should be stored in an array or queue
-    detector->detect(opticsQueue.back(), kp);
-    keypointsQueue.push_back(kp);
-
-    descriptorsQueue.emplace_back();
-    if(false){ //if using StarDetector, need to specify a descriptor extractor
-        cv::Ptr<cv::xfeatures2d::BriefDescriptorExtractor> extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
-        extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    }
-    else{
-        detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    }
-    
-    //-- Draw keypoints
-    cv::Mat kpimage;
-    //cv::drawKeypoints(optics, keypoints, image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-    cv::drawKeypoints(opticsQueue.back(), kp, kpimage);
-    
-    //passing back to renderer
-    p_mediator->renderer_assignMatToDetectionView(kpimage);
-
-    //p_mediator->renderer_assignMatToDetectionView(opticsQueue.back()); //for testing without kps drawn
-
-    //if we have 2 descriptors then we can match them
-    if(descriptorsQueue.size()>1)
-        featureMatch();
-
-    endT(1);
-    showStats(true);
-
-    //double t = (double)cv::getTickCount();
-    // do something ...
-    //t = ((double)getTickCount() - t)/getTickFrequency();
-    //cout << "Times passed in seconds: " << t << endl;
-    //processing = false;
+//compares distance of matches, for use in vector sorting of matches
+bool Vision::compareDistance(cv::DMatch d1, cv::DMatch d2){
+    return (d1.distance <= d2.distance);
 }
