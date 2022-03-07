@@ -41,6 +41,7 @@ struct WorldStats;
 struct LandingSiteObj;
 struct LanderObj;
 struct TestPlaneObj;
+struct LanderBoostCommand;
 
 struct ImguiTexturePacket;
 
@@ -129,6 +130,7 @@ class Mediator{
         void ui_updateUIPanelDimensions(GLFWwindow* window);
         void ui_drawUI();
         void ui_updateLoadingProgress(float progress, std::string text);
+        void ui_submitBoostCommand(LanderBoostCommand boost);
 
         //application functions
         void application_loadScene(SceneData sceneData);

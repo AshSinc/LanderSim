@@ -120,7 +120,6 @@ glm::vec3 GNC::predictFinalLandingSiteUp(glm::mat4 rotationM){
 void GNC::calculateVectorsAtTime(float time){
     if(glm::length(p_navStruct->angularVelocity) != 0){ //if angular vel is 0 we dont need to check
         rotationMatrixAtTf = constructRotationMatrixAtTf(time);
-        //std::cout << glm::to_string(rotationMatrixAtTf) << "Calculated rotation\n";
         projectedLandingSitePos = predictFinalLandingSitePos(rotationMatrixAtTf);
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);
@@ -171,6 +170,10 @@ glm::vec3 GNC::getThrustVector(float timeStep){
     return thrustVector;
 }
 
+glm::vec3 GNC::getProjectedUpVector(){
+    return projectedLandingSiteUp;
+}
+
 //http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-use-lookat-but-limit-the-rotation-at-a-certain-speed-
 //example here, a slerp catching common issues
 /*glm::quat GNC::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
@@ -208,73 +211,4 @@ glm::vec3 GNC::getThrustVector(float timeStep){
 	res = normalize(res);
 	return res;
 
-}*/
-
-glm::vec3 GNC::getProjectedUpVector(){
-    return projectedLandingSiteUp;
-}
-
-
-    //initialisation
-    //minRange = approachDistance - 5;
-    //maxRange = approachDistance + 5;
-    //previousDistance = FINAL_APPROACH_DISTANCE;
-
-/*void CPU::linearControl(float timeStep){
-    //get the actual ground directly under the landing site object by raycasting down from the placeholder (more accurate this way)
-    glm::vec3 landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
-    float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
-
-    //if we are not in the descent phase yet, call checkApproachAligned() 
-    //to see if we are in the right position and have waited the right amount of time
-    if(!shouldDescend)
-        shouldDescend = checkApproachAligned(distanceToLandingSite);
-    else{ 
-        glm::vec3 groundUnderLanderPos = p_mediator->physics_performRayCast(p_lander->pos, -p_lander->up, 10000.0f); //raycast from lander down
-        std::cout << glm::to_string(groundUnderLanderPos) << " ground under lander point\n";
-        float distanceToGround = glm::length(groundUnderLanderPos - p_lander->pos);
-        std::cout << distanceToGround << " distanceToGround\n";
-
-        //if we have then we will begin to descend, we have two possible descent speeds
-        //approachDistance is basically our target distance we want to be next cycle, 
-        //starts at 50m above landing site, then we can reduce this distance each tick for controlled descent
-        //APPROACH_DISTANCE_REDUCTION and FINAL_APPROACH_DISTANCE_REDUCTION are effectively vertical speed caps
-        if(distanceToGround > FINAL_APPROACH_DISTANCE)
-            approachDistance = distanceToGround-APPROACH_DISTANCE_REDUCTION;
-        else{
-
-            float distanceDelta = getAverageDistanceReduction();//previousDistance - distanceToGround;
-            distanceDelta -= FINAL_APPROACH_DISTANCE_REDUCTION;
-
-            // ISSSUE --- This still isnt working correctly
-            approachDistance = distanceToGround-FINAL_APPROACH_DISTANCE_REDUCTION + distanceDelta;
-        }
-    }
-
-    //set an approach distance, starts at 50m, then reduces with each tick when shouldDescend is true
-    glm::vec3 desiredDistance(approachDistance, approachDistance, approachDistance);
-
-    //float distanceToLandingSite = glm::length(landingSitePos - p_lander->pos);
-    //get the world position based on this desiredDistance and landingSite.up and position
-    glm::vec3 desiredPosition = landingSitePos+(p_landingSite->up*desiredDistance);
-
-    //get a movement vector from where lander is to where we want it to be
-    glm::vec3 desiredMovement = desiredPosition - p_lander->pos;
-    
-    //we can cap it by a LANDER_SPEED_CAP to keep it from gaining too much speed
-    if(glm::length(desiredMovement) > LANDER_SPEED_CAP)
-        desiredMovement = glm::normalize(desiredMovement) * LANDER_SPEED_CAP;   
-    
-    //desiredMovement is the ideal velocity vector for our next physics cycle, but we need to account for current velocity
-    //calculate the force needed to achieve desiredMovement vector by subtracting landerVelocityVector
-    glm::vec3 correctedMovement = desiredMovement - p_lander->landerVelocityVector;
-
-    //before submitting to the movement queue we will adjust this vector to be relative to lander orientation
-    //to do so we take the inverse of the transformation matrix and apply to the desired movement vector to 
-    //rotate it to the relative orientation, we do this just for any machine learning algorithms benefit
-    glm::mat4 inv_transform = glm::inverse(p_lander->transformMatrix);
-    correctedMovement = inv_transform * glm::vec4(correctedMovement, 0.0f);
-    
-    //finally submit it to the queue, TODO!!! we will probably need to normalize vector and pass a strength
-    addImpulseToLanderQueue(1.0f, correctedMovement.x, correctedMovement.y, correctedMovement.z, false);
 }*/

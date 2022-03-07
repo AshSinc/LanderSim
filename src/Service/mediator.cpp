@@ -4,8 +4,6 @@
 #include "dmn_myScene.h"
 #include "obj_landingSite.h"
 #include "obj_lander.h"
-//#include "obj_testPlane.h"
-
 
 //Scene Functions
 int Mediator::scene_getWorldObjectsCount(){
@@ -45,6 +43,9 @@ void Mediator::ui_drawUI(){
 }
 void Mediator::ui_updateLoadingProgress(float progress, std::string text){
     p_uiHandler->updateLoadingProgress(progress, text);
+}
+void Mediator::ui_submitBoostCommand(LanderBoostCommand boost){
+    p_uiHandler->submitBoostCommand(boost);
 }
 
 //Camera functions

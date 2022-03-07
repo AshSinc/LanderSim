@@ -13,3 +13,9 @@ struct NavigationStruct{
     float radiusAtOpticalCenter;
     bool estimationComplete = false;
 };
+
+struct LanderBoostCommand{
+    float duration;
+    glm::vec3 vector;
+    bool torque; //true if rotation
+};

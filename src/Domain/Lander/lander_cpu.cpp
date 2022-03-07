@@ -90,10 +90,14 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
     //this and corresponding queue need moved to Lander::CPU
     if(landerImpulseRequested()){
         LanderBoostCommand& nextBoost = popLanderImpulseQueue();
-        if(nextBoost.torque)
+        if(nextBoost.torque) //wont be using torque for this because we can use reaction wheels if we have time
             applyTorque(body, nextBoost);
-        else
+        else{
+            //pass to ui to draw booster firing
+            p_mediator->ui_submitBoostCommand(nextBoost);
             applyImpulse(body, nextBoost);
+        }
+            
     }
 }
 

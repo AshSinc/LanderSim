@@ -35,7 +35,7 @@ public:
 
 private:
 
-    glm::vec4 LANDER_OPTICS_AMBIENT = glm::vec4(0.0075f, 0.0075f, 0.0075f, 1);
+    glm::vec4 LANDER_OPTICS_AMBIENT = glm::vec4(0.005f, 0.005f, 0.005f, 1);
     glm::vec4 LANDER_OPTICS_DIFFUSE = glm::vec4(0.75f, 0.75f, 0.75f, 1);
     glm::vec4 LANDER_OPTICS_SPECULAR = glm::vec4(5.0f,5.0f,5.0f, 1);
 

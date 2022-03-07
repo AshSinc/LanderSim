@@ -6,6 +6,9 @@
 #include "vk_renderer_base.h"
 #include <array>
 
+#include <glm/glm.hpp>
+#include <glm/gtx/string_cast.hpp>
+
 int NUM_TEXTURE_SETS = 2;
 int NUM_TEXTURES_IN_SET = 2;
 
@@ -30,6 +33,7 @@ void UiHandler::init(){
     }
 
     matchTexture = ImGui_ImplVulkan_AddTexture(*texturePackets[4].p_sampler, *texturePackets[4].p_view, texturePackets[4].p_layout);
+
 }
 
 void UiHandler::cleanup(){
@@ -49,21 +53,25 @@ void UiHandler::drawUI(){
     if(showMainMenu)
         gui_ShowMainMenu();
     else{
-        if (showLoading){
+        if (showLoading)
             gui_ShowLoading();
-        }
         else{
             gui_ShowOverlay();
+
             if(showEscMenu)
                 gui_ShowEscMenu();
 
             gui_ShowOptics();
-        }
-    }
 
+            updateFlightParams();
+            gui_ShowFlightParams();
+        }
+
+    }
     ImGui::Render();
 }
 
+//not used because we are not allowing resize atm
 void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     //this needs moved to UI state transition section, must still end up being called from recreate swapchain as well
     int width = 0, height = 0;
@@ -75,6 +83,8 @@ void UiHandler::updateUIPanelDimensions(GLFWwindow* window){
     statsPanelSize = ImVec2(width/8, height);
     opticsWindowSize = ImVec2(width/6, height);
     opticsWindowPos = ImVec2(width - opticsWindowSize.x, opticsWindowSize.y);
+    flightWindowSize = ImVec2(width/6, height/2);
+    flightWindowPos = ImVec2(0, flightWindowSize.y);
 }
 
 //toggles menu on and off
@@ -88,6 +98,120 @@ void UiHandler::toggleMenu(){
         showEscMenu = true;
     }
     r_mediator.physics_changeSimSpeed(0, true);
+}
+
+void UiHandler::gui_ShowFlightParams(){
+    ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
+
+    flightWindowPos = ImVec2(0, 1080-(1080/4));
+
+    static float sz = 28.0f;
+    const ImU32 c = ImColor(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    const ImU32 ac = ImColor(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+    const float spacing = 10.0f;
+    
+    if (ImGui::Begin("Flight", NULL, window_flags)){       
+        //top row
+        float x = flightWindowPos.x + 50;
+        float y = flightWindowPos.y;
+        if(currentboost[0])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[1])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[2])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[3])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+
+        //up row
+        x = flightWindowPos.x + 50 + (sz + spacing);
+        y = flightWindowPos.y + sz + spacing;
+        if(currentboost[4])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[5])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+
+        //left row
+        x = 50;
+        y = flightWindowPos.y + (sz + spacing)*2;
+        if(currentboost[6])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        y += sz + spacing;
+        if(currentboost[7])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+
+        //right row
+        x = flightWindowPos.x + 50 + (sz + spacing)*3;
+        y = flightWindowPos.y + (sz + spacing)*2;
+        if(currentboost[8])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        y += sz + spacing;
+        if(currentboost[9])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+
+        //bottom row
+        x = flightWindowPos.x + 50 + (sz + spacing);
+        y = flightWindowPos.y + (sz + spacing)*4;
+        if(currentboost[10])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[11])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+
+        //down row
+        x = flightWindowPos.x + 50;
+        y = flightWindowPos.y + (sz + spacing)*5;
+        if(currentboost[12])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[13])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[14])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+        x += sz + spacing;
+        if(currentboost[15])
+            draw_list->AddRectFilled(ImVec2(x, y), ImVec2(x + sz, y + sz), ac);
+        else
+            draw_list->AddRect(ImVec2(x, y), ImVec2(x + sz, y + sz), c);
+    }
+    ImGui::End();
 }
 
 void UiHandler::gui_ShowOptics(){
@@ -113,7 +237,6 @@ void UiHandler::gui_ShowOptics(){
     std::deque<int> matchIndicesQueue = r_mediator.renderer_getImguiMatchIndicesQueue();
 
     if (ImGui::Begin("Optics", NULL, window_flags)){  
-
         auto wPos = ImGui::GetWindowPos();
         auto wRegion =  ImGui::GetWindowContentRegionMin();
         auto wSize = ImGui::GetWindowSize();
@@ -164,8 +287,6 @@ void UiHandler::gui_ShowOptics(){
 }
 
 void UiHandler::gui_ShowOverlay(){
-    static int corner = 0;
-    ImGuiIO& io = ImGui::GetIO();
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     
     const float PAD = 10.0f;
@@ -204,8 +325,9 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("Grav Force: %f N\n", worldStats.gravitationalForce);
         ImGui::Text("Last Impact: %f N\n", worldStats.lastImpactForce);
         ImGui::Text("Largest Impact: %f N\n\n", worldStats.largestImpactForce);
+
     }
-    ImGui::End();
+    ImGui::End();          
 }
 
 void UiHandler::gui_ShowEscMenu(){
@@ -232,6 +354,7 @@ void UiHandler::gui_ShowMainMenu(){
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f), ImGuiCond_Always, ImVec2(0.5f,0.5f));
     ImGui::GetStyle().WindowPadding = ImVec2(24,24);
+
     if (ImGui::Begin("MainMenu", NULL, window_flags)){
 
         ImGui::Text("\nScene Settings\n");
@@ -250,7 +373,6 @@ void UiHandler::gui_ShowMainMenu(){
         ImGui::EndGroup();
         
         ImGui::BeginGroup();
-        //ImGui::Checkbox("Randomize Start Motion", &sceneData.RANDOMIZE_START);
         float rv = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
         ImGui::Checkbox("Randomize Asteroid Rotation", &sceneData.RANDOMIZE_ROTATION);
         if(ImGui::SliderFloat("Asteroid Rotation X", &sceneData.ASTEROID_ROTATION_X, -rv, rv, "%.4f")){
@@ -355,4 +477,99 @@ void UiHandler::updateLoadingProgress(float progress, std::string text){
     loadingFraction = progress; 
     loadingString = text;
     loadingVariablesMutex.unlock();
+}
+
+void UiHandler::updateFlightParams(){
+    WorldStats& worldStats = r_mediator.physics_getWorldStats();
+    float timeDilation = worldStats.timeStepMultiplier;
+    if(timeDilation > 1.0f){ //if time dilation is lower than 1 adjust boost drawing time to match, don't if higher because it stops showing any ui update at 32 to 64x
+        timeDilation = 2.0f;
+    }
+    std::chrono::duration<double> elapsed_seconds = std::chrono::system_clock::now() - lastTick;
+    if(boostTimerX > 0){
+        boostTimerX -= elapsed_seconds.count()*timeDilation;
+        if(boostTimerX < 0)
+            clearBoost(0);
+    }
+    if(boostTimerY > 0){
+        boostTimerY -= elapsed_seconds.count()*timeDilation;
+        if(boostTimerY < 0)
+            clearBoost(1);
+    }
+    if(boostTimerZ > 0){
+        boostTimerZ -= elapsed_seconds.count()*timeDilation;
+        if(boostTimerZ < 0)
+            clearBoost(2);
+    }
+    lastTick = std::chrono::system_clock::now();
+}
+
+void UiHandler::submitBoostCommand(LanderBoostCommand boost){
+    clearBoost(-999);
+
+    if(boost.vector.z < 0.0f){
+        currentboost[0] = true;
+        currentboost[1] = true;
+        currentboost[2] = true;
+        currentboost[3] = true;
+    }
+
+    if(boost.vector.y < 0.0f){
+        currentboost[4] = true;
+        currentboost[5] = true;
+    }
+
+    if(boost.vector.z < 0.0f){
+        currentboost[6] = true;
+        currentboost[7] = true;
+    }
+
+    if(boost.vector.z > 0.0f){
+        currentboost[8] = true;
+        currentboost[9] = true;
+    }
+
+    if(boost.vector.y > 0.0f){
+        currentboost[10] = true;
+        currentboost[11] = true;
+    }
+
+    if(boost.vector.z > 0.0f){
+        currentboost[12] = true;
+        currentboost[13] = true;
+        currentboost[14] = true;
+        currentboost[15] = true;
+    }
+
+    boostTimerX = abs(boost.vector.x*50);
+    boostTimerY = abs(boost.vector.y*50);
+    boostTimerZ = abs(boost.vector.z*50);
+}
+
+void UiHandler::clearBoost(int axis){
+    if(axis == 0 || axis == -999){
+        boostTimerX = 0;
+        currentboost[6] = false;
+        currentboost[7] = false;
+        currentboost[8] = false;
+        currentboost[9] = false;
+    }
+    if(axis == 1 || axis == -999){
+        boostTimerY = 0;
+        currentboost[4] = false;
+        currentboost[5] = false;
+        currentboost[10] = false;
+        currentboost[11] = false;
+    }
+    if(axis == 2 || axis == -999){
+        boostTimerZ = 0;
+        currentboost[0] = false;
+        currentboost[1] = false;
+        currentboost[2] = false;
+        currentboost[3] = false;
+        currentboost[12] = false;
+        currentboost[13] = false;
+        currentboost[14] = false;
+        currentboost[15] = false;
+    }
 }

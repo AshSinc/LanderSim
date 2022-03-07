@@ -79,7 +79,7 @@ void MyScene::initObjects(){
 
     std::shared_ptr<RenderObject> starSphere = std::shared_ptr<RenderObject>(new RenderObject());
     starSphere->id = id++;
-    starSphere->pos = glm::vec3(-9000,0,0);
+    starSphere->pos = glm::vec3(0,0,9000);
     starSphere->scale = glm::vec3(100,100,100);
     setRendererMeshVars("sphere", starSphere.get());
     starSphere->material = r_mediator.renderer_getMaterial("unlitmesh");
@@ -282,8 +282,8 @@ void MyScene::initLights(){
     //sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);
-    sceneLight.diffuse = glm::vec3(0.5f,0.5f,0.5f);
-    sceneLight.specular = glm::vec3(5.0f,5.0f,5.0f);
+    sceneLight.diffuse = glm::vec3(0.2f,0.2f,0.2f);
+    sceneLight.specular = glm::vec3(2.0f,2.0f,2.0f);
 
     /*WorldPointLightObject pointLight;
     pointLight.pos = glm::vec3(4005,0,-5);

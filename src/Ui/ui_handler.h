@@ -12,6 +12,8 @@
 #include <string>
 #include <mutex>
 #include "data_scene.h"
+#include "lander_navstruct.h"
+#include <chrono>
 
 class Mediator;
 
@@ -54,9 +56,13 @@ class UiHandler{
     void gui_ShowEscMenu(); //holds esc menu
     void gui_ShowLoading(); //holds configuration for main loading bar
     void gui_ShowOptics();
+    void gui_ShowFlightParams();
+    void updateFlightParams();
     void calculateFrameRate();
     void loadDefaultSceneData();
     void scenarioBtnClicked(int i);
+
+    void clearBoost(int axis);
 
     ImVec2 statsPanelSize;
     ImVec2 mainMenuPanelSize;
@@ -65,6 +71,8 @@ class UiHandler{
     ImVec2 escMenuPanelPos;
     ImVec2 opticsWindowSize;
     ImVec2 opticsWindowPos;
+    ImVec2 flightWindowSize;
+    ImVec2 flightWindowPos;
 
     std::atomic<bool> showEscMenu = false;
     std::atomic<bool> showMainMenu = true;
@@ -79,8 +87,18 @@ class UiHandler{
 
     std::mutex loadingVariablesMutex;
 
+    bool currentboost[16] = {false}; //all will be initialised to false because default value
+    float boostTimerX = 0.0f;
+    float boostTimerY = 0.0f;
+    float boostTimerZ = 0.0f;
+
+    //std::chrono::time_point<std::chrono::steady_clock> currentTime;
+    std::chrono::time_point<std::chrono::system_clock> lastTick;
+   
+
     public:
     void updateLoadingProgress(float progress, std::string text);
+    void submitBoostCommand(LanderBoostCommand boost);
     void toggleMenu();
     void initUI();
     void updateUIPanelDimensions(GLFWwindow* window);

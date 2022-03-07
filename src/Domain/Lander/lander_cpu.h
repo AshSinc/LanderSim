@@ -16,12 +16,6 @@ class btRigidBody;
 
 namespace Lander{
     //holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
-    struct LanderBoostCommand{
-        float duration;
-        glm::vec3 vector;
-        bool torque; //true if rotation
-    };
-
     class CPU{
     private:
 
@@ -39,11 +33,9 @@ namespace Lander{
         
         const float BOOST_STRENGTH = 1.0f;
         const float LANDER_BOOST_CAP = 5.0f; //physical limit for an individual boost, regardless of requested boost 
-        //const float LANDER_SPEED_CAP = 20.0f;
 
         const float GNC_TIMER_SECONDS = 1.0f; //still not great if higher than 1s, not sure why yet
         const float IMAGING_TIMER_SECONDS = 45.0f;  
-        //const float IMAGING_TIMER_SECONDS = 999999999999999999999999.0f;  //45
 
         bool lockRotation = true;
         bool reactionWheelEnabled = false;
@@ -55,15 +47,6 @@ namespace Lander{
         float gncTime = 0.0f;
         float approachDistance = 0.0f;
         glm::vec3 asteroidAngularVelocity;
-
-        //float distanceToSurface = 1000.0f; //used in storing distance for fov calculation
-        
-        //const int DESCENT_TICKER = 30; //number of IMAGING_TIMER_SECONDS cycles waited until begin final descent
-        //const float LANDER_SPEED_CAP = 20.0f;
-        //const float APPROACH_DISTANCE_REDUCTION = 5.0f;
-        //const float FINAL_APPROACH_DISTANCE = 15.0f;
-        //const float FINAL_APPROACH_DISTANCE_REDUCTION = 0.25f;
-        //int descentTicker = 0;
 
         Mediator* p_mediator;
         LanderObj* p_lander;
