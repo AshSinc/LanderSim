@@ -9,11 +9,9 @@
 
 struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interface for 
     Lander::CPU cpu = Lander::CPU();
-    //bool collisionCourse = false;
-    //bool randomStartPositions;
+
     double asteroidGravForceMultiplier;
     float startDistance;
-    //float passDistance = 70.0f;
     float initialSpeed = 0.00001f; //if 0 we get a black screen on auto camera, lander is in correct pos though, changing focus fixes
     btVector3 asteroidRotationalVelocity = btVector3(0,0,0);
     
@@ -28,11 +26,11 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
     const float LANDER_BOOST_CAP = 10.0f; //physical limit for an individual boost, regardless of requested boost 
     float landerRotationalBoostStrength = 1.0f;
 
+    int asteroidScale = 1;
+
     btTransform landerTransform;
     Mediator* p_mediator;
     WorldSpotLightObject* p_spotlight; 
-
-    //btQuaternion initialRotation;
     
     void init(btAlignedObjectArray<btCollisionShape*>* collisionShapes, btDiscreteDynamicsWorld* dynamicsWorld, Mediator& r_mediator){
         //colShape->setMargin(0.05);

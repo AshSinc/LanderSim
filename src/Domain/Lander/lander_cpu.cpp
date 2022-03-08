@@ -20,9 +20,13 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     p_mediator = mediator;
     p_lander = lander;
     p_landingSite = p_mediator->scene_getLandingSiteObject();
-    approachDistance = INITIAL_APPROACH_DISTANCE*(p_mediator->scene_getFocusableObject("Asteroid").scale.x*2);
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
     gnc.init(mediator, &navStruct);
+
+    navStruct.asteroidScale = lander->asteroidScale;
+    //set renderer fov
+    p_mediator->renderer_setOpticsFov(BASE_OPTICS_FOV*lander->asteroidScale);
+    
     cv.init(mediator, IMAGING_TIMER_SECONDS, &navStruct);
 }
 

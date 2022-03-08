@@ -183,6 +183,9 @@ void Mediator::renderer_assignMatToMatchingView(cv::Mat image){
 void Mediator::renderer_clearOpticsViews(){
     return p_renderEngine->clearOpticsViews();
 }
+void Mediator::renderer_setOpticsFov(float fov){
+    return p_renderEngine->setOpticsFov(fov);
+}
 
 //application functions
 void Mediator::application_loadScene(SceneData sceneData){

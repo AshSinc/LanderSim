@@ -29,6 +29,8 @@ namespace Lander{
 
         Vision cv = Vision();
 
+        const float BASE_OPTICS_FOV = 2.5f;
+
         const float INITIAL_APPROACH_DISTANCE = 50.0f;
         
         const float BOOST_STRENGTH = 1.0f;

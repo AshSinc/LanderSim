@@ -124,7 +124,7 @@ void GNC::calculateVectorsAtTime(float time){
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);
         glm::vec3 projectedLandingSitePosPlus1 = predictFinalLandingSitePos(rotationMatrixAtTfPlus1);
-        projectedVelocityAtTf = projectedLandingSitePosPlus1 - projectedLandingSitePos; //must be a cleaner way to get linear vel of point in 3d from angular velocity, this is a workaround
+        projectedVelocityAtTf = projectedLandingSitePosPlus1 - projectedLandingSitePos; //there's a cleaner way to get linear vel of point in 3d from angular velocity, this is a workaround
     }
     else{
         //even if no rotation lets just set them for ease
@@ -148,7 +148,7 @@ glm::vec3 GNC::ZEM_ZEV_Control(float timeStep){
     calculateVectorsAtTime(tgo);
 
     glm::vec3 rf = projectedLandingSitePos;
-    glm::vec3 r = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract landing site pos from third column of transform matrix
+    glm::vec3 r = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract landing site pos from fourth column of transform matrix
 
     glm::vec3 zem = getZEM(rf, r, p_navStruct->velocityVector);
     glm::vec3 zev = getZEV(projectedVelocityAtTf, p_navStruct->velocityVector);

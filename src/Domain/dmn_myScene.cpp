@@ -152,23 +152,7 @@ void MyScene::initObjects(){
         
     }
     else{
-        //float f = -0.0025;
-        //int axis = 0;
-        //switch (axis){
-        //case 0:
-            asteroid->angularVelocity = btVector3(sceneData.ASTEROID_ROTATION_X, sceneData.ASTEROID_ROTATION_Y, sceneData.ASTEROID_ROTATION_Z);
-         //   break;
-       // case 1:
-            //asteroid->angularVelocity = btVector3(0.0f, sceneData.ASTEROID_ROTATION_Y, 0.0f);
-       //     break;
-       // default:
-            //asteroid->angularVelocity = btVector3(0.0f, 0.0f, sceneData.ASTEROID_ROTATION_Z);
-       //     break;
-        //}
-
-        //asteroid->angularVelocity = btVector3(0.0f, 0.0f, 0.0f);
-        //asteroid->initialRotation.setEulerZYX(0,0,0);
-        //asteroid->initialRot = glm::toMat4(Service::bulletToGlm(asteroid->initialRotation));
+        asteroid->angularVelocity = btVector3(sceneData.ASTEROID_ROTATION_X, sceneData.ASTEROID_ROTATION_Y, sceneData.ASTEROID_ROTATION_Z);
     }
 
     objects.push_back(asteroid);
@@ -181,21 +165,10 @@ void MyScene::initObjects(){
     focusableObjects["Landing_Site"] = landingSite;
     landingSite->angularVelocity = asteroid->angularVelocity; //for convenience
 
-    //if(sceneData.RANDOMIZE_START){ //best to update lander pos now
-        //glm::vec3 pos = Service::bt2glm(Service::getPointOnSphere(Service::getRandFloat(30,150), Service::getRandFloat(0,360), sceneData.LANDER_START_DISTANCE));
-        //glm::vec3 rotatedUp = landingSite->initialRot * asteroid->initialRot * glm::vec4(landingSite->up, 0.0f);
-        //glm::vec3 pos = landingSite->pos+(rotatedUp * sceneData.LANDER_START_DISTANCE);
-        //lander->pos = pos;
-
-        //lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
-    //}
-    //else
+    //try to start around 1000m altitude with optics fov scaled by the asteroid size
+    lander->pos = glm::vec3(0, 0, sceneData.LANDER_START_DISTANCE+(landingSite->pos.z));
+    lander->asteroidScale = sceneData.ASTEROID_SCALE;
     
-    lander->pos = Service::bt2glm(Service::getPointOnSphere(0, 0, sceneData.LANDER_START_DISTANCE));
-        
-        //ISSUE - Need to set initial rotation of lander pointing at asteroid, origin
-
-
     std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
     debugBox1->id = id++;
     debugBox1->pos = glm::vec3(0,0,0.0f);
@@ -250,9 +223,9 @@ void MyScene::initObjects(){
     scalebox->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
     scalebox->altMaterial->extra.x = 32;
     objects.push_back(scalebox);
-    renderableObjects.push_back(scalebox);
+    renderableObjects.push_back(scalebox);*/
 
-    std::shared_ptr<RenderObject> scalebox2 = std::shared_ptr<RenderObject>(new RenderObject());
+    /*std::shared_ptr<RenderObject> scalebox2 = std::shared_ptr<RenderObject>(new RenderObject());
     scalebox2->id = id++;
     scalebox2->pos = glm::vec3(1,1,0.0f);
     scalebox2->scale = glm::vec3(1,1,1);

@@ -115,7 +115,8 @@ class Mediator{
         void renderer_assignMatToDetectionView(cv::Mat image);
         void renderer_assignMatToMatchingView(cv::Mat image);
         void renderer_clearOpticsViews();
-        
+        void renderer_setOpticsFov(float fov);
+    
         //Scene functions
         int scene_getWorldObjectsCount();
         WorldObject& scene_getWorldObject(int i);

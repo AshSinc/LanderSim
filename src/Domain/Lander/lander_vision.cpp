@@ -184,8 +184,8 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     float avgAltitude = (altitudePerImageQueue.at(0)+altitudePerImageQueue.at(1))/2;
     float avgRadius = (radiusPerImageQueue.at(0)+radiusPerImageQueue.at(1))/2;
 
-    //construct a point used for testing, this is effectively the lander distance from center of asteroid
-    glm::vec3 testPoint = glm::vec3(0, 0, avgAltitude+avgRadius);
+    //construct a point used for testing, this is effectively the lander distance from surface
+    glm::vec3 testPoint = glm::vec3(0, 0, avgAltitude);
     std::cout << "testPoint :" << glm::to_string(testPoint) << "\n";
 
     //we have no distortion or skew so calibration is not necessary, this means we are working in pixel coordinates
@@ -257,7 +257,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
 
             //NOTES and working ------------
 
-                //at scale 1, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
+                //at scale 1, fov 5, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
 
                 //measurements with 2x2 scale box at various distances
                 //1m is 12.5 pixels at 1000m altitude
@@ -293,11 +293,18 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
                 //6.48 / 59 = 0.109830508 rad
                 //good!
 
+                //1m at fov 2.5 @ 1000m alt is 25 pixels
+                //1m at fov 5 @ 1000m alt is 12.5 pixels
+                //1m at fov 10 @ 1000m alt is 6 pixels
+                //1m at fov 15 @ 1000m alt is 4 pixels
+                //1m at fov 20 @ 1000m alt is 3 pixels
+
             //NOTES ------------
 
+            float kValue = 25000/p_navStruct->asteroidScale;
             int axis = Service::getHighestAxis(glm::vec3(translatedPoint.x, translatedPoint.y, 0)); //find the significant axis
             float pixelsMoved = translatedPoint[axis]; 
-            float unitsMoved = pixelsMoved/(12500/avgAltitude); //convert pixels travelled to world units (m)
+            float unitsMoved = pixelsMoved/(kValue/avgAltitude); //convert pixels travelled to world units (m)
             float angularVelocity = unitsMoved/avgRadius;
             angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
             if(axis == 1)

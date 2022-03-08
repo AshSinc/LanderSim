@@ -12,6 +12,7 @@ struct NavigationStruct{
     float altitude;
     float radiusAtOpticalCenter;
     bool estimationComplete = false;
+    int asteroidScale;
 };
 
 struct LanderBoostCommand{
