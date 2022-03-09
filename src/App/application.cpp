@@ -25,9 +25,9 @@ int Application::run(){
 
         if(Service::OUTPUT_TEXT){
             writer = Service::Writer();
-            mediator.setWriter(&writer);
             writer.clearOutputFolders();
             writer.openFiles();
+            mediator.setWriter(&writer);
         }
 
         renderer.init(); //initialise render engine

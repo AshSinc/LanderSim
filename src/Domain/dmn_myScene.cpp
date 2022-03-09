@@ -5,7 +5,6 @@
 #include "sv_randoms.h"
 #include <glm/gtx/string_cast.hpp>
 #include "obj_landingSite.h"
-#include "obj_testPlane.h"
 #include <glm/gtx/quaternion.hpp>
 
 MyScene::MyScene(Mediator& mediator): r_mediator{mediator}{}
@@ -241,10 +240,13 @@ void MyScene::initObjects(){
     objects.push_back(scalebox2);
     renderableObjects.push_back(scalebox2);*/
 
-    //ISSUE - test plane needs a bool and that needs checked in renderer to avoid drawing if we dont want it.
-    if(false){ //USE_TESTINGPLANE
-        testPlane = std::shared_ptr<TestPlaneObj>(new TestPlaneObj(&r_mediator));
-        testPlane.get()->constructPlane(sceneData, &objects, &renderableObjects, this);
+    if(Service::OUTPUT_TEXT){
+        //output scenario data to file, shouldn't really be here but all the data is here so...
+        r_mediator.writer_writeToFile("PARAMS", "Scale:" + std::to_string(sceneData.ASTEROID_SCALE));
+        r_mediator.writer_writeToFile("PARAMS","AngularVelocity:" + glm::to_string(Service::bt2glm(asteroid->angularVelocity)));
+        r_mediator.writer_writeToFile("PARAMS", "LanderStartPos:" + glm::to_string(lander->pos));
+        r_mediator.writer_writeToFile("PARAMS", "GravityMultiplier:" + std::to_string(lander->asteroidGravForceMultiplier));
+        
     }
 }
 

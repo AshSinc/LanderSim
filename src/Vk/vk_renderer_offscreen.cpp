@@ -11,8 +11,6 @@
 
 #include "vk_pipeline.h"
 
-#include "obj_testPlane.h" //temp testing
-
 Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator)
     : Renderer(windowptr, mediator){}
 
@@ -953,15 +951,6 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     std::vector<int> renderObjectIds;
     //renderObjectIds = std::vector{1,3,4,5,6,7,11}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
     renderObjectIds = std::vector{1,3}; //1 = star, 3 = asteroid, 4-7 = landing site boxes
-
-    //temp code for drawing plane guides
-    //if(ENABLE_PLANE_DRAWING)
-    if(false){
-        int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
-        for(int c = 0; c < numObjs; c++){
-            renderObjectIds.push_back(11+c);
-        }
-    }
     
     //here we are drawing objects using altMaterial, this is the greyscale material of each respective object set in scene init
     for(const int i : renderObjectIds){

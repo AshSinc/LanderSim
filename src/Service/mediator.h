@@ -42,7 +42,6 @@ struct SceneData;
 struct WorldStats;
 struct LandingSiteObj;
 struct LanderObj;
-struct TestPlaneObj;
 struct LanderBoostCommand;
 
 struct ImguiTexturePacket;
@@ -85,6 +84,7 @@ class Mediator{
         void physics_landerCollided();
         //void physics_initDynamicsWorld();
         glm::vec3 physics_performRayCast(glm::vec3 from, glm::vec3 dir, float range);
+        double physics_getTimeStamp();
 
         //camera functions
         void camera_calculatePitchYaw(double xpos, double ypos);
@@ -129,7 +129,6 @@ class Mediator{
         WorldObject& scene_getWorldObject(int i);
         WorldObject& scene_getFocusableObject(std::string name);
         LandingSiteObj* scene_getLandingSiteObject();
-        TestPlaneObj* scene_getTestPlaneObject();
         LanderObj* scene_getLanderObject();
         std::vector<std::shared_ptr<RenderObject>>* scene_getDebugObjects();
 

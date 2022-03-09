@@ -51,8 +51,11 @@ public:
     static void stepPostTickCallback(btDynamicsWorld *world, btScalar timeStep);
     glm::vec3 performRayCast(glm::vec3 from, glm::vec3 dir, float range = std::numeric_limits<float>::max());
 
+    double getTimeStamp(){return systemTimeStamp;};
+
 private:
    
+    double systemTimeStamp = 0; //tracked for file writing purposes
     int selectedSimSpeedIndex = 2;
     float SIM_SPEEDS[9] {0.25f,0.5f,1,2,4,8,16,32,64};
     int SPEED_ARRAY_SIZE = *(&SIM_SPEEDS + 1) - SIM_SPEEDS - 1; //get length of array (-1 because we want the last element) (https://www.educative.io/edpresso/how-to-find-the-length-of-an-array-in-cpp)

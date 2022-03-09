@@ -18,9 +18,8 @@ namespace Lander{
     //holds lander impulse request --should be in obj_lander but i'd need to modify flow a lot
     class CPU{
     private:
-
-        double systemTimeStamp = 0;
         bool useRotationEstimation = true;
+        bool estimateComplete = false;
 
         std::mutex landerBoostQueueLock;
         std::deque<LanderBoostCommand> landerBoostQueue;

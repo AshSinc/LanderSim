@@ -2,7 +2,6 @@
 #include "mediator.h"
 #include "obj_lander.h"
 #include "obj_landingSite.h"
-#include "obj_testPlane.h"
 #define GLM_FORCE_RADIANS //makes sure GLM uses radians to avoid confusion
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES //forces GLM to use a version of vec2 and mat4 that have the correct alignment requirements for Vulkan
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE //forces GLM to use depth range of 0 to 1, instead of -1 to 1 as in OpenGL
@@ -13,8 +12,6 @@
 #include <chrono>
 #include <thread>
 #include <iostream>
-
-//#include "filewriter.h"
 
 using namespace Lander;
 
@@ -30,17 +27,18 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     p_mediator->renderer_setOpticsFov(BASE_OPTICS_FOV*lander->asteroidScale);
     
     cv.init(mediator, IMAGING_TIMER_SECONDS, &navStruct);
+
+    if(Service::OUTPUT_TEXT){
+        //output fov
+        p_mediator->writer_writeToFile("PARAMS", "FOV:" + std::to_string(BASE_OPTICS_FOV*lander->asteroidScale));
+        p_mediator->writer_writeToFile("PARAMS", "IMAGE_TIMER:" + std::to_string(IMAGING_TIMER_SECONDS));
+        p_mediator->writer_writeToFile("PARAMS", "GNC_TIMER:" + std::to_string(GNC_TIMER_SECONDS));
+    }
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
 
-    if(Service::OUTPUT_TEXT){
-        std::string text = std::to_string(systemTimeStamp) + " : Pos : " + glm::to_string(p_lander->pos);
-        //Service::writeToFile(Service::NAV_PATH + "nav.txt", text);
-        p_mediator->writer_writeToFile("NAV", text);
-        //Service::Writer::writeToFile(Service::navFile, text);
-        systemTimeStamp+=timeStep;
-    }
+    //systemTimeStamp+=timeStep; 
 
     try{
         cv.simulationTick(); //let vision check for image avaiable from renderer
@@ -72,20 +70,35 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
 
     
     if(gncTimer(timeStep)){
+        navStruct.landerPos = p_lander->pos;
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
 
-        if(useRotationEstimation){
+        if(useRotationEstimation && estimateComplete == false){
             if(cv.active == false){
                 showEstimationStats();
                 
                 navStruct.angularVelocity = getFinalEstimatedAngularVelocity();
                 std::cout << glm::to_string(navStruct.angularVelocity) << " estimated angular velocity \n";
                 navStruct.estimationComplete = true;
+
+                if(Service::OUTPUT_TEXT){
+                    //output final estimation data to file
+                    std::string time = std::to_string(p_mediator->physics_getTimeStamp());
+                    p_mediator->writer_writeToFile("EST", "FINAL ESTIMATION");
+                    std::string text = time + ":" + glm::to_string(navStruct.angularVelocity);
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    //p_mediator->writer_writeToFile("EST", "ACTUAL ANGULAR VELOCITY");
+                    //text = time + ":" + glm::to_string(Service::bt2glm(p_landingSite->angularVelocity));
+                    //p_mediator->writer_writeToFile("EST", text);
+                }
+                estimateComplete = true;
             }
         }
         else{
             navStruct.angularVelocity = asteroidAngularVelocity;
+            estimateComplete = true;
         }
         
         //std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
@@ -97,7 +110,6 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         glm::vec3 calculatedThrustVector = gnc.getThrustVector(GNC_TIMER_SECONDS);
         if(glm::length(calculatedThrustVector) != 0);
             addImpulseToLanderQueue(1.0f, calculatedThrustVector.x, calculatedThrustVector.y, calculatedThrustVector.z, false);
-            
     }
 
     //check if we have a boost command queued
@@ -177,13 +189,6 @@ glm::vec3 CPU::getFinalEstimatedAngularVelocity(){
     else{
         bestEstimate = negFinalEstimatedAngularVelocity;
     }
-    
-    /*if (glm::length(posFinalEstimatedAngularVelocity) > glm::length(negFinalEstimatedAngularVelocity)){
-        bestEstimate = posFinalEstimatedAngularVelocity;
-    }
-    else{
-        bestEstimate = negFinalEstimatedAngularVelocity;
-    }*/
 
     return bestEstimate;
 }
@@ -226,19 +231,6 @@ bool CPU::imagingTimer(float timeStep){
     if(imagingActive){
         imagingTime += timeStep;
         if(imagingTime > IMAGING_TIMER_SECONDS){
-
-            //resetting testing plane every first image of set, to ensure first points are perpenicular to camera
-            //if(USING_TESTPLANE){
-                //if(imgCount == 0){
-                    //p_mediator->scene_getTestPlaneObject()->resetTestPlaneObjects();
-                    //p_mediator->renderer_clearOpticsViews();
-                    //Vision
-                //}
-                //imgCount++;
-                //if(imgCount == 2)
-                //    imgCount = 0;
-            //}
-
             std::cout << "Image Requested\n";
             imagingTime = 0;
             return true;

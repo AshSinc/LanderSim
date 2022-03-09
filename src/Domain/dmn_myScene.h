@@ -3,7 +3,6 @@
 #include "mediator.h"
 #include <string>
 #include "data_scene.h"
-//#include "obj_testPlane.h"
 
 class MyScene: public IScene{
         public:
@@ -15,7 +14,6 @@ class MyScene: public IScene{
         void setSceneData(SceneData sceneData);
         void setRendererMeshVars(std::string name, RenderObject* renderObj);
         LandingSiteObj* getLandingSiteObject(){return landingSite.get();};
-        TestPlaneObj* getTestPlaneObject(){return testPlane.get();};
         LanderObj* getLanderObject(){return lander.get();};
         
         private:
@@ -29,7 +27,6 @@ class MyScene: public IScene{
         Mediator& r_mediator;
 
         std::shared_ptr<LandingSiteObj> landingSite; //pointers passed by mediator for ease so we store them in scene
-        std::shared_ptr<TestPlaneObj> testPlane; //pointers passed by mediator for ease so we store them in scene
         std::shared_ptr<LanderObj> lander; //pointers passed by mediator for ease so we store them in scene
 
         //model identifier and path pairs, for assigning to unnordered map, loading code needs cleaned and moved

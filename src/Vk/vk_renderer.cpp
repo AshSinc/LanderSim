@@ -28,8 +28,6 @@
 #include "vk_pipeline.h"
 #include "vk_init_queries.h"
 
-#include "obj_testPlane.h" //temp testing
-
 Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): RendererBase(windowptr, mediator){}
 
 void Vk::Renderer::init(){
@@ -427,18 +425,6 @@ void Vk::Renderer::drawObjects(int curFrame){
     else
         renderObjectIds = std::vector{1,2,3,4,5,6,7};
 
-    
-    //temp code for drawing plane guides
-    //if(ENABLE_PLANE_DRAWING)
-    if(false){
-        int numObjs = r_mediator.scene_getTestPlaneObject()->NUM_OBJS;
-        for(int c = 0; c < numObjs; c++){
-            renderObjectIds.push_back(11+c);
-        }
-    }
-
-    
-    
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
         RenderObject* object = p_renderables->at(i).get();

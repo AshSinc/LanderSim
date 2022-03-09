@@ -9,7 +9,6 @@
 #include <BulletCollision/Gimpact/btGImpactShape.h>
 #include <BulletCollision/Gimpact/btGImpactCollisionAlgorithm.h>
 #include <glm/gtx/string_cast.hpp>
-#include "obj_testPlane.h" //these references should be in a child class derived from WorldPhysics
 #include "obj_landingSite.h" //these references should be in a child class derived from WorldPhysics
 #include "obj_lander.h" //these references should be in a child class derived from WorldPhysics
 #include <BulletCollision/NarrowPhaseCollision/btRaycastCallback.h>
@@ -31,6 +30,9 @@ void WorldPhysics::worldTick(){
         float fixedTimeStep = 0.01666666754F/2;
         btScalar timeStep = deltaTime*worldStats.timeStepMultiplier;
         int maxSubSteps = timeStep/fixedTimeStep + SUBSTEP_SAFETY_MARGIN; //make sure timestep is always less than maxSubSteps
+
+        systemTimeStamp += timeStep; //used to track timestamps for writing to file
+
         p_dynamicsWorld->stepSimulation(timeStep, maxSubSteps, fixedTimeStep); //step world
     }
 }
@@ -68,12 +70,6 @@ void WorldPhysics::checkCollisions(){
                 totalImpact += contactManifold->getContactPoint(p).getAppliedImpulse();
             }
 
-            //ISSUE
-            //totalImpact should be scaled by simulation time (deltaTime), but 
-            //Likely related to abode ISSUE of timesteps
-            //SOLUTION
-            //Fix timesteps first, finda  way to test
-
             totalImpact*=deltaTime;
             //std::cout << "Collision with ImpactForce : " << totalImpact << "\n";
 
@@ -105,11 +101,8 @@ glm::vec3 WorldPhysics::performRayCast(glm::vec3 from, glm::vec3 dir, float rang
 
     glm::vec3 hitpoint = glm::vec3(0);
 
-    if (closestResults.hasHit())
-    {
+    if (closestResults.hasHit()){
         hitpoint = Service::bt2glm(bfrom.lerp(bto, closestResults.m_closestHitFraction));
-        //p_dynamicsWorld->getDebugDrawer()->drawSphere(p, 0.1, blue);
-        //p_dynamicsWorld->getDebugDrawer()->drawLine(p, p + closestResults.m_hitNormalWorld, blue);
     }
 
     return hitpoint;

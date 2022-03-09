@@ -51,16 +51,14 @@ void Vision::detectFeatures(cv::Mat optics){
 
     opticsQueue.push_back(optics.clone()); //copy it
 
-    //processing
+    //preprocessing
     opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
 
     if(Service::OUTPUT_OPTICS){
         cv::imwrite(Service::OPTICS_PATH + "optics" + std::to_string(opticCount) + ".jpg", opticsQueue.back());
         opticCount++;
     }
-    
-    //cv::imwrite("scale.jpg", opticsQueue.back());
-   
+
     //detecting
     //-- Step 1: Detect the keypoints
     startT(1); //timer start
@@ -178,6 +176,13 @@ void Vision::featureMatch(){
             //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
             if(bestAngularVelocityMatch.x != 9999){
                 estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
+
+                if(Service::OUTPUT_TEXT){
+                    //output single estimation data to file
+                    std::string time = std::to_string(p_mediator->physics_getTimeStamp());
+                    std::string text = time + ":" + glm::to_string(bestAngularVelocityMatch);
+                    p_mediator->writer_writeToFile("EST", text);
+                }
             }
 
             if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
@@ -327,6 +332,12 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
             if(axis == 1)
                 angularVelocityEstimation[1] = -angularVelocityEstimation[1]; //if y axis we need to invert it to correct for world orientation
+
+            //need to add pixels moved, units moved, kvalue etc, probably matching the actual estimate
+            if(Service::OUTPUT_TEXT){
+                //output 
+                //p_mediator->writer_writeToFile("PARAMS", "FOV:" + std::to_string(BASE_OPTICS_FOV*lander->asteroidScale));
+            }
         }
         else if(Service::getHighestAxis(rotationAngles) == 2){ 
             //if translation is insignificant and z is highest axis in rotation, we can just use that

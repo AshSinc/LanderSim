@@ -13,6 +13,7 @@ struct NavigationStruct{
     float radiusAtOpticalCenter;
     bool estimationComplete = false;
     int asteroidScale;
+    glm::vec3 landerPos;
 };
 
 struct LanderBoostCommand{

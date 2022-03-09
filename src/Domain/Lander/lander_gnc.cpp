@@ -164,8 +164,19 @@ glm::vec3 GNC::getThrustVector(float timeStep){
     glm::vec3 thrustVector{0};
     if(!shouldDescend)
         thrustVector = preApproach();
-    else
-        thrustVector = ZEM_ZEV_Control(timeStep); //should be called zemzev approach or something
+    else{
+        thrustVector = ZEM_ZEV_Control(timeStep);
+
+        if(Service::OUTPUT_TEXT){
+            //output nav data to file
+            std::string time = std::to_string(p_mediator->physics_getTimeStamp());
+            std::string text = time + ":" + glm::to_string(p_navStruct->landerPos);
+            p_mediator->writer_writeToFile("NAV", text);
+
+            text = time + ":" + glm::to_string(thrustVector);
+            p_mediator->writer_writeToFile("THRUST", text);
+        }
+    }
 
     return thrustVector;
 }

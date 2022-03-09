@@ -19,10 +19,6 @@ LandingSiteObj* Mediator::scene_getLandingSiteObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLandingSiteObject();
 }
-TestPlaneObj* Mediator::scene_getTestPlaneObject(){
-    MyScene* tp = dynamic_cast<MyScene*>(p_scene);
-    return tp->getTestPlaneObject();
-}
 LanderObj* Mediator::scene_getLanderObject(){
     MyScene* ls = dynamic_cast<MyScene*>(p_scene);
     return ls->getLanderObject();
@@ -97,6 +93,9 @@ void Mediator::physics_landerCollided(){
 }
 glm::vec3 Mediator::physics_performRayCast(glm::vec3 from, glm::vec3 dir, float range){
     return p_physicsEngine->performRayCast(from, dir, range);
+}
+double Mediator::physics_getTimeStamp(){
+    return p_physicsEngine->getTimeStamp();
 }
 
 //Renderer functions
