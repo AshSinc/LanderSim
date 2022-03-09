@@ -14,6 +14,8 @@
 #include "sv_randoms.h"
 #include <bits/stdc++.h>
 
+//#include "filewriter.h"
+
 using namespace Lander;
 
 void Vision::init(Mediator* mediator, float imageTimer, NavigationStruct* gncVars){
@@ -52,6 +54,11 @@ void Vision::detectFeatures(cv::Mat optics){
     //processing
     opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
 
+    if(Service::OUTPUT_OPTICS){
+        cv::imwrite(Service::OPTICS_PATH + "optics" + std::to_string(opticCount) + ".jpg", opticsQueue.back());
+        opticCount++;
+    }
+    
     //cv::imwrite("scale.jpg", opticsQueue.back());
    
     //detecting
@@ -90,6 +97,11 @@ void Vision::detectFeatures(cv::Mat optics){
     
     //passing back to renderer to copy image to feature detection queue for drawing in ui_handler 
     p_mediator->renderer_assignMatToDetectionView(kpimage);
+
+    if(Service::OUTPUT_OPTICS){
+        cv::imwrite(Service::OPTICS_FEATURE_PATH + "feature" + std::to_string(featureCount) + ".jpg", kpimage);
+        featureCount++;
+    }
 
     //if we have 2 descriptors then we can match them
     if(descriptorsQueue.size()>1)
@@ -145,6 +157,11 @@ void Vision::featureMatch(){
         p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
         //cv::imwrite("matches.jpg", matchedImage);
 
+        if(Service::OUTPUT_OPTICS){
+            cv::imwrite(Service::OPTICS_MATCH_PATH + "match" + std::to_string(matchCount) + ".jpg", matchedImage);
+            matchCount++;
+        }
+
         std::vector<cv::Point2f> src;
         std::vector<cv::Point2f> dst;
         if(bestMatches.size() > MIN_NUM_FEATURES_MATCHED){
@@ -193,6 +210,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     cv::Mat intrinsicM = cv::Mat::eye(3,3, CV_64F);
     intrinsicM.at<_Float64>(0,2) = 256; //center point of optics in pixels
     intrinsicM.at<_Float64>(1,2) = 256; //center point of optics in pixels
+
 
     std::vector<cv::Mat> rotationM;
     std::vector<cv::Mat> translationM;

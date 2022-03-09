@@ -19,6 +19,7 @@ namespace Lander{
     class CPU{
     private:
 
+        double systemTimeStamp = 0;
         bool useRotationEstimation = true;
 
         std::mutex landerBoostQueueLock;

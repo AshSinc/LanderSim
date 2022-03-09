@@ -3,10 +3,12 @@
 #include <stdexcept>
 #include <iostream>
 
+
 struct SceneData;
 
 int Application::run(){
     try{
+        
         window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
 
         //MAJOR ISSUE - renderer crashing on second optics image render trying to flush command buffer if monitor is on 60hz rather than 120hz!
@@ -20,6 +22,13 @@ int Application::run(){
         mediator.setPhysicsEngine(&worldPhysics);
         mediator.setRenderEngine(&renderer);
         mediator.setApplication(this);
+
+        if(Service::OUTPUT_TEXT){
+            writer = Service::Writer();
+            mediator.setWriter(&writer);
+            writer.clearOutputFolders();
+            writer.openFiles();
+        }
 
         renderer.init(); //initialise render engine
         uiHandler.init();
@@ -59,6 +68,9 @@ void Application::endScene(){
     unbindWindowCallbacks();
     mediator.renderer_resetScene();
     mediator.physics_reset();
+    if(Service::OUTPUT_TEXT){
+        writer.closeFiles();
+    }
 }
 
 void Application::resetScene(){

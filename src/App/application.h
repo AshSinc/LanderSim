@@ -10,6 +10,7 @@
 #include "data_scene.h"
 #include "vk_windowHandler.h"
 #include "dmn_myScene.h"
+#include "filewriter.h"
 
 class GLFWwindow;
 
@@ -34,6 +35,8 @@ class Application{
         std::atomic<bool> sceneLoaded = false;
 
         std::unique_ptr<IScene> scene;
+
+        Service::Writer writer;
 
         void bindWindowCallbacks();
         void unbindWindowCallbacks();

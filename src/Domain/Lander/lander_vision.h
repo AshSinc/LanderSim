@@ -12,6 +12,11 @@ namespace Lander{
 
     private:
 
+    //counters for images written to file
+    int opticCount = 0;
+    int matchCount = 0;
+    int featureCount = 0;
+
     NavigationStruct* p_navStruct;
 
     float imagingTimerSeconds = 0.0f;

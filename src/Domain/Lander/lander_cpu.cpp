@@ -14,6 +14,8 @@
 #include <thread>
 #include <iostream>
 
+//#include "filewriter.h"
+
 using namespace Lander;
 
 void CPU::init(Mediator* mediator, LanderObj* lander){
@@ -31,6 +33,14 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
+
+    if(Service::OUTPUT_TEXT){
+        std::string text = std::to_string(systemTimeStamp) + " : Pos : " + glm::to_string(p_lander->pos);
+        //Service::writeToFile(Service::NAV_PATH + "nav.txt", text);
+        p_mediator->writer_writeToFile("NAV", text);
+        //Service::Writer::writeToFile(Service::navFile, text);
+        systemTimeStamp+=timeStep;
+    }
 
     try{
         cv.simulationTick(); //let vision check for image avaiable from renderer

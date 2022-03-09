@@ -201,6 +201,11 @@ bool Mediator::application_getSceneLoaded(){
     return p_application->getSceneLoaded();
 }
 
+//writer functions
+void Mediator::writer_writeToFile(std::string file, std::string text){
+    return p_writer->writeToFile(file, text);
+}
+
 //set pointers
 void Mediator::setUiHandler(UiHandler* uiHandler){
     p_uiHandler = uiHandler;
@@ -219,4 +224,7 @@ void Mediator::setScene(IScene* scene){
 }
 void Mediator::setApplication(Application* application){
     p_application = application;
+}
+void Mediator::setWriter(Service::Writer* writer){
+    p_writer = writer;
 }

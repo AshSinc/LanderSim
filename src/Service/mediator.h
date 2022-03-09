@@ -12,6 +12,8 @@
 
 #include "opencv2/opencv.hpp"
 
+#include "filewriter.h"
+
 class WorldCamera;
 class UiHandler;
 class Application;
@@ -55,6 +57,7 @@ class Mediator{
         Vk::OffscreenRenderer* p_renderEngine;
         IScene* p_scene;
         Application* p_application;
+        Service::Writer* p_writer;
         
     public:
         //set pointers
@@ -64,6 +67,10 @@ class Mediator{
         void setRenderEngine(Vk::OffscreenRenderer* renderer);
         void setScene(IScene* scene);
         void setApplication(Application* application);
+        void setWriter(Service::Writer* writer);
+
+        //writer functions
+        void writer_writeToFile(std::string file, std::string text);
 
         //physics functions
         void physics_changeSimSpeed(int direction, bool pause);
