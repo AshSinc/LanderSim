@@ -20,9 +20,12 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     p_lander = lander;
     p_landingSite = p_mediator->scene_getLandingSiteObject();
     asteroidAngularVelocity = Service::bt2glm(p_landingSite->angularVelocity);
+
+    navStruct.useOnlyEstimate = lander->useEstimateOnly; //setting here instead of rewritting heirarchy, crunch time
     gnc.init(mediator, &navStruct);
 
     navStruct.asteroidScale = lander->asteroidScale;
+    navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
     //set renderer fov
     p_mediator->renderer_setOpticsFov(BASE_OPTICS_FOV*lander->asteroidScale);
     
@@ -37,9 +40,6 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
-
-    //systemTimeStamp+=timeStep; 
-
     try{
         cv.simulationTick(); //let vision check for image avaiable from renderer
     }
@@ -49,7 +49,6 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
 
     //reaction wheel slew code needs completed
     if(reactionWheelEnabled){
-        //setRotation(); //we are cheating and locking rotation to landing s
         //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
         //slewToLandingSiteOrientation();
     }
@@ -70,36 +69,42 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
 
     
     if(gncTimer(timeStep)){
+        //store real positions
         navStruct.landerPos = p_lander->pos;
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
 
-        if(useRotationEstimation && estimateComplete == false){
-            if(cv.active == false){
+        
+        if(cv.active == false){
+            if(navStruct.useOnlyEstimate && estimateComplete == false){
                 showEstimationStats();
+
+                //navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
                 
-                navStruct.angularVelocity = getFinalEstimatedAngularVelocity();
-                std::cout << glm::to_string(navStruct.angularVelocity) << " estimated angular velocity \n";
+                navStruct.angularVelocityOfAsteroid_Estimate = getFinalEstimatedAngularVelocity();
+                std::cout << glm::to_string(navStruct.angularVelocityOfAsteroid_Estimate) << " estimated angular velocity \n";
                 navStruct.estimationComplete = true;
 
                 if(Service::OUTPUT_TEXT){
                     //output final estimation data to file
                     std::string time = std::to_string(p_mediator->physics_getTimeStamp());
                     p_mediator->writer_writeToFile("EST", "FINAL ESTIMATION");
-                    std::string text = time + ":" + glm::to_string(navStruct.angularVelocity);
+                    std::string text = time + ":" + glm::to_string(navStruct.angularVelocityOfAsteroid_Estimate);
                     p_mediator->writer_writeToFile("EST", text);
-
-                    //p_mediator->writer_writeToFile("EST", "ACTUAL ANGULAR VELOCITY");
-                    //text = time + ":" + glm::to_string(Service::bt2glm(p_landingSite->angularVelocity));
-                    //p_mediator->writer_writeToFile("EST", text);
                 }
                 estimateComplete = true;
             }
+            else if(estimateComplete == false){
+                //navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
+                estimateComplete = true;
+                navStruct.estimationComplete = true;
+            }
         }
-        else{
-            navStruct.angularVelocity = asteroidAngularVelocity;
-            estimateComplete = true;
-        }
+        //else if(estimateComplete == false){
+        //    navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
+       //     estimateComplete = true;
+        //    navStruct.estimationComplete = true;
+        //}
         
         //std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
         navStruct.approachDistance = approachDistance;
@@ -261,7 +266,7 @@ void CPU::setRotation(){
 }
 
 //not implemented yet, need to work on this
-void CPU::slewToLandingSiteOrientation(){
+/*void CPU::slewToLandingSiteOrientation(){
     glm::vec3 projectedLSUp = p_lander->cpu.gnc.getProjectedUpVector();
 
     //glm::mat4 projectedLSRotation = p_lander->cpu.gnc.getProjectedLSRotationMatrix();
@@ -287,11 +292,11 @@ void CPU::slewToLandingSiteOrientation(){
     p_lander->transformMatrix = translation * rotation * scale; //renderer transform
     p_lander->landerTransform.setBasis(Service::glmToBullet(p_lander->rot)); //bullet transform
 
-}
+}*/
 
 //http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-17-quaternions/#how-do-i-use-lookat-but-limit-the-rotation-at-a-certain-speed-
 //example here, a slerp catching common issues
-glm::quat CPU::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
+/*glm::quat CPU::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
 	if( maxAngle < 0.001f ){
 		// No rotation allowed. Prevent dividing by 0 later.
 		return q1;
@@ -326,7 +331,7 @@ glm::quat CPU::rotateTowards(glm::quat q1, glm::quat q2, float maxAngle){
 	res = normalize(res);
 	return res;
 
-}
+}*/
 
 //these functions could be combined
 void CPU::applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost){       

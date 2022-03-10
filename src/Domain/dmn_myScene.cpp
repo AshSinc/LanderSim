@@ -100,10 +100,9 @@ void MyScene::initObjects(){
     lander->material->extra.x = 64;
     lander->mass = 1.0f;
 
-    //lander->collisionCourse = sceneData.LANDER_COLLISION_COURSE;
-    //lander->randomStartPositions = sceneData.RANDOMIZE_START;
     lander->asteroidGravForceMultiplier = sceneData.GRAVITATIONAL_FORCE_MULTIPLIER;
     lander->startDistance = sceneData.LANDER_START_DISTANCE;
+    lander->useEstimateOnly = sceneData.USE_ONLY_ESTIMATE;
 
     objects.push_back(lander);
     renderableObjects.push_back(lander);
@@ -242,11 +241,11 @@ void MyScene::initObjects(){
 
     if(Service::OUTPUT_TEXT){
         //output scenario data to file, shouldn't really be here but all the data is here so...
+        r_mediator.writer_writeToFile("PARAMS", "UseEstimateOnly:" + std::to_string(sceneData.USE_ONLY_ESTIMATE));
         r_mediator.writer_writeToFile("PARAMS", "Scale:" + std::to_string(sceneData.ASTEROID_SCALE));
         r_mediator.writer_writeToFile("PARAMS","AngularVelocity:" + glm::to_string(Service::bt2glm(asteroid->angularVelocity)));
         r_mediator.writer_writeToFile("PARAMS", "LanderStartPos:" + glm::to_string(lander->pos));
         r_mediator.writer_writeToFile("PARAMS", "GravityMultiplier:" + std::to_string(lander->asteroidGravForceMultiplier));
-        
     }
 }
 
@@ -288,4 +287,8 @@ void MyScene::initLights(){
 
     lander.get()->p_spotlight = &spotLights.at(0); //hacky, our lander needs the world spotlight obj to update its pos and direction each frame
     //however this shouldnt be controlled by lander timestep because its unnecessary to update it until we want to draw it, ie physics engine doesnt matter
+
+    if(Service::OUTPUT_TEXT){
+        r_mediator.writer_writeToFile("PARAMS", "LightDir:" + glm::to_string(sceneLight.pos));
+    }
 }

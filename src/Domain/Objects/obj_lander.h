@@ -28,6 +28,8 @@ struct LanderObj : virtual CollisionRenderObj{ //this should impliment an interf
 
     int asteroidScale = 1;
 
+    bool useEstimateOnly = false; //passed through to gnc
+
     btTransform landerTransform;
     Mediator* p_mediator;
     WorldSpotLightObject* p_spotlight; 

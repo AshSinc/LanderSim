@@ -15,6 +15,7 @@ class MyScene: public IScene{
         void setRendererMeshVars(std::string name, RenderObject* renderObj);
         LandingSiteObj* getLandingSiteObject(){return landingSite.get();};
         LanderObj* getLanderObject(){return lander.get();};
+        SceneData* getSceneData(){return &sceneData;};
         
         private:
         void initLights();

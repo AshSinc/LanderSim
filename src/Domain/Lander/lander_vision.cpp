@@ -176,13 +176,6 @@ void Vision::featureMatch(){
             //if val is 9999 it means findBestAngularVelocityMatchFromDecomp didn't find a good match, so we will ignore it
             if(bestAngularVelocityMatch.x != 9999){
                 estimatedAngularVelocities.push_back(bestAngularVelocityMatch);
-
-                if(Service::OUTPUT_TEXT){
-                    //output single estimation data to file
-                    std::string time = std::to_string(p_mediator->physics_getTimeStamp());
-                    std::string text = time + ":" + glm::to_string(bestAngularVelocityMatch);
-                    p_mediator->writer_writeToFile("EST", text);
-                }
             }
 
             if(estimatedAngularVelocities.size() > NUM_ESTIMATIONS_BEFORE_CALC-1)
@@ -337,6 +330,41 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
             if(Service::OUTPUT_TEXT){
                 //output 
                 //p_mediator->writer_writeToFile("PARAMS", "FOV:" + std::to_string(BASE_OPTICS_FOV*lander->asteroidScale));
+            }
+
+            
+            if(Service::OUTPUT_TEXT){
+                if(possibleSolutions.size() == 0){ //we only take first viable estimate, usually the right one, this can be improved but won't effect final estimation if it's the wrong direction
+                    //output single estimation data to file
+                    std::string time = std::to_string(p_mediator->physics_getTimeStamp());
+                    std::string prepend = "match" + std::to_string(matchCount-1) + ":" + time;
+                    std::string text = prepend + ":estimation:" + glm::to_string(angularVelocityEstimation);
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":pixelsmoved:" + std::to_string(pixelsMoved);
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":unitsmoved:" + std::to_string(unitsMoved);
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":radiusimg1:" + std::to_string(radiusPerImageQueue.at(0));
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":radiusimg2:" + std::to_string(radiusPerImageQueue.at(1));
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":avgradius:" + std::to_string(avgRadius);
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":altitudeimg1:" + std::to_string(altitudePerImageQueue.at(0));
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":altitudeimg2:" + std::to_string(altitudePerImageQueue.at(1));
+                    p_mediator->writer_writeToFile("EST", text);
+
+                    text = prepend + ":avgaltitude:" + std::to_string(avgAltitude);
+                    p_mediator->writer_writeToFile("EST", text);
+                }
             }
         }
         else if(Service::getHighestAxis(rotationAngles) == 2){ 

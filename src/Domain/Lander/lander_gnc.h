@@ -39,23 +39,30 @@ namespace Lander{
         glm::vec3 projectedVelocityAtTf;
         glm::vec3 projectedLandingSiteUp;
 
+        glm::vec3 projectedLandingSitePos_Estimate;
+        glm::vec3 projectedVelocityAtTf_Estimate;
+        glm::vec3 projectedLandingSiteUp_Estimate;
+
         bool checkApproachAligned(glm::vec3 futureLsUp, glm::vec3 futureLsPos);
 
         void updateTgo(float timeStep);
         glm::mat4 constructRotationMatrixAtTf(float ttgo);
+        glm::mat4 constructRotationMatrixAtTf_Estimate(float ttgo);
         glm::vec3 predictFinalLandingSitePos(glm::mat4 rotationM);
         glm::vec3 predictFinalLandingSiteUp(glm::mat4 rotationM);
         glm::vec3 stabiliseCurrentPos();
         glm::vec3 slewToRotation(glm::vec3 up, float time);
         //glm::quat rotateTowards(glm::quat q1, glm::quat q2, float maxAngle);
 
-        glm::mat3 rotationMatrixAtTf;
+        //glm::mat3 rotationMatrixAtTf;
+
+        void moveEstimatedLandingSiteForward1Second(); //used for estimate only calculations
         
     public:
         GNC(){};
         void init(Mediator* mediator, NavigationStruct* gncVars);
         glm::vec3 getThrustVector(float timeStep);
         glm::vec3 getProjectedUpVector();
-        glm::mat4 getProjectedLSRotationMatrix(){return rotationMatrixAtTf;};
+        //glm::mat4 getProjectedLSRotationMatrix(){return rotationMatrixAtTf;};
     };
 }

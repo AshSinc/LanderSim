@@ -41,6 +41,13 @@ void Vk::OffscreenRenderer::init(){
     createOffscreenFramebuffer();
     createOffscreenCommandBuffer();
     createOffscreenSyncObjects();
+
+    if(Service::OUTPUT_TEXT){
+        //output world light details of the optics camera
+        r_mediator.writer_writeToFile("PARAMS", "LightAmbient:" + glm::to_string(LANDER_OPTICS_AMBIENT));
+        r_mediator.writer_writeToFile("PARAMS", "LightDiffuse:" + glm::to_string(LANDER_OPTICS_DIFFUSE));
+        r_mediator.writer_writeToFile("PARAMS", "LightSpecular:" + glm::to_string(LANDER_OPTICS_SPECULAR));
+    }
 }
 
 //this sampler will be used by the patched version of ImGUI to draw the image
@@ -56,16 +63,6 @@ void Vk::OffscreenRenderer::createSamplers(){
 //semaphores are used to sync gpu operations with other gpu operations
 //so here we need fences to sync rendering offscreen images with cpu writing to file
 void Vk::OffscreenRenderer::createOffscreenSyncObjects(){
-
-    //offscreenRenderFence will allow access when offscreen image can be renderer to by gpu
-    /*VkFenceCreateInfo fenceCreateInfo{};
-    fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT; //with a fence we must start it as signalled complete, otherwise it appears locked unless it can be reset
-    if(vkCreateFence(device, &fenceCreateInfo, nullptr, &offscreenRenderFence) != VK_SUCCESS){
-        throw std::runtime_error("Failed to create fence");
-    }
-    _mainDeletionQueue.push_function([=](){vkDestroyFence(device, offscreenRenderFence, nullptr);});*/
-
     //offscreenCopyFence will signal once rendering is complete and we can copy to file
     //additionally rendering wont start unless offscreenCopyFence is signalled complete by the previous render pass
     VkFenceCreateInfo uploadFenceCreateInfo{};

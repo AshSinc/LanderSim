@@ -12,7 +12,6 @@
 int NUM_TEXTURE_SETS = 2;
 int NUM_TEXTURES_IN_SET = 2;
 
-
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
 
@@ -362,19 +361,20 @@ void UiHandler::gui_ShowMainMenu(){
         if (ImGui::Button("Reset", ImVec2(75,25)))
             resetBtnClicked();
         ImGui::SameLine();
-        if (ImGui::Button("Scenario1", ImVec2(75,25)))
+        /*if (ImGui::Button("Scenario1", ImVec2(75,25)))
             scenarioBtnClicked(1);
         ImGui::SameLine();
         if (ImGui::Button("Scenario2", ImVec2(75,25)))
             scenarioBtnClicked(2);
         ImGui::SameLine();
         if (ImGui::Button("Scenario3", ImVec2(75,25)))
-            scenarioBtnClicked(3);
+            scenarioBtnClicked(3);*/
         ImGui::EndGroup();
         
         ImGui::BeginGroup();
-        float rv = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
         ImGui::Checkbox("Randomize Asteroid Rotation", &sceneData.RANDOMIZE_ROTATION);
+        ImGui::Checkbox("Use Estimate Only", &sceneData.USE_ONLY_ESTIMATE);
+        float rv = sceneData.ASTEROID_MAX_ROTATIONAL_VELOCITY;
         if(ImGui::SliderFloat("Asteroid Rotation X", &sceneData.ASTEROID_ROTATION_X, -rv, rv, "%.4f")){
             
             sceneData.ASTEROID_ROTATION_Y = 0;

@@ -25,6 +25,9 @@ void GNC::init(Mediator* mediator, NavigationStruct* gncVars){
 
 //check if we are above the expected future landing site position
 bool GNC::checkApproachAligned(glm::vec3 futureLsUp, glm::vec3 futureLsPos){
+    
+
+
     glm::vec3 landerPos = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract position vector form translation component of transform matrix
     float angleFromUpVector = glm::angle(futureLsUp, glm::normalize(landerPos - futureLsPos));
     std::cout << angleFromUpVector << " current angle \n";
@@ -92,6 +95,16 @@ glm::vec3 GNC::preApproach(){
         //could use zem zev again but would need to add a new stage and possibly alter current inputs?
         if(checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos)){
             shouldDescend = true;
+            //p_navStruct->landingSitePos_AtDescentStart = p_navStruct->landingSitePos;
+            //p_navStruct->landingSiteUp_AtDescentStart = p_navStruct->landingSiteUp;
+            p_navStruct->landingSitePos_Estimate = p_navStruct->landingSitePos; //estimate starts correct at ttgo 1000, never set to real value after this
+            p_navStruct->landingSiteUp_Estimate = p_navStruct->landingSiteUp;
+
+            if(Service::OUTPUT_TEXT){
+                //output final known pos and up vector of landing site before descent
+                p_mediator->writer_writeToFile("PARAMS", "landingSitePos_AtDescentStart:" + glm::to_string(p_navStruct->landingSitePos_Estimate));
+                p_mediator->writer_writeToFile("PARAMS", "landingSiteUp_AtDescentStart:" + glm::to_string(p_navStruct->landingSiteUp_Estimate));
+            }
         }
     }
 
@@ -101,25 +114,89 @@ glm::vec3 GNC::preApproach(){
 
 glm::mat4 GNC::constructRotationMatrixAtTf(float ttgo){
     //get degrees of rotation per second from asteroidAngularVelocity multiply by tgo to get expected total rotation
-    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocity)*ttgo;
+    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocityOfAsteroid)*ttgo;
 
     //construct rotated matrix
-    return glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocity)));
+    return glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocityOfAsteroid)));
+}
+
+glm::mat4 GNC::constructRotationMatrixAtTf_Estimate(float ttgo){
+    //get degrees of rotation per second from asteroidAngularVelocity multiply by tgo to get expected total rotation
+    float degreesMovedAtTgo = glm::length(p_navStruct->angularVelocityOfAsteroid_Estimate)*ttgo;
+
+    //construct rotated matrix
+    return glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedAtTgo, glm::normalize(p_navStruct->angularVelocityOfAsteroid_Estimate)));
+}
+
+//used for estimate only calculations
+//basically we need the current position every second, so we have this new method that only uses the estimation instead of real values
+void GNC::moveEstimatedLandingSiteForward1Second(){
+    //get degrees of rotation per second from asteroidAngularVelocity
+    float degreesMovedIn1S = glm::length(p_navStruct->angularVelocityOfAsteroid_Estimate);
+    glm::mat3 rotation_in_1s = glm::mat3(glm::rotate(glm::mat4(1.0f), degreesMovedIn1S, glm::normalize(p_navStruct->angularVelocityOfAsteroid_Estimate)));
+
+    p_navStruct->landingSitePos_Estimate = rotation_in_1s * p_navStruct->landingSitePos_Estimate;
+    p_navStruct->landingSiteUp_Estimate = rotation_in_1s * p_navStruct->landingSiteUp_Estimate; //we dont actually need up once descent has started...
 }
 
 glm::vec3 GNC::predictFinalLandingSitePos(glm::mat4 rotationM){
-    //rotate landingsite pos by the expected rotation
-    return rotationM * glm::vec4(p_navStruct->landingSitePos, 1.0f);
+    if(p_navStruct->useOnlyEstimate && shouldDescend){
+        return rotationM * glm::vec4(p_navStruct->landingSitePos_Estimate, 1.0f);
+    }
+    else{
+        //rotate landingsite pos by the expected rotation
+        return rotationM * glm::vec4(p_navStruct->landingSitePos, 1.0f);
+    }
 }
 
 glm::vec3 GNC::predictFinalLandingSiteUp(glm::mat4 rotationM){
-    //rotate landingsite up by the expected rotation
-    return rotationM * glm::vec4(p_navStruct->landingSiteUp, 0.0f);
+    if(p_navStruct->useOnlyEstimate && shouldDescend){
+        return rotationM * glm::vec4(p_navStruct->landingSiteUp_Estimate, 0.0f);
+    }
+    else{
+        //rotate landingsite up by the expected rotation
+        return rotationM * glm::vec4(p_navStruct->landingSiteUp, 0.0f);
+    }
 }
 
+//TODO ISSUE
+//need to clean up code - have seperate functions for estimation and real values and always run both, but only use estimate or real values based on selection
+//and this way both sets can be plotted into seperate files every run
+
+/*glm::vec3 GNC::predictFinalLandingSitePos_Estimate(glm::mat4 rotationM){
+    if(p_navStruct->useOnlyEstimate && shouldDescend){
+        return rotationM * glm::vec4(p_navStruct->landingSitePos_Estimate, 1.0f);
+    }
+    else{
+        //rotate landingsite pos by the expected rotation
+        return rotationM * glm::vec4(p_navStruct->landingSitePos, 1.0f);
+    }
+}
+
+glm::vec3 GNC::predictFinalLandingSiteUp_Estimate(glm::mat4 rotationM){
+    if(p_navStruct->useOnlyEstimate && shouldDescend){
+        return rotationM * glm::vec4(p_navStruct->landingSiteUp_Estimate, 0.0f);
+    }
+    else{
+        //rotate landingsite up by the expected rotation
+        return rotationM * glm::vec4(p_navStruct->landingSiteUp, 0.0f);
+    }
+}*/
+
 void GNC::calculateVectorsAtTime(float time){
-    if(glm::length(p_navStruct->angularVelocity) != 0){ //if angular vel is 0 we dont need to check
-        rotationMatrixAtTf = constructRotationMatrixAtTf(time);
+    if(glm::length(p_navStruct->angularVelocityOfAsteroid) != 0){ //if angular vel is 0 we dont need to check
+        
+        if(p_navStruct->useOnlyEstimate){
+            glm::mat4 rotationMatrixAtTf_Estimate = constructRotationMatrixAtTf_Estimate(time);
+            projectedLandingSitePos_Estimate = predictFinalLandingSitePos(rotationMatrixAtTf_Estimate);
+            projectedLandingSiteUp_Estimate = predictFinalLandingSiteUp(rotationMatrixAtTf_Estimate);
+            glm::mat4 rotationMatrixAtTfPlus1_Estimate = constructRotationMatrixAtTf_Estimate(time+1);
+            glm::vec3 projectedLandingSitePosPlus1_Estimate = predictFinalLandingSitePos(rotationMatrixAtTfPlus1_Estimate);
+            projectedVelocityAtTf_Estimate = projectedLandingSitePosPlus1_Estimate - projectedLandingSitePos_Estimate; //there's a cleaner way to get linear vel of point in 3d from angular velocity, this is a workaround
+            moveEstimatedLandingSiteForward1Second();
+        }
+
+        glm::mat4 rotationMatrixAtTf = constructRotationMatrixAtTf(time);
         projectedLandingSitePos = predictFinalLandingSitePos(rotationMatrixAtTf);
         projectedLandingSiteUp = predictFinalLandingSiteUp(rotationMatrixAtTf);
         glm::mat4 rotationMatrixAtTfPlus1 = constructRotationMatrixAtTf(time+1);
@@ -131,6 +208,10 @@ void GNC::calculateVectorsAtTime(float time){
         projectedLandingSitePos = p_navStruct->landingSitePos;
         projectedLandingSiteUp = p_navStruct->landingSiteUp;
         projectedVelocityAtTf = glm::vec3(0,0,0);
+
+        projectedLandingSitePos_Estimate = p_navStruct->landingSitePos;   
+        projectedLandingSiteUp_Estimate = p_navStruct->landingSiteUp;    
+        projectedVelocityAtTf_Estimate = glm::vec3(0,0,0);
     }
 
     //if debug (p_mediator->showDebugging())
@@ -147,7 +228,14 @@ glm::vec3 GNC::ZEM_ZEV_Control(float timeStep){
     //calculate projectedLandingSitePos and projectedVelocityAtTf
     calculateVectorsAtTime(tgo);
 
-    glm::vec3 rf = projectedLandingSitePos;
+    glm::vec3 rf;
+
+    if(p_navStruct->useOnlyEstimate)
+        rf = projectedLandingSitePos_Estimate;
+    else
+        rf = projectedLandingSitePos;
+
+     
     glm::vec3 r = glm::vec3(p_navStruct->landerTransformMatrix[3]); //extract landing site pos from fourth column of transform matrix
 
     glm::vec3 zem = getZEM(rf, r, p_navStruct->velocityVector);
