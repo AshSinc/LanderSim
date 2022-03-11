@@ -722,17 +722,10 @@ void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
     RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
     glm::vec3 camPos = lander->pos;
 
-    //glm::vec3 landingSitePos = glm::vec3(0,0,0); //origin for now
-    //glm::vec3 landingSitePos = r_mediator.scene_getFocusableObject("Landing_Site").pos;
-    
-    //glm::mat4 view = glm::lookAt(camPos, landingSitePos, lander->up); //fixing the view to landing site
-
     glm::mat4 view = glm::lookAt(camPos, camPos - lander->up, lander->forward); //setting view to look forward
 
     glm::mat4 proj = glm::perspective(glm::radians(OFFSCREEN_IMAGE_FOV), (float)RENDERED_IMAGE_WIDTH / (float)RENDERED_IMAGE_HEIGHT, 0.1f, 15000.0f);
     proj[1][1] *= -1;
-
-    std::cout << glm::to_string(proj) << " proj matrix \n";
 
     camData.projection = proj;
     camData.view = view;

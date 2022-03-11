@@ -24,6 +24,8 @@ namespace Service{
         std::ofstream thrustFile;
         std::ofstream estFile;
         std::ofstream paramsFile;
+        std::ofstream preApproachFile;
+        std::ofstream gncFile;
 
         void writeToFile(std::string file, std::string text);
         void openFiles();

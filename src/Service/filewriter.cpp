@@ -9,6 +9,10 @@ void Service::Writer::writeToFile(std::string file, std::string text){
         p_file = &estFile;
     else if(file == "PARAMS")
         p_file = &paramsFile;
+    else if(file == "GNC")
+        p_file = &gncFile;
+    else if(file == "PRE")
+        p_file = &preApproachFile;
     else
         return;
 
@@ -23,6 +27,8 @@ void Service::Writer::openFiles(){
     thrustFile.open(NAV_PATH + "thrust.txt", std::ios_base::app);
     estFile.open(NAV_PATH + "estimates.txt", std::ios_base::app);
     paramsFile.open(NAV_PATH + "params.txt", std::ios_base::app);
+    preApproachFile.open(NAV_PATH + "preapproach.txt", std::ios_base::app);
+    gncFile.open(NAV_PATH + "gnc.txt", std::ios_base::app);
     std::cout << "Files opened\n";
 }
 
@@ -31,6 +37,8 @@ void Service::Writer::closeFiles(){
     thrustFile.close();
     estFile.close();
     paramsFile.close();
+    preApproachFile.close();
+    gncFile.close();
     std::cout << "Files closed\n";
 }
 

@@ -58,8 +58,6 @@ namespace Lander{
         bool imagingTimer(float timeStep);
         bool gncTimer(float timeStep);
 
-        void setRotation();
-
         //boost methods
         void applyImpulse(btRigidBody* rigidbody, LanderBoostCommand boost);
         void applyTorque(btRigidBody* rigidbody, LanderBoostCommand boost);
