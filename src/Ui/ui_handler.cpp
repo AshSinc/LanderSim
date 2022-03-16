@@ -309,7 +309,7 @@ void UiHandler::gui_ShowOverlay(){
 
         WorldStats& worldStats = r_mediator.physics_getWorldStats();
         Vk::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
-
+        //r_mediator.scene_getNavStruct().
         ImGui::Text("\nEngine\n");
         ImGui::Separator();
         ImGui::Text("Framerate: %.1f ms\n", renderStats.framerate);
@@ -325,6 +325,14 @@ void UiHandler::gui_ShowOverlay(){
         ImGui::Text("Last Impact: %f N\n", worldStats.lastImpactForce);
         ImGui::Text("Largest Impact: %f N\n\n", worldStats.largestImpactForce);
 
+        ImGui::Text("\nRotation\n");     
+        ImGui::Separator();
+        ImGui::Text("Actual Angular Velocity -");
+        std::string s1 = std::to_string(sceneData.ASTEROID_ROTATION_X) + ", " + std::to_string(sceneData.ASTEROID_ROTATION_Y) + ", " + std::to_string(sceneData.ASTEROID_ROTATION_Z);
+        ImGui::Text(s1.c_str());
+        ImGui::Text("Estimated Angular Velocity -");
+        std::string s2 = std::to_string(worldStats.estimatedAngularVelocity.x) + ", " + std::to_string(worldStats.estimatedAngularVelocity.y) + ", " + std::to_string(worldStats.estimatedAngularVelocity.z);
+        ImGui::Text(s2.c_str());
     }
     ImGui::End();          
 }

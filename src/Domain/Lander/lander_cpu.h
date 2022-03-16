@@ -68,6 +68,7 @@ namespace Lander{
 
         void showEstimationStats();
         glm::vec3 getFinalEstimatedAngularVelocity();
+        NavigationStruct* getNavStruct(){return &navStruct;};
         
     public:
         void toggleRotationEstimation(){useRotationEstimation = !useRotationEstimation;};

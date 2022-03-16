@@ -6,4 +6,5 @@ struct WorldStats{
         float landerVelocity = 0;
         float lastImpactForce = 0;
         float largestImpactForce = 0;
+        glm::vec3 estimatedAngularVelocity = glm::vec3(0); //here to save time, for output on ui
 };

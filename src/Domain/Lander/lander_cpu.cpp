@@ -82,6 +82,8 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
                 std::cout << glm::to_string(navStruct.angularVelocityOfAsteroid_Estimate) << " estimated angular velocity \n";
                 navStruct.estimationComplete = true;
 
+                p_mediator->physics_getWorldStats().estimatedAngularVelocity = navStruct.angularVelocityOfAsteroid_Estimate;
+
                 if(Service::OUTPUT_TEXT){
                     //output final estimation data to file
                     std::string time = std::to_string(p_mediator->physics_getTimeStamp());

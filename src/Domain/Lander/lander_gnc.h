@@ -13,7 +13,7 @@ namespace Lander{
 
         NavigationStruct* p_navStruct;
 
-        float APPROACH_ANGLE = 0.05f; // radians
+        float APPROACH_ANGLE = 0.050046f; // radians
         float TF_TIME = 1000.0f; //1000 seconds of flight time is roughly accurate for current starting distance
 
         float tf = TF_TIME;

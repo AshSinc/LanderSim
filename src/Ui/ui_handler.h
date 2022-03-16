@@ -92,9 +92,7 @@ class UiHandler{
     float boostTimerY = 0.0f;
     float boostTimerZ = 0.0f;
 
-    //std::chrono::time_point<std::chrono::steady_clock> currentTime;
     std::chrono::time_point<std::chrono::system_clock> lastTick;
-   
 
     public:
     void updateLoadingProgress(float progress, std::string text);
