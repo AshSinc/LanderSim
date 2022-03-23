@@ -28,6 +28,8 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
     navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
     //set renderer fov
     p_mediator->renderer_setOpticsFov(BASE_OPTICS_FOV*lander->asteroidScale);
+
+    cv.active = navStruct.useOnlyEstimate; //we dont use imaging if using only estimate
     
     cv.init(mediator, IMAGING_TIMER_SECONDS, &navStruct);
 
@@ -47,7 +49,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         std::cout << e.what() << "\n";
     }
 
-    //reaction wheel slew code needs completed
+    //reaction wheel slew code could be completed (not necessary with near vertical trajectories though)
     if(reactionWheelEnabled){
         //body->setCenterOfMassTransform(Service::glmToBulletT(p_lander->transformMatrix));
         //slewToLandingSiteOrientation();
@@ -68,6 +70,36 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         navStruct.landerPos = p_lander->pos;
         navStruct.landingSitePos = p_mediator->physics_performRayCast(p_landingSite->pos, -p_landingSite->up, 10.0f); //raycast from landing site past ground (ie -up*10)
         navStruct.landingSiteUp = p_landingSite->up;
+
+        /*if(navStruct.useOnlyEstimate){
+            if(!estimateComplete){
+                showEstimationStats();
+                
+                navStruct.angularVelocityOfAsteroid_Estimate = getFinalEstimatedAngularVelocity();
+
+                //get the current actual position that will be the base for extrapolating future positions within gnc
+                navStruct.landingSitePos_Estimate = navStruct.landingSitePos;
+                navStruct.landingSiteUp_Estimate = navStruct.landingSiteUp;
+
+                std::cout << glm::to_string(navStruct.angularVelocityOfAsteroid_Estimate) << " estimated angular velocity \n";
+                navStruct.estimationComplete = true;
+
+                p_mediator->physics_getWorldStats().estimatedAngularVelocity = navStruct.angularVelocityOfAsteroid_Estimate;
+
+                if(Service::OUTPUT_TEXT){
+                    //output final estimation data to file
+                    std::string time = std::to_string(p_mediator->physics_getTimeStamp());
+                    p_mediator->writer_writeToFile("EST", "FINAL ESTIMATION");
+                    std::string text = time + ":" + glm::to_string(navStruct.angularVelocityOfAsteroid_Estimate);
+                    p_mediator->writer_writeToFile("EST", text);
+                }
+                estimateComplete = true;
+            }
+
+        }
+        else if(GO_TIME >= p_mediator->physics_getTimeStamp()){
+
+        }*/
         
         if(cv.active == false){
             if(navStruct.useOnlyEstimate && estimateComplete == false){

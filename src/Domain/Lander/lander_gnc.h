@@ -13,7 +13,7 @@ namespace Lander{
 
         NavigationStruct* p_navStruct;
 
-        float APPROACH_ANGLE = 0.050046f; // radians
+        float APPROACH_ANGLE = 0.06f; // radians
         float TF_TIME = 1000.0f; //1000 seconds of flight time is roughly accurate for current starting distance
 
         float tf = TF_TIME;
@@ -21,6 +21,7 @@ namespace Lander{
         float tgo = TF_TIME;
 
         bool shouldDescend = false;
+        float DESCEND_TIME = 956.146539f; //used to manually start descent at time, only available if useEstimationOnly is off
 
         Mediator* p_mediator;
 

@@ -62,10 +62,17 @@ glm::vec3 GNC::getThrustVector(float timeStep){
 //holds the lander steady and checks for a good time to start descent
 glm::vec3 GNC::preApproach(glm::vec3 sitePos, glm::vec3 siteUp, glm::vec3 angularVelocity){
     //work out where the landing site is and where is "up" at the maximum time for approach
-    if(p_navStruct->estimationComplete){
-        calculateVectorsAtTime(TF_TIME, sitePos, siteUp, angularVelocity);
-        shouldDescend = checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos);
+    if(p_navStruct->useOnlyEstimate || DESCEND_TIME == 0.0f){
+        if(p_navStruct->estimationComplete){
+            calculateVectorsAtTime(TF_TIME, sitePos, siteUp, angularVelocity);
+            shouldDescend = checkApproachAligned(projectedLandingSiteUp, projectedLandingSitePos);
+        }
     }
+    else{
+        if(p_mediator->physics_getTimeStamp() >= DESCEND_TIME)
+            shouldDescend = true;
+    }
+    
     //return a vector that will stabilize movement to 0
     return stabiliseCurrentPos();
 }
