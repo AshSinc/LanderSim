@@ -119,10 +119,10 @@ void GNC::calculateVectorsAtTime(float time, glm::vec3 sitePos, glm::vec3 siteUp
 
     //if debug (p_mediator->showDebugging())
     //or a #define DEBUG_DRAWING somewhere would probably be better
-    std::vector<std::shared_ptr<RenderObject>>* p_debugObjects = p_mediator->scene_getDebugObjects();
-    p_debugObjects->at(0).get()->pos = projectedLandingSitePos;
-    p_debugObjects->at(1).get()->pos = projectedLandingSitePos + projectedLandingSiteUp;
-    p_debugObjects->at(2).get()->pos = projectedLandingSitePos + projectedVelocityAtTf;
+    //std::vector<std::shared_ptr<RenderObject>>* p_debugObjects = p_mediator->scene_getDebugObjects();
+    //p_debugObjects->at(0).get()->pos = projectedLandingSitePos;
+    //p_debugObjects->at(1).get()->pos = projectedLandingSitePos + projectedLandingSiteUp;
+    //p_debugObjects->at(2).get()->pos = projectedLandingSitePos + projectedVelocityAtTf;
 }
 
 glm::mat4 GNC::constructRotationMatrixAtTf(float ttgo, glm::vec3 angularVelocity){

@@ -37,39 +37,15 @@ class MyScene: public IScene{
             //{"asteroid", "resources/models/plane.obj"},
             //{"asteroid", "models/Bennu.obj"},
             {"sphere", "resources/models/sphere.obj"},
-
-            /*{"sphere1", "resources/models/sphere.obj"}, //workaround for colour tied to material in shaders
-            {"sphere2", "resources/models/sphere.obj"},
-            {"sphere3", "resources/models/sphere.obj"},
-            {"sphere4", "resources/models/sphere.obj"},
-            {"sphere5", "resources/models/sphere.obj"},
-            {"sphere6", "resources/models/sphere.obj"},
-            {"sphere7", "resources/models/sphere.obj"},
-            {"sphere8", "resources/models/sphere.obj"},
-            {"sphere9", "resources/models/sphere.obj"},
-            {"sphere0", "resources/models/sphere.obj"},*/
-            {"sphere1", "resources/models/box.obj"}, //workaround for colour tied to material in shaders
-            {"sphere2", "resources/models/box.obj"},
-            {"sphere3", "resources/models/box.obj"},
-            {"sphere4", "resources/models/box.obj"},
-            {"sphere5", "resources/models/box.obj"},
-            {"sphere6", "resources/models/box.obj"},
-            {"sphere7", "resources/models/box.obj"},
-            {"sphere8", "resources/models/box.obj"},
-            {"sphere9", "resources/models/box.obj"},
-            {"sphere0", "resources/models/box.obj"},
             {"box", "resources/models/box.obj"}
         };
         
-
         //texture identifier and path pairs, used in loading and assigning to map
         const std::vector<TextureInfo> TEXTURE_INFOS = {
             {"lander_diff", "resources/textures/insight_texture.png"},
             {"lander_spec", "resources/textures/InSIGHT_tex_01ref.jpg"}, //need a specular forthis? maybe just a white texture
             {"asteroid_diff", "resources/textures/ASTEROID_COLOR.jpg"},
             {"asteroid_spec", "resources/textures/ASTEROID_SPECULAR.jpg"}
-            //{"asteroid_diff", "resources/textures/ASTEROID_COLORB.jpg"},
-            //{"asteroid_spec", "resources/textures/ASTEROID_COLORB.jpg"}
         };
 
         //texture identifier and path pairs, used in loading and assigning to map

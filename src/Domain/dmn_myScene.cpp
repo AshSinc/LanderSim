@@ -167,7 +167,7 @@ void MyScene::initObjects(){
     lander->pos = glm::vec3(0, 0, sceneData.LANDER_START_DISTANCE+(landingSite->pos.z));
     lander->asteroidScale = sceneData.ASTEROID_SCALE;
     
-    std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
+    /*std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
     debugBox1->id = id++;
     debugBox1->pos = glm::vec3(0,0,0.0f);
     debugBox1->scale = glm::vec3(0.2,0.2,0.2);
@@ -205,7 +205,7 @@ void MyScene::initObjects(){
     debugBox3->material->extra.x = 32;
     objects.push_back(debugBox3);
     renderableObjects.push_back(debugBox3);
-    debugObjects.push_back(debugBox3);
+    debugObjects.push_back(debugBox3);*/
 
     /*std::shared_ptr<RenderObject> scalebox = std::shared_ptr<RenderObject>(new RenderObject());
     scalebox->id = id++;
@@ -252,7 +252,8 @@ void MyScene::initObjects(){
 void MyScene::initLights(){
     //set directional scene light values
     //this is light from the star in the background
-    sceneLight.pos = glm::vec3(0,0,-1); //above
+    //sceneLight.pos = glm::vec3(0,0,-1); //above
+    sceneLight.pos = glm::vec3(0.1,0.25,-0.75);
     //sceneLight.pos = glm::vec3(1,0,0);
     sceneLight.ambient = glm::vec3(0.01f,0.01f,0.01f); //<-- this is good for in engine
     //sceneLight.ambient = glm::vec3(0.00f,0.00f,0.00f);

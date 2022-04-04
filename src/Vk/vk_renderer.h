@@ -41,7 +41,7 @@ public:
     void writeOffscreenImageToDisk(); 
 
 protected:
-    bool ENABLE_DEBUG_DRAWING = true; //not implemented yet, but will be a pipeline that draws lines from a large vertex buffer 
+    bool ENABLE_DEBUG_DRAWING = false; //not implemented yet, but will be a pipeline that draws lines from a large vertex buffer 
 
     GPUMaterialData _materialParameters[MATERIALS_COUNT];
     

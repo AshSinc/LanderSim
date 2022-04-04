@@ -419,11 +419,10 @@ void Vk::Renderer::drawObjects(int curFrame){
 
     std::vector<int> renderObjectIds;
     
-    if(ENABLE_DEBUG_DRAWING)
+    //if(ENABLE_DEBUG_DRAWING)
         //renderObjectIds = std::vector{1,2,3,4,5,6,7,8,9,10}; //8 9 10 are debug boxes
-        renderObjectIds = std::vector{1,2,3,4,5,6,7,8,9,10}; //8 9 10 are debug boxes
-    else
-        renderObjectIds = std::vector{1,2,3,4,5,6,7};
+    //else
+    renderObjectIds = std::vector{1,2,3,4,5,6,7};
 
     for(const int i : renderObjectIds){
     //for (int i = 1; i < p_renderables->size(); i++){
