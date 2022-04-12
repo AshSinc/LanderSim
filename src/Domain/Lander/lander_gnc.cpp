@@ -196,6 +196,7 @@ void GNC::updateTgo(float timeStep){
         tgo = TF_TIME;
         tf = TF_TIME;
         t = 0.0f;
+        p_mediator->physics_landerCollided(); //we are just marking as collided to stop simulation and output final positions
     }
     std::cout << tgo  << " time-to-go\n";
 }

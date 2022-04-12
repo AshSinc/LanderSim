@@ -64,11 +64,12 @@ void Vision::detectFeatures(cv::Mat optics){
     startT(1); //timer start
     
     //surf and sift, both use floating point descriptors so matcher should use NORM_L2
-    cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create(100);//min hessian
-    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create(100);
+    //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create();//min hessian
+    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
 
+    //auto detector = cv::xfeatures2d::BEBLID::create(0.75f);
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
-    //cv::Ptr<cv::ORB> detector = cv::ORB::create(200); //num features //ORB Crashes, same error
+    cv::Ptr<cv::ORB> detector = cv::ORB::create(4000, 1.2f, 8, 1); //num features //ORB Crashes, same error
     //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
     //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
 
@@ -80,13 +81,23 @@ void Vision::detectFeatures(cv::Mat optics){
     keypointsQueue.push_back(kp);
 
     descriptorsQueue.emplace_back();
-    if(false){ //if using StarDetector, need to specify a descriptor extractor
-        cv::Ptr<cv::xfeatures2d::BriefDescriptorExtractor> extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
-        extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    }
-    else{
-        detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    }
+    
+    //if(false){ //if using StarDetector, need to specify a descriptor extractor
+    //    cv::Ptr<cv::xfeatures2d::BriefDescriptorExtractor> extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
+    //    extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+    //}
+    //else{
+    //    detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+    //}
+    //cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
+    //extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+
+    //auto descriptor = cv::xfeatures2d::BEBLID::create(0.75f);
+    //descriptor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+
+    detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
+
+
     
     //-- Draw keypoints
     cv::Mat kpimage;
@@ -123,11 +134,8 @@ void Vision::featureMatch(){
     That is, the two features in both sets should match each other. It provides consistent result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
     */
 
-    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
-    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
-
-    //cv::Ptr<cv::FlannBasedMatcher> matcher = cv::FlannBasedMatcher::create(); //use with binary string based descriptors descriptors
-    //matcher->knnMatch(descriptorsQueue[0], descriptorsQueue[1], 2); //may not be using flann properly, and knn needs different params
+    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
+    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
 
     std::cout << " num of descriptorsQueue[0] : " << descriptorsQueue[0].size() << "\n";
     std::cout << " num of descriptorsQueue[1] : " << descriptorsQueue[1].size() << "\n";

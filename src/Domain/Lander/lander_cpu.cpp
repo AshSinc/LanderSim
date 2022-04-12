@@ -42,6 +42,13 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
+    if(Service::OUTPUT_TEXT){
+        if(!hasCollided && !gncActive){
+            p_mediator->writer_writeToFile("PARAMS", "FINAL SITE POS:" + glm::to_string(p_mediator->scene_getLandingSiteObject()->pos));
+            hasCollided = true;
+        }
+    }
+
     try{
         cv.simulationTick(); //let vision check for image avaiable from renderer
     }

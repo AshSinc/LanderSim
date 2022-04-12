@@ -39,6 +39,8 @@ namespace Lander{
         const float GNC_TIMER_SECONDS = 1.0f; //still not great if higher than 1s, not sure why yet
         const float IMAGING_TIMER_SECONDS = 45.0f;  
 
+        bool hasCollided = false;
+
         bool lockRotation = true;
         bool reactionWheelEnabled = false;
         
