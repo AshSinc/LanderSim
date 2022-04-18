@@ -35,7 +35,7 @@ struct SceneData{
     int ASTEROID_SCALE = 2;
     float ASTEROID_MIN_ROTATIONAL_VELOCITY = 0.001f;
     float ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.005f;
-    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/12.5f;
+    float GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/30.0f;
     LandingSiteData landingSite = LandingSiteData_1();
     bool USE_ONLY_ESTIMATE = false;
 };
@@ -50,7 +50,7 @@ struct ScenarioData_Scenario1: SceneData{
         ASTEROID_SCALE = 2;
         ASTEROID_MIN_ROTATIONAL_VELOCITY = 0.001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.008f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/12.5f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/30.0f;
         LandingSiteData landingSite = LandingSiteData_1();
     }
 };
@@ -65,7 +65,7 @@ struct ScenarioData_Scenario2: SceneData{
         ASTEROID_SCALE = 5;
         ASTEROID_MIN_ROTATIONAL_VELOCITY = 0.001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.008f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/12.5f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/15.0f;
         LandingSiteData landingSite = LandingSiteData_1();
     }
 };
@@ -80,7 +80,7 @@ struct ScenarioData_Scenario3: SceneData{
         ASTEROID_SCALE = 10;
         ASTEROID_MIN_ROTATIONAL_VELOCITY = 0.001f;
         ASTEROID_MAX_ROTATIONAL_VELOCITY = 0.008f;
-        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/12.5f;
+        GRAVITATIONAL_FORCE_MULTIPLIER = ASTEROID_SCALE/15.0f;
         LandingSiteData landingSite = LandingSiteData_1();
     }
 };

@@ -42,7 +42,7 @@ void CPU::init(Mediator* mediator, LanderObj* lander){
 }
 
 void CPU::simulationTick(btRigidBody* body, float timeStep){
-    if(Service::OUTPUT_TEXT){
+    if(Service::OUTPUT_TEXT){ //just added as a quick way to get final LS pos for testing, should be moved ideally
         if(!hasCollided && !gncActive){
             p_mediator->writer_writeToFile("PARAMS", "FINAL SITE POS:" + glm::to_string(p_mediator->scene_getLandingSiteObject()->pos));
             hasCollided = true;
@@ -107,7 +107,7 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
         else if(GO_TIME >= p_mediator->physics_getTimeStamp()){
 
         }*/
-        
+        //if cv.active is false it means optics estimations have finished
         if(cv.active == false){
             if(navStruct.useOnlyEstimate && estimateComplete == false){
                 showEstimationStats();
@@ -133,13 +133,11 @@ void CPU::simulationTick(btRigidBody* body, float timeStep){
                 estimateComplete = true;
             }
             else if(estimateComplete == false){
-                //navStruct.angularVelocityOfAsteroid = asteroidAngularVelocity;
                 estimateComplete = true;
                 navStruct.estimationComplete = true;
             }
         }
     
-        //std::cout << glm::to_string(asteroidAngularVelocity) << " actual angular velocity \n";
         navStruct.approachDistance = approachDistance;
         navStruct.gravityVector = Service::bt2glm(p_lander->landerGravityVector);
         navStruct.landerTransformMatrix = p_lander->transformMatrix;

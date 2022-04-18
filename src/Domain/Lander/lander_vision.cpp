@@ -65,11 +65,11 @@ void Vision::detectFeatures(cv::Mat optics){
     
     //surf and sift, both use floating point descriptors so matcher should use NORM_L2
     //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create();//min hessian
-    //cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
+    cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
 
     //auto detector = cv::xfeatures2d::BEBLID::create(0.75f);
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
-    cv::Ptr<cv::ORB> detector = cv::ORB::create(4000, 1.2f, 8, 1); //num features //ORB Crashes, same error
+    //cv::Ptr<cv::ORB> detector = cv::ORB::create(5000); //num features
     //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
     //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
 
@@ -134,8 +134,8 @@ void Vision::featureMatch(){
     That is, the two features in both sets should match each other. It provides consistent result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
     */
 
-    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
-    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
+    cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
+    //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
 
     std::cout << " num of descriptorsQueue[0] : " << descriptorsQueue[0].size() << "\n";
     std::cout << " num of descriptorsQueue[1] : " << descriptorsQueue[1].size() << "\n";
@@ -323,9 +323,12 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
                 //1m at fov 15 @ 1000m alt is 4 pixels
                 //1m at fov 20 @ 1000m alt is 3 pixels
 
+                //note that 1000 units above is actually 500m,
+                //actually lander is just too big in scale but we quickly fixed by assuming 1m is 2u
+
             //NOTES ------------
 
-            float kValue = 25000/p_navStruct->asteroidScale;
+            float kValue = 25000/p_navStruct->asteroidScale;//we adjust camera fov based on scale, zoom in when its smaller and out when its bigger
             int axis = Service::getHighestAxis(glm::vec3(translatedPoint.x, translatedPoint.y, 0)); //find the significant axis
             float pixelsMoved = translatedPoint[axis]; 
             float unitsMoved = pixelsMoved/(kValue/avgAltitude); //convert pixels travelled to world units (m)

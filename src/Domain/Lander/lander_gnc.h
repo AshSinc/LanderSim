@@ -21,7 +21,9 @@ namespace Lander{
         float tgo = TF_TIME;
 
         bool shouldDescend = false;
-        float DESCEND_TIME = 956.146539f; //used to manually start descent at time, only available if useEstimationOnly is off
+        float DESCEND_TIME = 1531.031366f; //used to manually start descent at time, only available if useEstimationOnly is off
+
+        //float DESCEND_TIME = 960.031366f;
 
         Mediator* p_mediator;
 

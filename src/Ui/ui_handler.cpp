@@ -460,7 +460,7 @@ void UiHandler::startScene(){
     showLoading.store(true);
     r_mediator.application_loadScene(sceneData);
     showLoading.store(false);
-    //hideCursor();
+    hideCursor();
 }
 
 void UiHandler::endScene(){
