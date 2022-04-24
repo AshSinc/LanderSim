@@ -94,7 +94,7 @@ void MyScene::initObjects(){
     lander = std::shared_ptr<LanderObj>(new LanderObj());
     lander->id = id++;
     lander->scale = glm::vec3(1.0f,1.0f,1.0f);
-    setRendererMeshVars("lander", lander.get());   //instead of box and default mesh we need to load the model
+    setRendererMeshVars("lander", lander.get());   //instead of box and default mesh we need to assign the model
     lander->material = r_mediator.renderer_getMaterial("texturedmesh2");
     lander->material->extra.x = 64;
     lander->mass = 1.0f;

@@ -4,6 +4,9 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/euler_angles.hpp> 
 
+//scene data, used to configure scene as part of dmn_myScene.cpp
+//allows selection of other scenarios via the menu but this feature was cut to save time
+
 struct LandingSiteData{
     glm::vec3 pos = glm::vec3(0,0,50);
     float yaw = 0, pitch = 0, roll = 0;

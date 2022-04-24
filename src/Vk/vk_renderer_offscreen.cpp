@@ -404,6 +404,8 @@ void Vk::OffscreenRenderer::createOffscreenImageAndView(){
     
 }
 
+//notes here are mostly from https://raw.githubusercontent.com/Overv/VulkanTutorial/master/ebook/Vulkan%20Tutorial%20en.pdf
+//these are left in for reference
 void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     //in our case we will need a colour buffer represented by one of the images from the swap chain
     //VkFormat imageFormat = VK_FORMAT_R8_UNORM;
@@ -474,7 +476,7 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
 }
 
 //take the last VKImage output by offscreen pass, convert it to linear format so we can read it
-//adapted from Sascha Willems example screenshot example https://github.com/SaschaWillems/Vulkan/blob/master/examples/screenshot/screenshot.cpp
+//adapted from Sascha Willems screenshot example https://github.com/SaschaWillems/Vulkan/blob/master/examples/screenshot/screenshot.cpp
 void Vk::OffscreenRenderer::convertOffscreenImage(){
     opticsFrameCounter = (opticsFrameCounter + 1) % NUM_TEXTURE_SETS;
         
@@ -682,6 +684,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
 
     flushCommandBuffer(cmdBuffer, graphicsQueue, offscreenCommandPool, false);    
 
+    //wrap the mapped memory to an opencv mat
     cv::Mat wrappedMat = cv::Mat(OUTPUT_IMAGE_WH, OUTPUT_IMAGE_WH, CV_8UC4, (void*)dstImageMappedData, cv::Mat::AUTO_STEP);
     cvMatQueue.push_back(wrappedMat);
 }
@@ -719,6 +722,7 @@ void Vk::OffscreenRenderer::setShouldDrawOffscreen(bool b){
     shouldDrawOffscreenFrame = b;
 }
 
+//update the lander camera pos and orientation data for passing to shaders
 void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
     RenderObject* lander =  p_renderables->at(2).get(); //lander is obj 2
     glm::vec3 camPos = lander->pos;
@@ -726,7 +730,7 @@ void Vk::OffscreenRenderer::populateLanderCameraData(GPUCameraData& camData){
     glm::mat4 view = glm::lookAt(camPos, camPos - lander->up, lander->forward); //setting view to look forward
 
     glm::mat4 proj = glm::perspective(glm::radians(OFFSCREEN_IMAGE_FOV), (float)RENDERED_IMAGE_WIDTH / (float)RENDERED_IMAGE_HEIGHT, 0.1f, 15000.0f);
-    proj[1][1] *= -1;
+    proj[1][1] *= -1; //glm and vulkan Y axis are inverted
 
     camData.projection = proj;
     camData.view = view;
@@ -767,6 +771,7 @@ void Vk::OffscreenRenderer::recordCommandBuffer_Offscreen(){
     }
 
     VkExtent2D extent{RENDERED_IMAGE_WIDTH, RENDERED_IMAGE_HEIGHT}; 
+
     //we need to use our own renderpass here, with offscreen 
     VkRenderPassBeginInfo renderPassBeginInfo = Vk::Structures::render_pass_begin_info(offscreenRenderPass, offscreenFramebuffer, {0, 0}, extent, clearValues);
 
@@ -817,7 +822,7 @@ void Vk::OffscreenRenderer::updateSceneData(GPUCameraData& camData){
     glm::mat4 viewMatrix = glm::lookAt(lightDir, glm::vec3(0,0,0), glm::vec3(0,1,0));
     glm::mat4 modelMatrix = glm::mat4(1.0);
     lightVPParameters[p_sceneLight->layer].viewproj = projectionMatrix * viewMatrix * modelMatrix;
-    //this is used to render the scene from the lights POV to generate a shadow map
+    //this is used to render the scene from the lights POV to generate a shadow map, not implemented yet
 }
 
 //point lights and spotlights
@@ -862,17 +867,11 @@ std::vector<ImguiTexturePacket>& Vk::OffscreenRenderer::getDstTexturePackets(){
 
 void Vk::OffscreenRenderer::popCvMatQueue(){
     std::scoped_lock<std::mutex> lock(queueSubmitMutex); 
-    //segfault here
-    //cv::Mat retMat = cvMatQueue.front();
     cvMatQueue.pop_front(); 
-    //return retMat;
 }
 
 cv::Mat& Vk::OffscreenRenderer::frontCvMatQueue(){
     std::scoped_lock<std::mutex> lock(queueSubmitMutex); 
-    //segfault here
-    //cv::Mat retMat = cvMatQueue.front();
-   // cvMatQueue.pop_front(); 
     return cvMatQueue.front();
 }
 
@@ -900,6 +899,7 @@ void Vk::OffscreenRenderer::mapLightingDataToGPU(){
     }*/
 }
 
+//actual scene drawing
 void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
     ////fill a GPU camera data struct
 	GPUCameraData camData;
@@ -958,9 +958,6 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
             vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
                 object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
 
-            vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
-                object->altMaterial->pipelineLayout, 0, 1, &offscreenDescriptorSet, 1, &scene_uniform_offset); //pass offscreen descriptor set here which holds lander cam data as well as normal scene data
-
 	        //object data descriptor
         	vkCmdBindDescriptorSets(offscreenCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, 
                 object->altMaterial->pipelineLayout, 1, 1, &os_objectDescriptor, 0, nullptr);
@@ -978,13 +975,14 @@ void Vk::OffscreenRenderer::drawOffscreen(int curFrame){
                     object->altMaterial->pipelineLayout, 4, 1, &object->altMaterial->_multiTextureSets[0], 0, nullptr);
 		    }
 		}
+        
         //add material property id for this object to push constant
 		PushConstants constants;
 		constants.matIndex = object->altMaterial->propertiesId;
         constants.numPointLights = p_pointLights->size();
         constants.numSpotLights = p_spotLights->size();
 
-        //upload the mesh to the GPU via pushconstants
+        //upload the mat id to the GPU via pushconstants
 		vkCmdPushConstants(offscreenCommandBuffer, object->altMaterial->pipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(PushConstants), &constants);
 
         vkCmdDrawIndexed(offscreenCommandBuffer, _loadedMeshes[object->meshId].indexCount, 1, _loadedMeshes[object->meshId].indexBase, 0, i); //using i as index for storage buffer in shaders

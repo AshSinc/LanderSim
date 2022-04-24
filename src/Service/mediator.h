@@ -4,14 +4,10 @@
 #include <vector>
 #include <memory>
 #include <glm/vec3.hpp>
-
 #include <imgui_impl_vulkan.h> //and vulkan
-
 #include <array>
 #include <deque>
-
 #include "opencv2/opencv.hpp"
-
 #include "filewriter.h"
 
 class WorldCamera;

@@ -74,6 +74,7 @@ void UiInput::processKeyGroupMovement(int key, bool repeatKeypress){
             else
                 r_mediator.physics_addImpulseToLanderQueue(duration, x, y, z, torque);
 }
+
 void UiInput::processKey(int key, bool repeatKeypress){
     processKeyGroupMovement(key, repeatKeypress);
     if(!repeatKeypress){
@@ -89,9 +90,6 @@ void UiInput::processKey(int key, bool repeatKeypress){
             r_mediator.physics_changeSimSpeed(0, true);
         if (key == GLFW_KEY_O)
             r_mediator.camera_toggleAutoCamera();
-        //if (key == GLFW_KEY_I)
-            //r_mediator.renderer_writeOffscreenImageToDisk();
-            //r_mediator.renderer_setShouldDrawOffscreen(true);
         if (key == GLFW_KEY_M)
             landingSiteInput = !landingSiteInput;
     }    

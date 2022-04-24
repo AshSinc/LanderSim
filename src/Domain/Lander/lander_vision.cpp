@@ -6,15 +6,12 @@
 #include "opencv2/calib3d.hpp"
 #include "opencv2/imgproc.hpp"
 #include <thread>
-#include "qtimer.h"
 #include <glm/gtx/euler_angles.hpp>
 #include <glm/gtx/vector_angle.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "sv_randoms.h"
 #include <bits/stdc++.h>
-
-//#include "filewriter.h"
 
 using namespace Lander;
 
@@ -36,7 +33,7 @@ void Vision::simulationTick(){
                 throw std::runtime_error("Lock Failed, processing is taking longer than submission");
 
             cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
-            p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
+            p_mediator->renderer_popCvMatQueue(); //we can actually pop the queue as well just now safely
 
             radiusPerImageQueue.emplace_back(p_navStruct->radiusAtOpticalCenter); //storing radius at time image is taken
             altitudePerImageQueue.emplace_back(p_navStruct->altitude); //storing alt at time image is taken
@@ -47,9 +44,10 @@ void Vision::simulationTick(){
     }
 }
 
+//some code adapted from OpenCV documentation https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 void Vision::detectFeatures(cv::Mat optics){
 
-    opticsQueue.push_back(optics.clone()); //copy it
+    opticsQueue.push_back(optics.clone()); //copy image from gpu
 
     //preprocessing
     opticsQueue.back().convertTo(opticsQueue.back(), -1, 2.0, 0.0f);
@@ -59,21 +57,17 @@ void Vision::detectFeatures(cv::Mat optics){
         opticCount++;
     }
 
-    //detecting
-    //-- Step 1: Detect the keypoints
-    startT(1); //timer start
-    
+    //detecting keypoints
+
     //surf and sift, both use floating point descriptors so matcher should use NORM_L2
     //cv::Ptr<cv::xfeatures2d::SURF> detector = cv::xfeatures2d::SURF::create();//min hessian
     cv::Ptr<cv::SIFT> detector = cv::SIFT::create();
 
-    //auto detector = cv::xfeatures2d::BEBLID::create(0.75f);
     //orb brief brisk use string descriptors so should use NORM HAMMING matcher
     //cv::Ptr<cv::ORB> detector = cv::ORB::create(5000); //num features
+
     //cv::Ptr<cv::BRISK> detector = cv::BRISK::create(); //num features //BRISK crashes
     //what():  OpenCV(4.5.2) /home/ash/vcpkg/buildtrees/opencv4/src/4.5.2-755f235ba0.clean/modules/core/src/batch_distance.cpp:303: error: (-215:Assertion failed) K == 1 && update == 0 && mask.empty() in function 'batchDistance'
-
-    //cv::Ptr<cv::xfeatures2d::StarDetector> detector = cv::xfeatures2d::StarDetector::create(); //star needs BriefDescriptorExtractor created
 
     std::vector<cv::KeyPoint> kp; //keypoints should be stored in an array or queue
     detector->detect(opticsQueue.back(), kp);
@@ -81,24 +75,9 @@ void Vision::detectFeatures(cv::Mat optics){
     keypointsQueue.push_back(kp);
 
     descriptorsQueue.emplace_back();
-    
-    //if(false){ //if using StarDetector, need to specify a descriptor extractor
-    //    cv::Ptr<cv::xfeatures2d::BriefDescriptorExtractor> extractor = cv::xfeatures2d::BriefDescriptorExtractor::create();
-    //    extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    //}
-    //else{
-    //    detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-    //}
-    //cv::Ptr<cv::DescriptorExtractor> extractor = cv::ORB::create();
-    //extractor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
-
-    //auto descriptor = cv::xfeatures2d::BEBLID::create(0.75f);
-    //descriptor->compute(opticsQueue.back(), kp, descriptorsQueue.back());
 
     detector->compute(opticsQueue.back(), kp, descriptorsQueue.back());
 
-
-    
     //-- Draw keypoints
     cv::Mat kpimage;
     //cv::drawKeypoints(optics, keypoints, image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
@@ -115,30 +94,14 @@ void Vision::detectFeatures(cv::Mat optics){
     //if we have 2 descriptors then we can match them
     if(descriptorsQueue.size()>1)
         featureMatch();
-
-    endT(1);
-    showStats(true);
 }
 
+//some code adapted from OpenCV documentation https://docs.opencv.org/4.x/d9/dab/tutorial_homography.html
 void Vision::featureMatch(){
-    //-- Step 2: Matching descriptor vectors with a brute force matcher
-    
-    /*
-    For BF matcher. It takes two optional params. First one is normType. It specifies the distance measurement to be used.
-    By default, it is cv.NORM_L2. It is good for SIFT, SURF etc (cv.NORM_L1 is also there). 
-    For binary string based descriptors like ORB, BRIEF, BRISK etc, cv.NORM_HAMMING should be used, 
-    which uses Hamming distance as measurement. If ORB is using WTA_K == 3 or 4, cv.NORM_HAMMING2 should be used.
-
-    Second param is boolean variable, crossCheck which is false by default. If it is true, Matcher returns only those matches with value (i,j) 
-    such that i-th descriptor in set A has j-th descriptor in set B as the best match and vice-versa. 
-    That is, the two features in both sets should match each other. It provides consistent result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
-    */
+    //matching descriptors
 
     cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_L2, true); //use with floating point descriptors
     //cv::Ptr<cv::BFMatcher> matcher = cv::BFMatcher::create(cv::NORM_HAMMING, true); //use with binary string based descriptors descriptors
-
-    std::cout << " num of descriptorsQueue[0] : " << descriptorsQueue[0].size() << "\n";
-    std::cout << " num of descriptorsQueue[1] : " << descriptorsQueue[1].size() << "\n";
     
     //check the descriptors have at least some information, abandon if they do not
     if((descriptorsQueue[0].rows > 0 && descriptorsQueue[0].cols > 0) && (descriptorsQueue[1].rows > 0 && descriptorsQueue[1].cols > 0)){
@@ -161,7 +124,6 @@ void Vision::featureMatch(){
 
         //passing back to renderer to draw the image to ui
         p_mediator->renderer_assignMatToMatchingView(matchedImage); //must be a seperate mapped imageview and image
-        //cv::imwrite("matches.jpg", matchedImage);
 
         if(Service::OUTPUT_OPTICS){
             cv::imwrite(Service::OPTICS_MATCH_PATH + "match" + std::to_string(matchCount) + ".jpg", matchedImage);
@@ -176,8 +138,7 @@ void Vision::featureMatch(){
                 src.push_back( keypointsQueue[0][bestMatches[i].queryIdx ].pt);
                 dst.push_back( keypointsQueue[1][bestMatches[i].trainIdx ].pt);
             }
-            cv::Mat H = findHomography(src, dst, cv::RANSAC);//, 1.0, cv::noArray(), 3000);
-            std::cout << H << " H \n";
+            cv::Mat H = findHomography(src, dst, cv::RANSAC);
 
             glm::vec3 bestAngularVelocityMatch = findBestAngularVelocityMatchFromDecomp(H);
 
@@ -193,13 +154,12 @@ void Vision::featureMatch(){
     else
         std::cout << "Not enough keypoints found, abandoning \n";
     
-    
+    //front image in queue is processed so pop everything
     descriptorsQueue.pop_front();
     opticsQueue.pop_front();
     keypointsQueue.pop_front();
     radiusPerImageQueue.pop_front();
     altitudePerImageQueue.pop_front();
-
 }
 
 glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
@@ -255,7 +215,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         }
 
         //if translation is behind camera then discard this solution
-        //if translation is on the opposite side of asteroid then discard, dont think this ever happens?
+        //if translation is on the opposite side of asteroid then discard, dont think this ever happens now?
         if((int)translatedPoint.z > (int)testPoint.z){ //this maybe should have more leeway to accept small errors
             std::cout << "translatedPoint is behind camera " << translatedPoint.z << "\n";
             continue;
@@ -278,70 +238,16 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         glm::vec3 angularVelocityEstimation = glm::vec3(0);
         if(tLength > 1){
 
-            //NOTES and working ------------
-
-                //at scale 1, fov 5, and alt of 961, and radius of 30, 2units (world size) is about 25 pixels
-
-                //measurements with 2x2 scale box at various distances
-                //1m is 12.5 pixels at 1000m altitude
-                //1m is 25 pixels at 500m altitude
-                //1m is 50 pixels at 250m altitude
-                //1m is 100 pixels at 125m altitude
-
-                //we should be able to define a relationship with distance
-                //inversely proportional
-                //12.5 = k/1000
-                //k = 12500
-                //1m in pixels = 12500/distance
-
-                //any displacement must measure linear speed at the surface, we need angular speed
-
-                //find angular velocity
-                //ω = r × v / |r|², we are assuming one axis of rotation so to simplify ω = v / r
-
-                //example
-                //altitude 950, radius 59, 84 pixels of measured movement
-                //convert 84 pixels to real world units,
-                //1 unit in pixels = 12500/950 = 13.157894737
-                //units moved = 84/13.157894737 = 6.384
-                //then find angular velocity ω = v / r
-                //6.384 / 59 = 0.10820339 rad
-                
-                //example 2
-                //altitude 450, radius 59, 180 pixels of measured movement
-                //convert 180 pixels to real world units,
-                //1 unit in pixels = 12500/450 = 27.777777778
-                //units moved = 180/27.777777778 = 6.48
-                //then find angular velocity ω = v / r
-                //6.48 / 59 = 0.109830508 rad
-                //good!
-
-                //1m at fov 2.5 @ 1000m alt is 25 pixels
-                //1m at fov 5 @ 1000m alt is 12.5 pixels
-                //1m at fov 10 @ 1000m alt is 6 pixels
-                //1m at fov 15 @ 1000m alt is 4 pixels
-                //1m at fov 20 @ 1000m alt is 3 pixels
-
-                //note that 1000 units above is actually 500m,
-                //actually lander is just too big in scale but we quickly fixed by assuming 1m is 2u
-
-            //NOTES ------------
-
+            //calculating pixels to world units, then angular velocity from units/radius
             float kValue = 25000/p_navStruct->asteroidScale;//we adjust camera fov based on scale, zoom in when its smaller and out when its bigger
             int axis = Service::getHighestAxis(glm::vec3(translatedPoint.x, translatedPoint.y, 0)); //find the significant axis
             float pixelsMoved = translatedPoint[axis]; 
             float unitsMoved = pixelsMoved/(kValue/avgAltitude); //convert pixels travelled to world units (m)
             float angularVelocity = unitsMoved/avgRadius;
             angularVelocityEstimation[axis] = angularVelocity/imagingTimerSeconds; //remember to divide by imaging timer as well to get 1s
+
             if(axis == 1)
                 angularVelocityEstimation[1] = -angularVelocityEstimation[1]; //if y axis we need to invert it to correct for world orientation
-
-            //need to add pixels moved, units moved, kvalue etc, probably matching the actual estimate
-            if(Service::OUTPUT_TEXT){
-                //output 
-                //p_mediator->writer_writeToFile("PARAMS", "FOV:" + std::to_string(BASE_OPTICS_FOV*lander->asteroidScale));
-            }
-
             
             if(Service::OUTPUT_TEXT){
                 if(possibleSolutions.size() == 0){ //we only take first viable estimate, usually the right one, this can be improved but won't effect final estimation if it's the wrong direction
@@ -350,28 +256,20 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
                     std::string prepend = "match" + std::to_string(matchCount-1) + ":" + time;
                     std::string text = prepend + ":estimation:" + glm::to_string(angularVelocityEstimation);
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":pixelsmoved:" + std::to_string(pixelsMoved);
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":unitsmoved:" + std::to_string(unitsMoved);
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":radiusimg1:" + std::to_string(radiusPerImageQueue.at(0));
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":radiusimg2:" + std::to_string(radiusPerImageQueue.at(1));
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":avgradius:" + std::to_string(avgRadius);
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":altitudeimg1:" + std::to_string(altitudePerImageQueue.at(0));
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":altitudeimg2:" + std::to_string(altitudePerImageQueue.at(1));
                     p_mediator->writer_writeToFile("EST", text);
-
                     text = prepend + ":avgaltitude:" + std::to_string(avgAltitude);
                     p_mediator->writer_writeToFile("EST", text);
                 }
@@ -395,7 +293,7 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
         possibleSolutions.push_back(glm::vec3(9999, 9999, 9999)); //dummy that is discarded
     else if(possibleSolutions.size() > 1){ 
         //if there is still more than one solution we need to determine correct one
-        //can happen than + or - translations get mixed up, need to test this
+        //can happen than + or - translations get mixed up?
         for(glm::vec3 sol : possibleSolutions)
             std::cout << glm::to_string(sol) << "\n";
     }

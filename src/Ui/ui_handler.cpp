@@ -313,7 +313,6 @@ void UiHandler::gui_ShowOverlay(){
 
         WorldStats& worldStats = r_mediator.physics_getWorldStats();
         Vk::RenderStats& renderStats = r_mediator.renderer_getRenderStats();
-        //r_mediator.scene_getNavStruct().
         ImGui::Text("\nEngine\n");
         ImGui::Separator();
         ImGui::Text("Framerate: %.1f ms\n", renderStats.framerate);

@@ -104,10 +104,10 @@ Vk::RenderStats& Mediator::renderer_getRenderStats(){
 }
 std::vector<Vertex>& Mediator::renderer_getAllVertices(){
     return p_renderEngine->get_allVertices();
-} //reference all loaded model vertices
+}
 std::vector<uint32_t>& Mediator::renderer_getAllIndices(){
     return p_renderEngine->get_allIndices();
-} //reference all loaded model indices
+}
 Material* Mediator::renderer_getMaterial(const std::string& name){
     return p_renderEngine->getMaterial(name);
 }
@@ -127,7 +127,7 @@ void Mediator::renderer_allocateDescriptorSetForSkybox(){
     p_renderEngine->allocateDescriptorSetForSkybox();
 }
 void Mediator::renderer_allocateShadowMapImages(){
- //   p_renderEngine->allocateShadowMapImages();
+ //   p_renderEngine->allocateShadowMapImages(); //not implemented
 }
 void Mediator::renderer_setLightPointers(WorldLightObject* sceneLight, std::vector<WorldPointLightObject>* pointLights, std::vector<WorldSpotLightObject>* spotLights){
     p_renderEngine->setLightPointers(sceneLight, pointLights, spotLights);
@@ -150,11 +150,9 @@ void Mediator::renderer_flushTextures(){
 void Mediator::renderer_setShouldDrawOffscreen(bool b){
     p_renderEngine->setShouldDrawOffscreen(b);
 }
-
 std::vector<ImguiTexturePacket>& Mediator::renderer_getDstTexturePackets(){
     return p_renderEngine->getDstTexturePackets();
 }
-
 std::deque<int> Mediator::renderer_getImguiTextureSetIndicesQueue(){
     return p_renderEngine->getImguiTextureSetIndicesQueue();
 }

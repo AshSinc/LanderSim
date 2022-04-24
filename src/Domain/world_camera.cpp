@@ -53,7 +53,6 @@ void WorldCamera::updateFixedLookPosition(){
         updateAutoCamera(fixedLookRadius*fixedLookRadius*fixedObjectScaleFactor);
     }
     else{
-        
         float offsetPitch = pitch - 90; //have to rotate the pitch by 90 degrees down to allow it to travel under the plane
         newPos.x = fixedLookRadius*fixedLookRadius * fixedObjectScaleFactor * cos(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.x;
         newPos.y = fixedLookRadius*fixedLookRadius * fixedObjectScaleFactor * sin(glm::radians(yaw)) * sin(glm::radians(offsetPitch)) + r_object.pos.y;

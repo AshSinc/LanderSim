@@ -9,20 +9,19 @@ struct SceneData;
 int Application::run(){
     try{
         
-        window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan");
+        window = windowHandler.initWindow(WIDTH, HEIGHT, "LanderSimulation - Vulkan"); //initialize GLFW window
 
-        //MAJOR ISSUE - renderer crashing on second optics image render trying to flush command buffer if monitor is on 60hz rather than 120hz!
-        //should investigate before submision
         Vk::OffscreenRenderer renderer = Vk::OffscreenRenderer(window, mediator); //instanciate render engine
         UiHandler uiHandler = UiHandler(window, mediator);
 
-        //associate objects with mediator class
+        //associate components with mediator class
         mediator.setCamera(&worldCamera);
         mediator.setUiHandler(&uiHandler);
         mediator.setPhysicsEngine(&worldPhysics);
         mediator.setRenderEngine(&renderer);
         mediator.setApplication(this);
 
+        //sets up the file system for outputting experiment data
         if(Service::OUTPUT_TEXT){
             writer = Service::Writer();
             writer.clearOutputFolders();
@@ -31,7 +30,7 @@ int Application::run(){
         }
 
         renderer.init(); //initialise render engine
-        uiHandler.init();
+        uiHandler.init(); //initialise ui
 
         //set glfw callbacks for input
         glfwSetWindowUserPointer(window, &uiInput);
@@ -40,7 +39,7 @@ int Application::run(){
             glfwPollEvents(); //keep polling window events
             if(sceneLoaded){
                 worldPhysics.mainLoop(); //progress world state
-                worldCamera.updateFixedLookPosition(); //have to 
+                worldCamera.updateFixedLookPosition();
             }
             
             renderer.drawFrame(); //render a frame

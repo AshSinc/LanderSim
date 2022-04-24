@@ -8,11 +8,8 @@
 #include <glm/gtx/norm.hpp> //for glm::length2
 #include <glm/gtx/vector_angle.hpp> //for vectorangle
 #include <iostream>
-
-//used for debug drawing only, can make a much better debug drawing method but need more time to set up renderer
-#include "obj_render.h"
+#include "obj_render.h" //used for debug drawing only, can make a much better debug drawing method but need more time to set up renderer
 #include <memory>
-
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 
@@ -156,6 +153,7 @@ glm::vec3 GNC::ZEM_ZEV_Control(float timeStep, glm::vec3 sitePos, glm::vec3 site
         p_mediator->writer_writeToFile("GNC", text);
     }
 
+    //we correct the world coordinate vector generated into a local thrust vector for the lander
     glm::mat4 inv_transform = glm::inverse(p_navStruct->landerTransformMatrix);
     glm::vec3 correctedMovement = inv_transform * glm::vec4(acc, 0.0f);
     
@@ -196,7 +194,7 @@ void GNC::updateTgo(float timeStep){
         tgo = TF_TIME;
         tf = TF_TIME;
         t = 0.0f;
-        p_mediator->physics_landerCollided(); //we are just marking as collided to stop simulation and output final positions
+        p_mediator->physics_landerCollided(); //we are just marking as collided to stop simulation and output final positions (hack due to time constraints for testing)
     }
     std::cout << tgo  << " time-to-go\n";
 }
