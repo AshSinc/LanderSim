@@ -25,6 +25,7 @@ void WorldPhysics::setSimSpeedMultiplier(float multiplier){
     worldStats.timeStepMultiplier = multiplier;
 }
 
+//main simulation tick
 void WorldPhysics::worldTick(){
     if(worldStats.timeStepMultiplier != 0){ //if we are not paused
         float fixedTimeStep = 0.01666666754F/2;

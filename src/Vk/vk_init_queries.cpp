@@ -6,6 +6,8 @@
 #include <vector>
 #include <fstream>
 
+//seperated initialization queries from renderer classes
+
 VkPhysicalDeviceProperties Vk::Init::getPhysicalDeviceProperties(VkPhysicalDevice& device){
     VkPhysicalDeviceProperties physicalDeviceProperties;
     vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);

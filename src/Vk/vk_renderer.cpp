@@ -28,6 +28,8 @@
 #include "vk_pipeline.h"
 #include "vk_init_queries.h"
 
+//rendering set up extending base renderer. Heavily based on code from this ebook https://raw.githubusercontent.com/Overv/VulkanTutorial/master/ebook/Vulkan%20Tutorial%20en.pdf
+
 Vk::Renderer::Renderer(GLFWwindow* windowptr, Mediator& mediator): RendererBase(windowptr, mediator){}
 
 void Vk::Renderer::init(){

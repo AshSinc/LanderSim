@@ -6,10 +6,11 @@
 #include <thread>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
-
 #include "vk_init_queries.h"
-
 #include "vk_pipeline.h"
+
+//Offscreen rendering set up, used to simulate the lander optical camera
+//derived from vk_renderer, optionally performs offscreen rending, and runs renderer class
 
 Vk::OffscreenRenderer::OffscreenRenderer(GLFWwindow* windowptr, Mediator& mediator)
     : Renderer(windowptr, mediator){}
@@ -472,10 +473,8 @@ void Vk::OffscreenRenderer::createOffscreenRenderPass(){
     _swapDeletionQueue.push_function([=](){vkDestroyRenderPass(device, offscreenRenderPass, nullptr);});
 }
 
-//ISSUE - We need to create a new renderpass that processes greyscale, maybe we can jsut set greyscale shaders in base pipeline?
-//SOLUTION - well thats exactly what we did and it works
 //take the last VKImage output by offscreen pass, convert it to linear format so we can read it
-//adapted from Sascha Willems example screenshot example
+//adapted from Sascha Willems example screenshot example https://github.com/SaschaWillems/Vulkan/blob/master/examples/screenshot/screenshot.cpp
 void Vk::OffscreenRenderer::convertOffscreenImage(){
     opticsFrameCounter = (opticsFrameCounter + 1) % NUM_TEXTURE_SETS;
         
@@ -687,6 +686,7 @@ void Vk::OffscreenRenderer::convertOffscreenImage(){
     cvMatQueue.push_back(wrappedMat);
 }
 
+//used to assign material of feature detection image, used to render opencv output on ui
 void Vk::OffscreenRenderer::assignMatToDetectionView(cv::Mat image){
     if(imguiDetectionIndicesQueue.size() >= NUM_TEXTURE_SETS)
         imguiDetectionIndicesQueue.pop_front();
@@ -697,6 +697,7 @@ void Vk::OffscreenRenderer::assignMatToDetectionView(cv::Mat image){
     imguiDetectionIndicesQueue.push_back(opticsFrameCounter);
 }
 
+//used to assign material of feature matching image, used to render opencv output on ui
 void Vk::OffscreenRenderer::assignMatToMatchingView(cv::Mat image){
     if(imguiMatchIndicesQueue.size() >= 1)
         imguiMatchIndicesQueue.pop_front();

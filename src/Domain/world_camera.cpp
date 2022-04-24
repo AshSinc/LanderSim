@@ -10,6 +10,7 @@ void WorldCamera::init(){
    updateAutoCamera(fixedLookRadius);
 }
 
+//fixed look code, allows focusing on an object
 void WorldCamera::updateAutoCamera(float cameraDistanceScale){
     WorldObject& r_object = r_mediator.scene_getFocusableObject(FOCUS_NAMES[objectFocusIndex]);
     
@@ -43,6 +44,7 @@ void WorldCamera::toggleAutoCamera(){
     usingAutoCamera = !usingAutoCamera;
 }   
 
+//update the fixed look camera position
 void WorldCamera::updateFixedLookPosition(){
     WorldObject& r_object = r_mediator.scene_getFocusableObject(FOCUS_NAMES[objectFocusIndex]);
     float fixedObjectScaleFactor = std::max(r_object.scale.x/8, 1.0f);
@@ -74,6 +76,7 @@ void WorldCamera::updateCamera(glm::vec3 newPos, glm::vec3 front){
     cameraData.cameraFront = front;
 }
 
+//called from input to adjust camera zoom level
 void WorldCamera::calculateZoom(float offset){
     if(!freelook){
         fixedLookRadius -= offset * MOUSESCROLL_SENSITIVITY;
@@ -88,6 +91,7 @@ CameraData* WorldCamera::getCameraDataPtr(){
     return &cameraData;
 }
 
+//called from input to adjust camera orientation
 void WorldCamera::calculatePitchYaw(double xpos, double ypos){
     if(mouselookActive){
         if(firstMouseInput){ //checks first mouse input to avoid a jump

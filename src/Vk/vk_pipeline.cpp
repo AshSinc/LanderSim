@@ -2,6 +2,7 @@
 #include "vk_structures.h"
 #include <stdexcept>
 
+//pipline builder idea adapted from https://vkguide.dev/docs/chapter-2/pipeline_walkthrough/
 VkPipeline Vk::PipelineBuilder::build_pipeline(VkDevice device, VkRenderPass renderPass, uint32_t numShaderStages){ 
     //viewport and scissor rectangle needs to be combined into a viewport state using VkPipelineViewportStateCreateInfo struct
     VkPipelineViewportStateCreateInfo viewportState = Vk::Structures::pipeline_viewport_state_create_info(1, &viewport, 1, &scissor);

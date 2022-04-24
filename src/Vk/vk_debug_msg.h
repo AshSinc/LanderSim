@@ -3,6 +3,8 @@
 #include <vulkan/vulkan.h>
 #include <iostream>
 
+//https://raw.githubusercontent.com/Overv/VulkanTutorial/master/ebook/Vulkan%20Tutorial%20en.pdf
+
 namespace Vk::Debug{
     //proxy function for looking up vkCreateDebugUtilsMessengerEXT extension function address
     static VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT *pCreateInfo, 
@@ -35,7 +37,6 @@ namespace Vk::Debug{
         static void setupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT* debugMessenger){
             VkDebugUtilsMessengerCreateInfoEXT createInfo{};
             populateDebugMessengerCreateInfo(createInfo);
-            //createInfo.pUserData = nullptr; // Optional pointer to our own object for use in debugging or message
             if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, debugMessenger) != VK_SUCCESS)
             {
                 throw std::runtime_error("failed to set up debug messenger!");

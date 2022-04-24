@@ -2,8 +2,9 @@
 #include "vk_images.h"
 #include "vk_structures.h"
 #include <stb_image.h>
-
 #include <iostream>
+
+//seperated image manipulation functions from renderer classes
 
 void Vk::ImageHelper::createImage(uint32_t width, uint32_t height,  uint32_t mipLevels, uint32_t arrayLayers, VkSampleCountFlagBits numSamples, enum VkImageCreateFlagBits createFlags, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage,
     VkMemoryPropertyFlags properties, VkImage& image, VmaAllocation& imageAllocation, VmaMemoryUsage memoryUsageFlag){

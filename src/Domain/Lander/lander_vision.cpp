@@ -38,8 +38,8 @@ void Vision::simulationTick(){
             cv::Mat nextImage = p_mediator->renderer_frontCvMatQueue(); //image data is not copied, just the wrapper to memory is copied
             p_mediator->renderer_popCvMatQueue(); //so we can pop the queue as well
 
-            radiusPerImageQueue.emplace_back(p_navStruct->radiusAtOpticalCenter);
-            altitudePerImageQueue.emplace_back(p_navStruct->altitude);
+            radiusPerImageQueue.emplace_back(p_navStruct->radiusAtOpticalCenter); //storing radius at time image is taken
+            altitudePerImageQueue.emplace_back(p_navStruct->altitude); //storing alt at time image is taken
 
             std::thread thread(&Lander::Vision::detectFeatures, this, nextImage); //we run the conversions in a seperate thread, solves stuttering during processing
             thread.detach();   
@@ -216,7 +216,6 @@ glm::vec3 Vision::findBestAngularVelocityMatchFromDecomp(cv::Mat H){
     cv::Mat intrinsicM = cv::Mat::eye(3,3, CV_64F);
     intrinsicM.at<_Float64>(0,2) = 256; //center point of optics in pixels
     intrinsicM.at<_Float64>(1,2) = 256; //center point of optics in pixels
-
 
     std::vector<cv::Mat> rotationM;
     std::vector<cv::Mat> translationM;

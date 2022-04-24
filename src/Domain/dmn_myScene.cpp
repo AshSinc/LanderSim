@@ -48,11 +48,10 @@ void MyScene::configureRenderEngine(){
 void MyScene::configurePhysicsEngine(){
     r_mediator.physics_reset();
     r_mediator.physics_loadCollisionMeshes(&collisionObjects);
-    //r_mediator.physics_initDynamicsWorld();
     r_mediator.physics_updateDeltaTime();
 }
 
-//this is temporary fix, bad object design and logic caused this
+//setting renderer mesh variables and binding to name, used in vulkan render passes, ideally should be moved
 void MyScene::setRendererMeshVars(std::string name, RenderObject* renderObj){
     Mesh* mesh = r_mediator.renderer_getLoadedMesh(name);
     renderObj->meshId = mesh->id;
@@ -166,78 +165,6 @@ void MyScene::initObjects(){
     //try to start around 1000m altitude with optics fov scaled by the asteroid size
     lander->pos = glm::vec3(0, 0, sceneData.LANDER_START_DISTANCE+(landingSite->pos.z));
     lander->asteroidScale = sceneData.ASTEROID_SCALE;
-    
-    /*std::shared_ptr<RenderObject> debugBox1 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox1->id = id++;
-    debugBox1->pos = glm::vec3(0,0,0.0f);
-    debugBox1->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox1.get());
-    debugBox1->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox1->material->diffuse = glm::vec3(1,0.5f,0.31f);
-    debugBox1->material->specular = glm::vec3(0.5f,0.5f,0.5f);
-    debugBox1->material->extra.x = 32;
-    objects.push_back(debugBox1);
-    renderableObjects.push_back(debugBox1);
-    debugObjects.push_back(debugBox1);
-    focusableObjects["Debug_Box"] = debugBox1;
-
-    std::shared_ptr<RenderObject> debugBox2 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox2->id = id++;
-    debugBox2->pos = glm::vec3(0,0,0.0f);
-    debugBox2->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox2.get());
-    debugBox2->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox2->material->diffuse = glm::vec3(1,1,0.5f);
-    debugBox2->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    debugBox2->material->extra.x = 32;
-    objects.push_back(debugBox2);
-    renderableObjects.push_back(debugBox2);
-    debugObjects.push_back(debugBox2);
-
-    std::shared_ptr<RenderObject> debugBox3 = std::shared_ptr<RenderObject>(new RenderObject());
-    debugBox3->id = id++;
-    debugBox3->pos = glm::vec3(0,0,0.0f);
-    debugBox3->scale = glm::vec3(0.2,0.2,0.2);
-    setRendererMeshVars("box", debugBox3.get());
-    debugBox3->material = r_mediator.renderer_getMaterial("unlitmesh");
-    debugBox3->material->diffuse = glm::vec3(1,1,0.5f);
-    debugBox3->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    debugBox3->material->extra.x = 32;
-    objects.push_back(debugBox3);
-    renderableObjects.push_back(debugBox3);
-    debugObjects.push_back(debugBox3);*/
-
-    /*std::shared_ptr<RenderObject> scalebox = std::shared_ptr<RenderObject>(new RenderObject());
-    scalebox->id = id++;
-    scalebox->pos = glm::vec3(0,0,0.0f);
-    scalebox->scale = glm::vec3(1,1,1);
-    setRendererMeshVars("box", scalebox.get());
-    scalebox->material = r_mediator.renderer_getMaterial("unlitmesh");
-    scalebox->material->diffuse = glm::vec3(1,1,0.5f);
-    scalebox->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    scalebox->material->extra.x = 32;
-    scalebox->altMaterial = r_mediator.renderer_getMaterial("greyscale_unlitmesh");
-    scalebox->altMaterial->diffuse = glm::vec3(0,0.0f,1.0f);
-    scalebox->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
-    scalebox->altMaterial->extra.x = 32;
-    objects.push_back(scalebox);
-    renderableObjects.push_back(scalebox);*/
-
-    /*std::shared_ptr<RenderObject> scalebox2 = std::shared_ptr<RenderObject>(new RenderObject());
-    scalebox2->id = id++;
-    scalebox2->pos = glm::vec3(1,1,0.0f);
-    scalebox2->scale = glm::vec3(1,1,1);
-    setRendererMeshVars("box", scalebox2.get());
-    scalebox2->material = r_mediator.renderer_getMaterial("unlitmesh");
-    scalebox2->material->diffuse = glm::vec3(1,1,0.5f);
-    scalebox2->material->specular = glm::vec3(1.0f,0.5f,0.5f);
-    scalebox2->material->extra.x = 32;
-    scalebox2->altMaterial = r_mediator.renderer_getMaterial("greyscale_unlitmesh");
-    scalebox2->altMaterial->diffuse = glm::vec3(0,0.0f,1.0f);
-    scalebox2->altMaterial->specular = glm::vec3(0.5f,0.5f,0.5f);
-    scalebox2->altMaterial->extra.x = 32;
-    objects.push_back(scalebox2);
-    renderableObjects.push_back(scalebox2);*/
 
     if(Service::OUTPUT_TEXT){
         //output scenario data to file, shouldn't really be here but all the data is here so...

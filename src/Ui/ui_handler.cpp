@@ -5,7 +5,6 @@
 #include <thread>
 #include "vk_renderer_base.h"
 #include <array>
-
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
 
@@ -15,6 +14,7 @@ int NUM_TEXTURES_IN_SET = 2;
 UiHandler::UiHandler(GLFWwindow* window, Mediator& mediator) : p_window{window}, r_mediator{mediator}{
 }
 
+//Pre assigning optics, detection and match textures
 void UiHandler::init(){
     std::vector<ImguiTexturePacket>& texturePackets = r_mediator.renderer_getDstTexturePackets();
 
@@ -43,6 +43,7 @@ void UiHandler::cleanup(){
 
 UiHandler::~UiHandler(){}
 
+//main UI drawing method
 void UiHandler::drawUI(){
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -99,6 +100,7 @@ void UiHandler::toggleMenu(){
     r_mediator.physics_changeSimSpeed(0, true);
 }
 
+//draws the thruster boxes
 void UiHandler::gui_ShowFlightParams(){
     ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
 
@@ -213,6 +215,7 @@ void UiHandler::gui_ShowFlightParams(){
     ImGui::End();
 }
 
+//draws the lander optics images to ui
 void UiHandler::gui_ShowOptics(){
     ImGuiIO& io = ImGui::GetIO();
     static ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoResize |
@@ -285,6 +288,7 @@ void UiHandler::gui_ShowOptics(){
     ImGui::End();
 }
 
+//draws the text overlay of simulation
 void UiHandler::gui_ShowOverlay(){
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove;
     
@@ -432,6 +436,7 @@ void UiHandler::gui_ShowLoading(){
     ImGui::End();
 }
 
+//begins the scene loading process in a new thread
 void UiHandler::startBtnClicked(){
     std::thread thread(&UiHandler::startScene, this); //starts running (have to pass a reference to object to allow thread to call non static member function)
     thread.detach(); //detach from main thread, runs until it ends
@@ -480,6 +485,7 @@ void UiHandler::showCursor(){
     r_mediator.camera_setMouseLookActive(false);
 }
 
+//updates the loading progress bar as components are loaded
 void UiHandler::updateLoadingProgress(float progress, std::string text){
     loadingVariablesMutex.lock();
     loadingFraction = progress; 
@@ -487,6 +493,7 @@ void UiHandler::updateLoadingProgress(float progress, std::string text){
     loadingVariablesMutex.unlock();
 }
 
+//update the activated thrust boxes timers, used to show roughly how long the thruster is firing
 void UiHandler::updateFlightParams(){
     WorldStats& worldStats = r_mediator.physics_getWorldStats();
     float timeDilation = worldStats.timeStepMultiplier;
@@ -512,6 +519,7 @@ void UiHandler::updateFlightParams(){
     lastTick = std::chrono::system_clock::now();
 }
 
+//when a new boost is submitted to the lander, we also process here and toggle the booster array and start timers appropriately 
 void UiHandler::submitBoostCommand(LanderBoostCommand boost){
     clearBoost(-999);
 

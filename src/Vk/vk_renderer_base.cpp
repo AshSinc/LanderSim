@@ -9,8 +9,9 @@
 #define VMA_IMPLEMENTATION 
 #include <vk_mem_alloc.h> //we are using VMA (Vulkan Memory Allocator to handle allocating blocks of memory for resources)
 
+//Base rendering set up. Heavily based on code from this ebook https://raw.githubusercontent.com/Overv/VulkanTutorial/master/ebook/Vulkan%20Tutorial%20en.pdf
+
 Vk::RendererBase::RendererBase(GLFWwindow* windowptr, Mediator& mediator): window{windowptr}, r_mediator{mediator}{
-    //imageHelper = std::make_unique<Vk::ImageHelper>(this);
     imageHelper = new Vk::ImageHelper(this);
 }
 
