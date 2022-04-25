@@ -1,10 +1,10 @@
-[alt text](docs/posterhead.png?raw=true)
+![alt text](docs/posterhead.png?raw=true)
 
 ## Lander Simulation project utilizing ZEMZEV guidance and optical rotation estimation using homography decomposition
 
-[alt text](docs/estimate.gif?raw=true)
+![alt text](docs/estimate.gif?raw=true)
 
-[alt text](docs/land.gif?raw=true)
+![alt text](docs/land.gif?raw=true)
 
 Ocornut's ImGui variation with changes by Martty to allow for binding textures from Vulkan has been included due to version issues in development environment. This can be removed once resolved. Link to pull request https://github.com/ocornut/imgui/pull/914/commits/f1f948bea715754ad5e83d4dd9f928aecb4ed1d3
 
