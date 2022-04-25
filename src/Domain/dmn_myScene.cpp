@@ -170,7 +170,7 @@ void MyScene::initObjects(){
         //output scenario data to file, shouldn't really be here but all the data is here so...
         r_mediator.writer_writeToFile("PARAMS", "UseEstimateOnly:" + std::to_string(sceneData.USE_ONLY_ESTIMATE));
         r_mediator.writer_writeToFile("PARAMS", "Scale:" + std::to_string(sceneData.ASTEROID_SCALE));
-        r_mediator.writer_writeToFile("PARAMS","AngularVelocity:" + glm::to_string(Service::bt2glm(asteroid->angularVelocity)));
+        r_mediator.writer_writeToFile("PARAMS", "AngularVelocity:" + glm::to_string(Service::bt2glm(asteroid->angularVelocity)));
         r_mediator.writer_writeToFile("PARAMS", "LanderStartPos:" + glm::to_string(lander->pos));
         r_mediator.writer_writeToFile("PARAMS", "GravityMultiplier:" + std::to_string(lander->asteroidGravForceMultiplier));
     }

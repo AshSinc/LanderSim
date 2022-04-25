@@ -575,46 +575,6 @@ void Vk::Renderer::loadModels(const std::vector<ModelInfo>& MODEL_INFOS){
         glm::vec3 colour = glm::vec3(0,0,1);//temp colour code
         if(info.modelName == "sphere")//temp colour code
             colour = glm::vec3(1,1,1);//temp colour code
-        /*else if(info.modelName == "sphere1")
-            colour = glm::vec3(0.2,1,1);//temp colour code
-        else if(info.modelName == "sphere2")
-            colour = glm::vec3(0.4,0.8,1);//temp colour code
-        else if(info.modelName == "sphere3")
-            colour = glm::vec3(0.6,0.6,1);//temp colour code
-        else if(info.modelName == "sphere4")
-            colour = glm::vec3(0.8,0.4,1);//temp colour code
-        else if(info.modelName == "sphere5")
-            colour = glm::vec3(1,0.2,1);//temp colour code
-        else if(info.modelName == "sphere6")
-            colour = glm::vec3(1,1,0.2);//temp colour code
-        else if(info.modelName == "sphere7")
-            colour = glm::vec3(1,1,0.4);//temp colour code
-        else if(info.modelName == "sphere8")
-            colour = glm::vec3(1,1,0.6);//temp colour code
-        else if(info.modelName == "sphere9")
-            colour = glm::vec3(1,1,0.8);//temp colour code
-        else if(info.modelName == "sphere10") 
-            colour = glm::vec3(1,1,1);//temp colour code */
-        else if(info.modelName == "sphere1")
-            colour = glm::vec3(0.1,0.1,0.1);//temp colour code
-        else if(info.modelName == "sphere2")
-            colour = glm::vec3(0.2,0.2,0.2);//temp colour code
-        else if(info.modelName == "sphere3")
-            colour = glm::vec3(0.3,0.3,0.3);//temp colour code
-        else if(info.modelName == "sphere4")
-            colour = glm::vec3(0.4,0.4,0.4);//temp colour code
-        else if(info.modelName == "sphere5")
-            colour = glm::vec3(0.5,0.5,0.5);//temp colour code
-        else if(info.modelName == "sphere6")
-            colour = glm::vec3(0.6,0.6,0.6);//temp colour code
-        else if(info.modelName == "sphere7")
-            colour = glm::vec3(0.7,0.7,0.7);//temp colour code
-        else if(info.modelName == "sphere8")
-            colour = glm::vec3(0.8,0.8,0.8);//temp colour code
-        else if(info.modelName == "sphere9")
-            colour = glm::vec3(0.9,0.9,0.9);//temp colour code
-        else if(info.modelName == "sphere0")
-            colour = glm::vec3(1,1,1);//temp colour code
         else
             colour = glm::vec3(0,0,1);//temp colour code
         populateVerticesIndices(info.filePath, uniqueVertices, colour);

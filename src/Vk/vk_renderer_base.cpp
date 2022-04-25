@@ -533,6 +533,8 @@ void Vk::RendererBase::createFramebuffers(){
     }
 }
 
+//initialize pipelines used in rendering
+//shader lighting code heavily based on examples from https://learnopengl.com/book/book_pdf.pdf
 void Vk::RendererBase::initPipelines(){
     //load and create all shaders
     auto default_lit_vert_c = Vk::Init::readFile("resources/shaders/default_lit_vert.spv"); 
